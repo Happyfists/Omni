@@ -147,17 +147,38 @@ sell.render = function (host)
     -- Your sell list (folds away like the other headings).
     local count = #saved.list;
     if (ui.sectionHeader(string.format('My sell list (%d)', count), nil, 'sparks:selllist')) then
+        -- A tidy grid across the whole width: A-Z, filled down each column, a small x to remove.
         local remove = nil;
-        for i, name in ipairs(saved.list) do
-            imgui.SetCursorPosX(12);
-            imgui.TextColored(ui.color('white'), name);
-            imgui.SameLine(0, 10);
-            if (imgui.SmallButton('Remove##sell_rm_' .. i)) then remove = i; end
+        local shown = {};
+        for i, name in ipairs(saved.list) do shown[#shown + 1] = { name = name, i = i }; end
+        table.sort(shown, function (x, y) return x.name:lower() < y.name:lower(); end);
+        local function nice(n) return (n:gsub("(%a)([%w']*)", function (f, r) return f:upper() .. r; end)); end
+        local x0 = 12;
+        local avail = imgui.GetWindowWidth() - x0 - 16;
+        local longest = 0;
+        for _, e in ipairs(shown) do longest = math.max(longest, imgui.CalcTextSize(nice(e.name))); end
+        local cellW = math.max(150, longest + 40);
+        local cols = math.max(1, math.min(#shown, math.floor((avail + 10) / (cellW + 10))));
+        cellW = math.floor((avail - (cols - 1) * 10) / cols);
+        local rows = math.ceil(#shown / cols);
+        for r = 1, rows do
+            for c = 1, cols do
+                local e = shown[(c - 1) * rows + r];
+                if (e ~= nil) then
+                    local cx = x0 + (c - 1) * (cellW + 10);
+                    if (c == 1) then imgui.SetCursorPosX(cx); else imgui.SameLine(cx); end
+                    imgui.TextColored(ui.color('white'), nice(e.name));
+                    imgui.SameLine(cx + cellW - 22);
+                    if (imgui.SmallButton('x##sell_rm_' .. e.i)) then remove = e.i; end
+                    if (imgui.IsItemHovered()) then imgui.SetTooltip('Remove ' .. nice(e.name) .. ' from the list'); end
+                end
+            end
         end
         if (remove ~= nil) then
             table.remove(saved.list, remove);
             save();
         end
+        imgui.Dummy({ 1, 2 });
         if (count == 0) then
             imgui.SetCursorPosX(12);
             imgui.TextColored(ui.color('dimmed'), 'Empty - add items below or with "+ List" next to an inventory item.');
