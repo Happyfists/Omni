@@ -53,7 +53,7 @@
 
 addon.name    = 'omni';
 addon.author  = 'Happyfists';
-addon.version = '2.01';
+addon.version = '2.02';
 addon.desc    = 'All-in-one addon.';
 
 require('common');
@@ -712,7 +712,7 @@ end
 local status = require('omni_status');   -- buffs and debuffs (used by the XP bar and the target bar)
 
 local EXP_HEIGHT = 24;         -- one slim row: your buffs (time beside each), merits on the right
-local EXP_HEIGHT_BUFFS = 24;
+local EXP_HEIGHT_BUFFS = 32;   -- buffs with the time under each icon
 local EXP_BUFF_ICON = 16;
 
 -- Returns the height of the bar it drew.
@@ -773,10 +773,15 @@ local function draw_exp(player, job, ox, ow, oh)
         local ty = math.floor(row_mid - text_h / 2);
         dl:AddText({ wx + W - 10 - right_w, ty }, white, right);
 
-        -- Your buffs from the left, each with its time beside it.
+        -- Your buffs from the left, each with its time under it, packed close together.
         if (#buffs > 0) then
             local room = W - 20 - ((right_w > 0) and (right_w + 16) or 0);
-            status.draw_inline(buffs, 10, math.floor((height - EXP_BUFF_ICON) / 2), EXP_BUFF_ICON, room, 0.85);
+            imgui.SetWindowFontScale(0.75);
+            local _, small_h = imgui.CalcTextSize('0');
+            imgui.SetWindowFontScale(1.0);
+            small_h = math.floor(small_h or 11);
+            local top = math.max(1, math.floor((height - EXP_BUFF_ICON - small_h) / 2));
+            status.draw_stacked(buffs, 8, top, EXP_BUFF_ICON, room, 0.75, 3);
         end
     end
     imgui.End();

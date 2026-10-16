@@ -359,6 +359,40 @@ status.draw_inline = function (buffs, x, y, size, max_w, text_scale)
     return cx - x;
 end
 
+-- Draw buffs in one line with each time UNDER its icon, packed close together.
+-- (x, y) is the top of the icons; returns the width used.
+status.draw_stacked = function (buffs, x, y, size, max_w, text_scale, gap)
+    local dl = imgui.GetWindowDrawList();
+    if (text_scale ~= nil) then imgui.SetWindowFontScale(text_scale); end
+    local white = imgui.GetColorU32({ 1.0, 1.0, 1.0, 1.0 });
+    local shade = imgui.GetColorU32({ 0.0, 0.0, 0.0, 0.85 });
+    gap = gap or 3;
+    local cx = x;
+    for _, buff in ipairs(buffs) do
+        local handle = icon_handle(buff.id);
+        if (handle ~= nil) then
+            local text = status.format_time(buff.seconds);
+            local tw = (text ~= '') and imgui.CalcTextSize(text) or 0;
+            local cell = math.max(size, tw);
+            if (cx + cell - x > max_w) then break; end
+            imgui.SetCursorPos({ cx + math.floor((cell - size) / 2), y });
+            local sx, sy = imgui.GetCursorScreenPos();
+            imgui.Image(handle, { size, size });
+            if (imgui.IsItemHovered()) then
+                show_tooltip(buff.id);
+            end
+            if (text ~= '') then
+                local tx = sx + math.floor((size - tw) / 2);
+                dl:AddText({ tx + 1, sy + size + 1 }, shade, text);
+                dl:AddText({ tx, sy + size }, white, text);
+            end
+            cx = cx + cell + gap;
+        end
+    end
+    if (text_scale ~= nil) then imgui.SetWindowFontScale(1.0); end
+    return cx - x;
+end
+
 ----------------------------------------------------------------------------------------------------
 -- Hiding the game's own buff icons (top-left of the screen)
 --
