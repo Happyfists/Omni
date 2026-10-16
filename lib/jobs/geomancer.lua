@@ -1,0 +1,868 @@
+--[[
+    Geomancer job definition
+    Defines abilities, validators, and configuration for Geomancer automation
+    - Geo positioning (Full Circle)
+    - Pet healing (Life Cycle)
+    - AOE healing (Mending Halation)
+    - MP recovery (Radial Arcana)
+    - Buffs (Indi and Geo spells)
+]]--
+
+
+return {
+    job_id = 21,
+    job_name = 'Geomancer',
+    resource_type = 'mp',
+    
+    abilities = {
+        geo = {
+            {
+                name = 'Full Circle',
+                level = 5,
+                cost = 0,
+                recast_id = 243,
+                command = '/ja "Full Circle" <me>',
+                main_job_only = true,
+                pet_required = true,
+            },
+            {
+                name = 'Entrust',
+                level = 75,
+                cost = 0,
+                recast_id = 93,
+                command = '/ja "Entrust" <me>',
+                buff_id = 584,
+                range = 20,
+                main_job_only = true,
+            },
+            -- Enhances the luopan of the NEXT Geo spell, so it lives here as a
+            -- precast rather than a self-buff: geo.lua only fires it when no
+            -- luopan is out and the Geo spell that follows it is affordable.
+            {
+                name = 'Blaze of Glory',
+                level = 60,
+                cost = 0,
+                recast_id = 247,
+                command = '/ja "Blaze of Glory" <me>',
+                main_job_only = true,
+            },
+
+            -- Geo debuffs (<bt>/enemy-target, 'Geo-bt' group). The cast and the
+            -- single-luopan lifecycle are handled in lib/actions/geo.lua (not
+            -- buff.lua); selection renders under "Geo". (highest level first)
+            {
+                name = 'Geo-Vex',
+                level = 74,
+                cost = 273,
+                spell_id = 823,
+                magic = 'geomancy',
+                command = '/ma "Geo-Vex" <bt>',
+                element = 'Light',
+                group = 'Geo-bt',
+                main_job_only = true,
+                buff_id = 563,
+            },
+            {
+                name = 'Geo-Frailty',
+                level = 74,
+                cost = 294,
+                spell_id = 818,
+                magic = 'geomancy',
+                command = '/ma "Geo-Frailty" <bt>',
+                element = 'Wind',
+                group = 'Geo-bt',
+                main_job_only = true,
+                buff_id = 558,
+            },
+            {
+                name = 'Geo-Paralysis',
+                level = 72,
+                cost = 215,
+                spell_id = 826,
+                magic = 'geomancy',
+                command = '/ma "Geo-Paralysis" <bt>',
+                element = 'Ice',
+                group = 'Geo-bt',
+                main_job_only = true,
+                buff_id = 566,
+            },
+            {
+                name = 'Geo-Languor',
+                level = 68,
+                cost = 249,
+                spell_id = 824,
+                magic = 'geomancy',
+                command = '/ma "Geo-Languor" <bt>',
+                element = 'Dark',
+                group = 'Geo-bt',
+                main_job_only = true,
+                buff_id = 564,
+            },
+            {
+                name = 'Geo-Slip',
+                level = 62,
+                cost = 225,
+                spell_id = 821,
+                magic = 'geomancy',
+                command = '/ma "Geo-Slip" <bt>',
+                element = 'Earth',
+                group = 'Geo-bt',
+                main_job_only = true,
+                buff_id = 561,
+            },
+            {
+                name = 'Geo-Torpor',
+                level = 56,
+                cost = 203,
+                spell_id = 822,
+                magic = 'geomancy',
+                command = '/ma "Geo-Torpor" <bt>',
+                element = 'Ice',
+                group = 'Geo-bt',
+                main_job_only = true,
+                buff_id = 562,
+            },
+            {
+                name = 'Geo-Slow',
+                level = 52,
+                cost = 189,
+                spell_id = 825,
+                magic = 'geomancy',
+                command = '/ma "Geo-Slow" <bt>',
+                element = 'Earth',
+                group = 'Geo-bt',
+                main_job_only = true,
+                buff_id = 565,
+            },
+            {
+                name = 'Geo-Poison',
+                level = 5,
+                cost = 25,
+                spell_id = 799,
+                magic = 'geomancy',
+                command = '/ma "Geo-Poison" <bt>',
+                element = 'Water',
+                group = 'Geo-bt',
+                main_job_only = true,
+                buff_id = 540,
+            },
+        },
+        heal_pet = {
+            {
+                name = 'Life Cycle',
+                level = 50,
+                cost = 0,
+                recast_id = 246,
+                command = '/ja "Life Cycle" <me>',
+                main_job_only = true,
+                pet_required = true,
+            },
+            {
+                name = 'Dematerialize',
+                level = 70,
+                cost = 0,
+                recast_id = 248,
+                command = '/ja "Dematerialize" <me>',
+                main_job_only = true,
+                pet_required = true,
+            },
+        },
+        heal_aoe = {
+            {
+                name = 'Mending Halation',
+                level = 75,
+                cost = 0,
+                recast_id = 251,
+                command = '/ja "Mending Halation" <me>',
+                main_job_only = true,
+                pet_required = true,
+            },
+        },
+        recover_mp = {
+            {
+                name = 'Radial Arcana',
+                level = 75,
+                cost = 0,
+                recast_id = 252,
+                command = '/ja "Radial Arcana" <me>',
+                main_job_only = true,
+                pet_required = true,
+                priority = 90,
+            },
+            -- MP recovery (dark magic): Aspir drains the battle target's MP.
+            {
+                name = 'Aspir',
+                level = 30,
+                cost = 10,
+                spell_id = 247,
+                magic = 'black',
+                magic_type = 'dark',
+                command = '/ma "Aspir" <bt>',
+                combat_only = true,
+            },
+        },
+
+        -- Self heal (dark magic): Drain drains the battle target's HP to the
+        -- caster. <bt>/combat-only; self_only so it only fires on the caster.
+        heal = {
+            {
+                name = 'Drain',
+                level = 15,
+                cost = 21,
+                spell_id = 245,
+                magic = 'black',
+                magic_type = 'dark',
+                command = '/ma "Drain" <bt>',
+                value = 90,          -- approx HP drained; relative heal ordering only
+                self_only = true,
+                combat_only = true,
+            },
+        },
+
+        -- Buffs
+        buff = {
+            -- Job Abilities
+            {
+                name = 'Lasting Emanation (Duration)',
+                level = 25,
+                cost = 0,
+                recast_id = 244,
+                command = '/ja "Lasting Emanation" <me>',
+                main_job_only = true,
+                group = 'geo_buff',
+                pet_required = true,
+            },
+            {
+                name = 'Ecliptic Attrition (Effect)',
+                level = 25,
+                cost = 0,
+                recast_id = 244,
+                command = '/ja "Ecliptic Attrition" <me>',
+                main_job_only = true,
+                group = 'geo_buff',
+                pet_required = true,
+            },
+
+            -- Indi spells (highest level first)
+            {
+                name = 'Indi-Haste',
+                level = 74,
+                cost = 100,
+                spell_id = 771,
+                magic = 'geomancy',
+                command = '/ma "Indi-Haste" <me>',
+                element = 'Wind',
+                group = 'Indi',
+                buff_id = 580,
+            },
+            {
+                name = 'Indi-Frailty',
+                level = 74,
+                cost = 147,
+                spell_id = 788,
+                magic = 'geomancy',
+                command = '/ma "Indi-Frailty" <me>',
+                element = 'Wind',
+                group = 'Indi',
+                buff_id = 612,
+            },
+            {
+                name = 'Indi-Vex',
+                level = 70,
+                cost = 136,
+                spell_id = 793,
+                magic = 'geomancy',
+                command = '/ma "Indi-Vex" <me>',
+                element = 'Light',
+                group = 'Indi',
+                buff_id = 612,
+            },
+            {
+                name = 'Indi-Paralysis',
+                level = 68,
+                cost = 107,
+                spell_id = 796,
+                magic = 'geomancy',
+                command = '/ma "Indi-Paralysis" <me>',
+                element = 'Ice',
+                group = 'Indi',
+                buff_id = 612,
+            },
+            {
+                name = 'Indi-Languor',
+                level = 64,
+                cost = 124,
+                spell_id = 794,
+                magic = 'geomancy',
+                command = '/ma "Indi-Languor" <me>',
+                element = 'Dark',
+                group = 'Indi',
+                buff_id = 612,
+            },
+            {
+                name = 'Indi-Slip',
+                level = 58,
+                cost = 112,
+                spell_id = 791,
+                magic = 'geomancy',
+                command = '/ma "Indi-Slip" <me>',
+                element = 'Earth',
+                group = 'Indi',
+                buff_id = 612,
+            },
+            {
+                name = 'Indi-Torpor',
+                level = 52,
+                cost = 101,
+                spell_id = 792,
+                magic = 'geomancy',
+                command = '/ma "Indi-Torpor" <me>',
+                element = 'Ice',
+                group = 'Indi',
+                buff_id = 612,
+            },
+            {
+                name = 'Indi-STR',
+                level = 48,
+                cost = 63,
+                spell_id = 772,
+                magic = 'geomancy',
+                command = '/ma "Indi-STR" <me>',
+                element = 'Fire',
+                group = 'Indi',
+                buff_id = 542,
+            },
+            {
+                name = 'Indi-Slow',
+                level = 48,
+                cost = 94,
+                spell_id = 795,
+                magic = 'geomancy',
+                command = '/ma "Indi-Slow" <me>',
+                element = 'Earth',
+                group = 'Indi',
+                buff_id = 612,
+            },
+            {
+                name = 'Indi-Acumen',
+                level = 46,
+                cost = 91,
+                spell_id = 781,
+                magic = 'geomancy',
+                command = '/ma "Indi-Acumen" <me>',
+                element = 'Ice',
+                group = 'Indi',
+                buff_id = 551,
+            },
+            {
+                name = 'Indi-DEX',
+                level = 45,
+                cost = 63,
+                spell_id = 773,
+                magic = 'geomancy',
+                command = '/ma "Indi-DEX" <me>',
+                element = 'Thunder',
+                group = 'Indi',
+                buff_id = 543,
+            },
+            {
+                name = 'Indi-VIT',
+                level = 42,
+                cost = 63,
+                spell_id = 774,
+                magic = 'geomancy',
+                command = '/ma "Indi-VIT" <me>',
+                element = 'Earth',
+                group = 'Indi',
+                buff_id = 544,
+            },
+            {
+                name = 'Indi-Fend',
+                level = 40,
+                cost = 80,
+                spell_id = 782,
+                magic = 'geomancy',
+                command = '/ma "Indi-Fend" <me>',
+                element = 'Water',
+                group = 'Indi',
+                buff_id = 552,
+            },
+            {
+                name = 'Indi-AGI',
+                level = 39,
+                cost = 63,
+                spell_id = 775,
+                magic = 'geomancy',
+                command = '/ma "Indi-AGI" <me>',
+                element = 'Wind',
+                group = 'Indi',
+                buff_id = 545,
+            },
+            {
+                name = 'Indi-INT',
+                level = 36,
+                cost = 63,
+                spell_id = 776,
+                magic = 'geomancy',
+                command = '/ma "Indi-INT" <me>',
+                element = 'Ice',
+                group = 'Indi',
+                buff_id = 546,
+            },
+            {
+                name = 'Indi-Fury',
+                level = 34,
+                cost = 70,
+                spell_id = 779,
+                magic = 'geomancy',
+                command = '/ma "Indi-Fury" <me>',
+                element = 'Fire',
+                group = 'Indi',
+                buff_id = 549,
+            },
+            {
+                name = 'Indi-MND',
+                level = 33,
+                cost = 63,
+                spell_id = 777,
+                magic = 'geomancy',
+                command = '/ma "Indi-MND" <me>',
+                element = 'Water',
+                group = 'Indi',
+                buff_id = 547,
+            },
+            {
+                name = 'Indi-CHR',
+                level = 30,
+                cost = 63,
+                spell_id = 778,
+                magic = 'geomancy',
+                command = '/ma "Indi-CHR" <me>',
+                element = 'Light',
+                group = 'Indi',
+                buff_id = 548,
+            },
+            {
+                name = 'Indi-Refresh',
+                level = 30,
+                cost = 63,
+                spell_id = 770,
+                magic = 'geomancy',
+                command = '/ma "Indi-Refresh" <me>',
+                element = 'Light',
+                group = 'Indi',
+                buff_id = 541,
+                priority = 50,
+            },
+            {
+                name = 'Indi-Barrier',
+                level = 28,
+                cost = 59,
+                spell_id = 780,
+                magic = 'geomancy',
+                command = '/ma "Indi-Barrier" <me>',
+                element = 'Earth',
+                group = 'Indi',
+                buff_id = 550,
+            },
+            {
+                name = 'Indi-Focus',
+                level = 22,
+                cost = 49,
+                spell_id = 785,
+                magic = 'geomancy',
+                command = '/ma "Indi-Focus" <me>',
+                element = 'Dark',
+                group = 'Indi',
+                buff_id = 555,
+            },
+            {
+                name = 'Indi-Attunement',
+                level = 16,
+                cost = 38,
+                spell_id = 786,
+                magic = 'geomancy',
+                command = '/ma "Indi-Attunement" <me>',
+                element = 'Light',
+                group = 'Indi',
+                buff_id = 556,
+            },
+            {
+                name = 'Indi-Regen',
+                level = 15,
+                cost = 37,
+                spell_id = 768,
+                magic = 'geomancy',
+                command = '/ma "Indi-Regen" <me>',
+                element = 'Light',
+                group = 'Indi',
+                buff_id = 539,
+            },
+            {
+                name = 'Indi-Precision',
+                level = 10,
+                cost = 25,
+                spell_id = 783,
+                magic = 'geomancy',
+                command = '/ma "Indi-Precision" <me>',
+                element = 'Thunder',
+                group = 'Indi',
+                buff_id = 553,
+            },
+            {
+                name = 'Indi-Voidance',
+                level = 4,
+                cost = 17,
+                spell_id = 784,
+                magic = 'geomancy',
+                command = '/ma "Indi-Voidance" <me>',
+                element = 'Wind',
+                group = 'Indi',
+                buff_id = 554,
+            },
+            {
+                name = 'Indi-Poison',
+                level = 1,
+                cost = 12,
+                spell_id = 769,
+                magic = 'geomancy',
+                command = '/ma "Indi-Poison" <me>',
+                element = 'Water',
+                group = 'Indi',
+                buff_id = 540,
+            },
+            -- Geo spells (<me>/party-target, single luopan = single target).
+            -- Converted to function commands so they render with party-target
+            -- buttons like other buffs; exclusive_target enforces one target.
+            -- (highest level first)
+            {
+                name = 'Geo-Haste',
+                level = 74,
+                cost = 63,
+                spell_id = 801,
+                magic = 'geomancy',
+                command = function(target)
+                    return '/ma "Geo-Haste" '..target
+                end,
+                element = 'Wind',
+                group = 'Geo',
+                main_job_only = true,
+                exclusive_target = true,
+                buff_id = 580,
+            },
+            {
+                name = 'Geo-STR',
+                level = 52,
+                cost = 126,
+                spell_id = 802,
+                magic = 'geomancy',
+                command = function(target)
+                    return '/ma "Geo-STR" '..target
+                end,
+                element = 'Fire',
+                group = 'Geo',
+                main_job_only = true,
+                exclusive_target = true,
+                buff_id = 542,
+            },
+            {
+                name = 'Geo-Acumen',
+                level = 50,
+                cost = 182,
+                spell_id = 811,
+                magic = 'geomancy',
+                command = function(target)
+                    return '/ma "Geo-Acumen" '..target
+                end,
+                element = 'Ice',
+                group = 'Geo',
+                main_job_only = true,
+                exclusive_target = true,
+                buff_id = 551,
+            },
+            {
+                name = 'Geo-DEX',
+                level = 49,
+                cost = 126,
+                spell_id = 803,
+                magic = 'geomancy',
+                command = function(target)
+                    return '/ma "Geo-DEX" '..target
+                end,
+                element = 'Thunder',
+                group = 'Geo',
+                main_job_only = true,
+                exclusive_target = true,
+                buff_id = 543,
+            },
+            {
+                name = 'Geo-VIT',
+                level = 46,
+                cost = 126,
+                spell_id = 804,
+                magic = 'geomancy',
+                command = function(target)
+                    return '/ma "Geo-VIT" '..target
+                end,
+                element = 'Earth',
+                group = 'Geo',
+                main_job_only = true,
+                exclusive_target = true,
+                buff_id = 544,
+            },
+            {
+                name = 'Geo-Fend',
+                level = 44,
+                cost = 161,
+                spell_id = 812,
+                magic = 'geomancy',
+                command = function(target)
+                    return '/ma "Geo-Fend" '..target
+                end,
+                element = 'Water',
+                group = 'Geo',
+                main_job_only = true,
+                exclusive_target = true,
+                buff_id = 552,
+            },
+            {
+                name = 'Geo-AGI',
+                level = 43,
+                cost = 126,
+                spell_id = 805,
+                magic = 'geomancy',
+                command = function(target)
+                    return '/ma "Geo-AGI" '..target
+                end,
+                element = 'Wind',
+                group = 'Geo',
+                main_job_only = true,
+                exclusive_target = true,
+                buff_id = 545,
+            },
+            {
+                name = 'Geo-INT',
+                level = 40,
+                cost = 126,
+                spell_id = 806,
+                magic = 'geomancy',
+                command = function(target)
+                    return '/ma "Geo-INT" '..target
+                end,
+                element = 'Ice',
+                group = 'Geo',
+                main_job_only = true,
+                exclusive_target = true,
+                buff_id = 546,
+            },
+            {
+                name = 'Geo-Fury',
+                level = 38,
+                cost = 140,
+                spell_id = 809,
+                magic = 'geomancy',
+                command = function(target)
+                    return '/ma "Geo-Fury" '..target
+                end,
+                element = 'Fire',
+                group = 'Geo',
+                main_job_only = true,
+                exclusive_target = true,
+                buff_id = 549,
+            },
+            {
+                name = 'Geo-MND',
+                level = 37,
+                cost = 126,
+                spell_id = 807,
+                magic = 'geomancy',
+                command = function(target)
+                    return '/ma "Geo-MND" '..target
+                end,
+                element = 'Water',
+                group = 'Geo',
+                main_job_only = true,
+                exclusive_target = true,
+                buff_id = 547,
+            },
+            {
+                name = 'Geo-Refresh',
+                level = 34,
+                cost = 126,
+                spell_id = 800,
+                magic = 'geomancy',
+                command = function(target)
+                    return '/ma "Geo-Refresh" '..target
+                end,
+                element = 'Light',
+                group = 'Geo',
+                main_job_only = true,
+                exclusive_target = true,
+                buff_id = 541,
+                priority = 50,
+            },
+            {
+                name = 'Geo-CHR',
+                level = 34,
+                cost = 126,
+                spell_id = 808,
+                magic = 'geomancy',
+                command = function(target)
+                    return '/ma "Geo-CHR" '..target
+                end,
+                element = 'Light',
+                group = 'Geo',
+                main_job_only = true,
+                exclusive_target = true,
+                buff_id = 548,
+            },
+            {
+                name = 'Geo-Barrier',
+                level = 32,
+                cost = 119,
+                spell_id = 810,
+                magic = 'geomancy',
+                command = function(target)
+                    return '/ma "Geo-Barrier" '..target
+                end,
+                element = 'Earth',
+                group = 'Geo',
+                main_job_only = true,
+                exclusive_target = true,
+                buff_id = 550,
+            },
+            {
+                name = 'Geo-Focus',
+                level = 26,
+                cost = 98,
+                spell_id = 815,
+                magic = 'geomancy',
+                command = function(target)
+                    return '/ma "Geo-Focus" '..target
+                end,
+                element = 'Dark',
+                group = 'Geo',
+                main_job_only = true,
+                exclusive_target = true,
+                buff_id = 555,
+            },
+            {
+                name = 'Geo-Attunement',
+                level = 20,
+                cost = 77,
+                spell_id = 816,
+                magic = 'geomancy',
+                command = function(target)
+                    return '/ma "Geo-Attunement" '..target
+                end,
+                element = 'Light',
+                group = 'Geo',
+                main_job_only = true,
+                exclusive_target = true,
+                buff_id = 556,
+            },
+            {
+                name = 'Geo-Regen',
+                level = 19,
+                cost = 74,
+                spell_id = 798,
+                magic = 'geomancy',
+                command = function(target)
+                    return '/ma "Geo-Regen" '..target
+                end,
+                element = 'Light',
+                group = 'Geo',
+                main_job_only = true,
+                exclusive_target = true,
+                buff_id = 539,
+            },
+            {
+                name = 'Geo-Precision',
+                level = 14,
+                cost = 50,
+                spell_id = 813,
+                magic = 'geomancy',
+                command = function(target)
+                    return '/ma "Geo-Precision" '..target
+                end,
+                element = 'Thunder',
+                group = 'Geo',
+                main_job_only = true,
+                exclusive_target = true,
+                buff_id = 553,
+            },
+            {
+                name = 'Geo-Voidance',
+                level = 8,
+                cost = 35,
+                spell_id = 814,
+                magic = 'geomancy',
+                command = function(target)
+                    return '/ma "Geo-Voidance" '..target
+                end,
+                element = 'Wind',
+                group = 'Geo',
+                main_job_only = true,
+                exclusive_target = true,
+                buff_id = 554,
+            },
+        },
+    },
+    
+    -- Only one luopan can exist at a time, so a Geo spell cast while one is already
+    -- out is rejected by the server. geo.lua handles getting rid of the old one
+    -- (Full Circle on distance / combat end / a Geo-bt taking the slot); this just
+    -- keeps buff.lua from throwing the cast at a full slot in the meantime.
+    -- Scoped to group 'Geo': Indi follows the caster and uses no luopan, and 'Geo-bt'
+    -- must stay visible to geo.lua while a luopan is out so it can Full Circle it.
+    validate_ability = function(ability, common)
+        if ability.group == 'Geo' and common.get_pet_entity() then
+            return false
+        end
+        -- geo.lua has Full Circled the luopan to set up Radial Arcana and is about
+        -- to drop a throwaway Geo-Voidance in the slot. Without this, buff.lua sees
+        -- an empty slot and recasts the expensive Geo spell into it -- wasting both
+        -- the Full Circle and the recast. geo.lua casts the Voidance directly, so
+        -- it is unaffected by this gate.
+        if ability.group == 'Geo' and common.arcana_sequence then
+            return false
+        end
+        -- Radial Arcana consumes the luopan, so it may only fire on a bubble we
+        -- are stood in and can afford to lose. geo.lua decides that each tick
+        -- (cheap tier, nearly spent, or one it placed for this) and publishes it.
+        if ability.name == 'Radial Arcana' then
+            return common.arcana_usable == true
+        end
+        return true
+    end,
+
+    -- Default settings for UI
+    default_settings = {
+        heal_enabled = false,
+        heal_threshold = 75,
+        heal_aoe_enabled = true,
+        heal_aoe_threshold = 70,
+        wake_enabled = false,
+        buff_enabled = true,
+        debuff_removal_enabled = false,
+        heal_pet_enabled = true,
+        heal_pet_threshold = 50,
+        recover_enabled = true,
+        recover_mp_threshold = 30,
+        geo_enabled = true,
+        geo_distance_threshold = 10,
+        geo_bt_timer = 5,
+    },
+    
+    -- Action priority order
+    priority_order = {
+        'item',
+        'recover',
+        'heal_aoe',
+        'heal_pet',
+        'heal',  -- self-only Drain (combat)
+        'geo',
+        'buff',
+        'rest',
+    },
+}

@@ -1,0 +1,55 @@
+-- Monsters that count for each EXP venture, by level band and zone.
+-- From the FFXI Wiki page 'CatsEyeXI Content/Ventures'; the live server can differ.
+return {
+    ['10-19'] = {
+        ['valkurmdunes'] = "Sand Bats, Sand Hare, Hill Lizard, Goblin Ambusher, Goblin Butcher, Goblin Tinkerer, Snipper, Ghoul, Brutal Sheep, Damselfly, Thread Leech, Goblin Gambler, Goblin Leecher, Goblin Mugger, Beach Pugil",
+        ['buburimupeninsula'] = "Mighty Rarab, Sylvestre, Goblin Ambusher, Goblin Butcher, Goblin Tinkerer, Snipper, Carnivorous Crawler, Zu, Bull Dhalmel, Ghoul, Goblin Gambler, Goblin Leecher, Goblin Mugger",
+        ['meriphataudmountains'] = "Night Bats, Wandering Sapling, Jubjub, Goblin Ambusher, Goblin Butcher, Goblin Tinkerer, Crane Fly, Hill Lizard, Stag Beetle, Goblin Leecher, Goblin Mugger, Goblin Gambler, Yagudo Priest, Yagudo Theologist, Yagudo Votary, Raptor, Coeurl, Boggart, Axe Beak",
+        ['pashhowmarshlands'] = "Bog Bunny, Night Bats, Black Bat, Water Wasp, Goblin Ambusher, Goblin Butcher, Goblin Tinkerer, Greater Quadav, Onyx Quadav, Veteran Quadav, Land Pugil, Snipper, Gadfly, Thread Leech, Carnivorous Crawler, Brass Quadav, Copper Quadav, Old Quadav, Goblin Gambler, Goblin Leecher, Goblin Mugger, Marsh Funguar, Goobbue",
+        ['westsarutabarutas'] = "Tiny Lycopodium, Savanna Rarab, Bumblebee, Crawler, Carrion Crow, River Crab",
+        ['eastronfaures'] = "Carrion Worm, Forest Hare, Ding Bats, River Crab, Mouse Bat, Pugil, Wild Sheep, Scarab Beetle",
+        ['jugnerforest'] = "Wandering Sapling, Screamer, Orcish Stonechucker, Land Pugil, Snipper, Brutal Sheep, Forest Leech, Stag Beetle, Forest Tiger",
+    },
+    ['20-29'] = {
+        ['batalliadowns'] = "Stalking Sapling, May Fly, Clipper, Ba, Goblin Bounty Hunter, Goblin Gambler, Goblin Mugger, Orcish Cursemaker, Orcish Fighter, Orcish Serjeant, Sabertooth Tiger, Goblin Furrier, Goblin Pathfinder, Goblin Shaman, Goblin Smithy, Orcish Brawler, Orcish Impaler, Orcish Nightraider, Evil Weapon",
+        ['korrolokatunnel'] = "Land Worm, Seeker Bats, Combat, Huge Spider, Thread Leech, Clipper, Greater Pugil, Lacerator, Spool Leech",
+        ['rolanberryfields'] = "Death Wasp, Clipper, Poison Leech, Berry Grub, Thread Leech, Brass Quadav, Copper Quadav, Goblin Gambler, Goblin Mugger, Old Quadav, Wight, Goobbue Farmer, Bronze Quadav, Garnet Quadav, Goblin Furrier, Goblin Pathfinder, Goblin Shaman, Goblin Smithy, Silver Quadav, Zircon Quadav, Ochu, Evil Weapon",
+        ['sauromuguechampaign'] = "Hill Lizard, Moon Bat, Diving Beetle, Goblin Gambler, Goblin Leecher, Goblin Mugger, Yagudo Priest, Yagudo Theologist, Yagudo Votary, Sauromugue Skink, Champaign Coeurl, Goblin Furrier, Goblin Pathfinder, Goblin Shaman, Goblin Smithy, Yagudo Drummer, Yagudo Herald, Yagudo Interrogator, Tabar Beak, Evil Weapon",
+        ['qufimisland'] = "Land Worm, Clipper, Dancing Weapon, Greater Pugil, Wight, Banshee, Acrophies",
+        ['yuhtungajungle'] = "Yuhtunga Mandragora, Ivory Lizard, Goblin Furrier, Goblin Smithy, Death Jacket, Young Opo-opo, Creek Sahagin, River Sahagin, Stream Sahagin, Jungle Coeurl, Soldier Crawler, Goblin Poacher, Goblin Reaper, Goblin Robber",
+    },
+    ['30-39'] = {
+        ['batalliadownss'] = "Lycopodium, Sadfly, Stalking Sapling, Clipper, Ba",
+        ['easternaltepadesert'] = "Giant Spider, Sand Beetle, Desert Dhalmel",
+        ['seaserpentgrotto'] = "Royal Leech, Lake Sahagin, Pond Sahagin, Spring Sahagin, Undead Bats, Ironshell, Ghast, Ooze, Brook Sahagin, Rivulet Sahagin, Vampire Bat",
+        ['thesanctuaryofzitah'] = "Lesser Gaylas, Goobbue Gardener, Ogrefly, Myxomycete, Goobbue Parasite, Goblin Poacher, Goblin Reaper, Goblin Robber, Goblin Trader, Master Coeurl",
+        ['westsarutabarutas'] = "Savanna Dhalmel, Hispid Rarab, Toad, Poroggo Gent",
+        ['yhoatorjungle'] = "Yhoator Mandragora, White Lizard, Yhoator Wasp, Goblin Pathfinder, Goblin Shaman, Goblin Smithy, Young Opo-opo, Goblin Reaper, Worker Crawler, Big Jaw, Goblin Poacher, Goblin Robber, Goblin Trader, Master Coeurl",
+    },
+    ['40-49'] = {
+        ['batalliadownss'] = "Tsetse Fly, Smilodon, Forester Beetle",
+        ['eastronfaures'] = "Colibri, Ladybug, Giant Spider, Goblin's Ladybug, Djinn, Walking Tree",
+        ['crawlersnest'] = "Death Jacket, Worker Crawler, Maze Lizard, Caveberry, Killer Mushroom, Nest Beetle, Soldier Crawler, Soul Stinger, Wespe, Labyrinth Lizard, Witch Hazel, Hornfly, Exoray, Blazer Beetle, Rumble Crawler",
+        ['garlaigecitadel'] = "Wingrats, Siege Bat, Borer Beetle, Fallen Evacuee, Citadel Bats, Demonic Weapon, Fallen Soldier, Warden Beetle, Donjon Bat, Fortalice Bats, Kaboom, Funnel Bats, Explosure, Fallen Officer, Chamber Beetle",
+        ['gustavtunnel'] = "Hell Bat, Hawker, Labyrinth Leech, Goblin Poacher, Goblin Reaper, Goblin Robber, Greater Gaylas, Labyrinth Lizard, Makara",
+        ['labyrinthofonzozo'] = "Labyrinth Leech, Goblin Poacher, Goblin Reaper, Goblin Robber, Goblin Trader, Cockatrice, Mushussu, Flying Manta",
+        ['rolanberryfieldss'] = "Death Wasp, Death Jacket, Clipper, Poison Leech, Scabrous Slug, Hawker, Coppercap, Berry Grub, Goblin Skirmisher, Champion Crawler",
+        ['sauromuguechampaigns'] = "Diving Beetle, Hill Lizard, Lynx, Sauromugue Skink, Tabar Beak, Goblin Toxophilite, Goblin Grenadier, Goblin Flagman, Goblin Guerrilla, Gouger Beetle",
+        ['westernaltepadesert'] = "Desert Spider, Desert Dhalmel, Antican Eques, Antican Retiarius, Antican Essedarius, Desert Beetle, Cactuar, Goblin Bouncer, Goblin Enchanter, Goblin Hunter, Goblin Welldigger, Desert Manticore, Tulwar Scorpion, Antican Hoplomachus, Antican Lanista, Antican Secutor",
+    },
+    ['50-59'] = {
+        ['bostaunieuxoubliette'] = "Funnel Bats, Werebat, Hecatomb Hound, Haunt",
+        ['crawlersnest'] = "Wespe, Dragonfly, Helm Beetle, Crawler Hunter, Knight Crawler",
+        ['kuftaltunnel'] = "Cave Worm, Robber Crab, Sand Lizard, Recluse Spider, Haunt, Sabotender Sediendo, Deinonychus",
+        ['rolanberryfieldss'] = "Champion Crawler, Dragonfly, Goobbue Farmer",
+        ['uleguerandrange'] = "Variable Hare, Glacier Eater, Esbat, Cwn Annwn, Snoll, Uleguerand Tiger, Buffalo, Polar Hare, Succubus Bats, Mountain Worm, Nival Raptor",
+    },
+    ['60-69'] = {
+        ['aydeewasubterrane'] = "Treant Sapling, Puktrap, Phlebotomic Slug, Slime Mold, Qiqirn Enterpriser, Qiqirn Lieuter, Mycohopper, Mold Eater, Defoliator, Aydeewa Diremite, Qiqirn Archaeologist, Qiqirn Mosstrooper, Cave Tiger",
+        ['caedarvamire'] = "Treant Sapling, Caedarva Leech, Puktrap, Oil Slick, Orderly Imp, Marsh Murre, Qiqirn Rock Hound, Qiqirn Mireguide, Wild Karakul, Mature Treant, Reserve Draugar, Lamia Fatedealer, Ephramadian Shade, Jnun",
+        ['bhaflauthickets'] = "Aht Urhgan Attercop, Lesser Colibri, Ameretat, Treant Sapling, Troll's Automaton, Colibri, Troll Sabreur, Troll Shieldbearer, Troll Surveillant, Date Eruca, Olden Treant, Colorful Treant",
+        ['bibikibay'] = "Tragopan, Tropical Rarab, Tartarus Eft, Hobgoblin Animalier, Hobgoblin Fascinator, Hobgoblin Martialist, Hobgoblin Venerer, Catoblepas",
+        ['capeteriggan'] = "Beach Bunny, Sand Lizard, Robber Crab, Velociraptor, Goblin Alchemist, Goblin Bandit, Goblin Mercenary, Goblin Shepherd, Terror Pugil, Doom Soldier, Doom Mage, Sand Cockatrice",
+        ['theboyahdatree'] = "Bark Spider, Death Cap, Robber Crab, Mourioche, Knight Crawler, Moss Eater, Old Goobbue, Skimmer, Korrigan, Processionaire, Steelshell, Elder Goobbue, Boyahda Sapling, Darter, Blood Ball",
+    },
+};

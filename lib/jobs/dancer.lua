@@ -1,0 +1,279 @@
+--[[
+    Dancer job definition
+    Defines abilities, validators, and configuration for Dancer automation
+    - Healing (Curing Waltz, Divine Waltz)
+    - Debuff removal (Healing Waltz)
+    - Buffs (Drain, Aspir, Haste Samba, Spectral Jig, Saber Dance, Fan Dance, No Foot Rise, Presto)
+    - TP recovery (Reverse Flourish)
+]]--
+
+
+return {
+    job_id = 19,
+    job_name = 'Dancer',
+    resource_type = 'tp',
+    
+    abilities = {
+        -- Single-target healing (Waltzes)
+        heal = {
+            {
+                name = 'Curing Waltz IV',
+                level = 70,
+                cost = 650,
+                recast_id = 188,
+                command = function(target)
+                    return '/ja "Curing Waltz IV" '..target
+                end,
+                wakes = true,
+                value = 600,
+                blocked_by = 410,  -- Saber Dance blocks Waltzes
+            },
+            {
+                name = 'Curing Waltz III',
+                level = 45,
+                cost = 500,
+                recast_id = 187,
+                command = function(target)
+                    return '/ja "Curing Waltz III" '..target
+                end,
+                wakes = true,
+                value = 300,
+                blocked_by = 410,  -- Saber Dance blocks Waltzes
+            },
+            {
+                name = 'Curing Waltz II',
+                level = 30,
+                cost = 350,
+                recast_id = 186,
+                command = function(target)
+                    return '/ja "Curing Waltz II" '..target
+                end,
+                wakes = true,
+                value = 140,
+                blocked_by = 410,  -- Saber Dance blocks Waltzes
+            },
+            {
+                name = 'Curing Waltz',
+                level = 15,
+                cost = 200,
+                recast_id = 217,
+                command = function(target)
+                    return '/ja "Curing Waltz" '..target
+                end,
+                wakes = true,
+                value = 70,
+                blocked_by = 410,  -- Saber Dance blocks Waltzes
+            },
+        },
+        
+        -- AOE healing
+        heal_aoe = {
+            {
+                name = 'Divine Waltz II',
+                level = 65,
+                cost = 400,
+                recast_id = 190,
+                command = function(target)
+                    return '/ja "Divine Waltz II" '..target
+                end,
+                range = 10,  -- abilities.sql range 10 (AOE radius 10), not the 21 fallback
+                wakes = true,
+                blocked_by = 410,  -- Saber Dance blocks Waltzes
+            },
+            {
+                name = 'Divine Waltz',
+                level = 25,
+                cost = 400,
+                recast_id = 225,
+                command = function(target)
+                    return '/ja "Divine Waltz" '..target
+                end,
+                range = 10,  -- abilities.sql range 10 (AOE radius 10), not the 21 fallback
+                wakes = true,
+                blocked_by = 410,  -- Saber Dance blocks Waltzes
+            },
+        },
+        
+        -- Debuff removal
+        debuff_removal = {
+            {
+                name = 'Healing Waltz',
+                level = 35,
+                cost = 200,
+                recast_id = 215,
+                debuff_id = {3, 4, 5, 6, 8, 9, 11, 12, 13, 31, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 144, 145, 146, 147, 148, 149, 156, 167, 174, 175, 189, 404},
+                command = function(target)
+                    return '/ja "Healing Waltz" '..target
+                end,
+                blocked_by = 410,  -- Saber Dance blocks Waltzes
+            },
+        },
+        
+        -- Buffs
+        buff = {
+            {
+                name = 'Saber Dance',
+                level = 75,
+                cost = 0,
+                recast_id = 219,
+                ability_id = 237,  -- merit-unlocked: gated on HasAbility
+                command = '/ja "Saber Dance" <me>',
+                buff_id = {410, 411},  --  410 Saber Dance overrides Fan Dance
+                combat_only = true,
+            },
+            {
+                name = 'Fan Dance',
+                level = 75,
+                cost = 0,
+                recast_id = 224,
+                ability_id = 238,  -- merit-unlocked: gated on HasAbility
+                command = '/ja "Fan Dance" <me>',
+                buff_id = {410, 411},  -- 411 Fan Dance overrides Saber Dance 
+                combat_only = true,
+            },
+            {
+                name = 'No Foot Rise',
+                level = 75,
+                cost = 0,
+                recast_id = 223,
+                ability_id = 239,  -- merit-unlocked: gated on HasAbility
+                command = '/ja "No Foot Rise" <me>',
+                buff_id = 385,  -- don't use at (5) Finishing Moves
+            },
+            {
+                name = 'Presto',
+                level = 75,
+                cost = 0,
+                recast_id = 236,
+                ability_id = 261,  -- merit-unlocked: gated on HasAbility
+                command = '/ja "Presto" <me>',
+                buff_id = 442,
+            },
+            {
+                name = 'Drain Samba III',
+                level = 65,
+                cost = 400,
+                recast_id = 216,
+                command = '/ja "Drain Samba III" <me>',
+                buff_id = 368,
+                blocked_by = 411,  -- Fan Dance blocks Sambas
+                group = 'samba',
+            },
+            {
+                name = 'Drain Samba II',
+                level = 35,
+                cost = 250,
+                recast_id = 216,
+                command = '/ja "Drain Samba II" <me>',
+                buff_id = 368,
+                blocked_by = 411,  -- Fan Dance blocks Sambas
+                group = 'samba',
+            },
+            {
+                name = 'Drain Samba',
+                level = 5,
+                cost = 100,
+                recast_id = 216,
+                command = '/ja "Drain Samba" <me>',
+                buff_id = 368,
+                blocked_by = 411,  -- Fan Dance blocks Sambas
+                group = 'samba',
+            },
+            {
+                name = 'Aspir Samba II',
+                level = 60,
+                cost = 250,
+                recast_id = 216,
+                command = '/ja "Aspir Samba II" <me>',
+                buff_id = 369,
+                blocked_by = 411,  -- Fan Dance blocks Sambas
+                group = 'samba',
+            },
+            {
+                name = 'Aspir Samba',
+                level = 25,
+                cost = 100,
+                recast_id = 216,
+                command = '/ja "Aspir Samba" <me>',
+                buff_id = 369,
+                blocked_by = 411,  -- Fan Dance blocks Sambas
+                group = 'samba',
+            },
+            {
+                name = 'Haste Samba',
+                level = 45,
+                cost = 350,
+                recast_id = 216,
+                command = '/ja "Haste Samba" <me>',
+                buff_id = 370,
+                blocked_by = 411,  -- Fan Dance blocks Sambas
+                group = 'samba',
+            },
+            {
+                name = 'Spectral Jig',
+                level = 25,
+                cost = 0,
+                recast_id = 218,
+                command = '/ja "Spectral Jig" <me>',
+                buff_id = {71, 69},  -- Sneak (71) and Invisible (69)
+                idle_only = true,
+                priority = -20,  -- grants Invisible, so sorts last like the mages' Invisible
+                travel_buff = true,
+            },
+        },
+
+        -- Critical
+        critical = {
+            {
+                name = 'Contradance',
+                level = 50,
+                cost = 0,
+                recast_id = 229,
+                command = '/ja "Contradance" <me>',
+            },
+        },
+
+        -- Recover
+        recover_tp = {
+            {
+                name = 'Reverse Flourish',
+                level = 40,
+                cost = 0,
+                recast_id = 222,
+                command = '/ja "Reverse Flourish" <me>',
+                wakes = false,
+                value = 600,
+                requires_buff = 385,  -- Requires (5) Finishing Moves
+                priority = 100,
+            },
+        },
+    },
+    
+    -- Default settings for UI
+    default_settings = {
+        heal_enabled = true,
+        heal_threshold = 75,
+        heal_aoe_enabled = true,
+        heal_aoe_threshold = 70,
+        critical_threshold = 30,
+        wake_enabled = true,
+        buff_enabled = true,
+        debuff_removal_enabled = true,
+        recover_enabled = true,
+        recover_tp_threshold = 1000,  -- Reverse Flourish when TP drops below 1000
+        focus_enabled = false,
+        focus_threshold = 85,
+    },
+    
+    -- Action priority order
+    priority_order = {
+        'item',
+        'recover',
+        'critical',
+        'heal_aoe',
+        'heal',
+        'debuff_removal',
+        'wake',
+        'buff',
+    },
+}
