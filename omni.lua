@@ -8,6 +8,8 @@
       * Party jobs: see-through columns of FFXI job pictures beside the game's party and alliance
         lists; each grows upwards as people join (omni_party.lua, assets/jobs/ from HXUI).
       * Brighter chat colours for party, linkshells and tells (omni_chatcolors.lua; Options).
+      * Happy Talks: spoken alerts (tells, invites, trades, skill-ups...) with 16 voice packs
+        (omni_talks.lua, assets/alerts/; Options > Happy Talks). Based on chatmon by atom0s.
       * Spell lines: targetlines-style lines with an animation per element - lightning, fireballs,
         ice shards, cures... (omni_fx.lua, maths from Jyouya's targetlines; Options, /omni fx).
       * Pop-outs: Happy Healer Start/Pause and the Abyssea proc tracker.
@@ -51,7 +53,7 @@
 
 addon.name    = 'omni';
 addon.author  = 'Happyfists';
-addon.version = '1.99';
+addon.version = '2.01';
 addon.desc    = 'All-in-one addon.';
 
 require('common');
@@ -1588,6 +1590,12 @@ do
     if (ok) then omni.chatcolors = mod; mod.settings = omni.settings; end
 end
 
+-- Happy Talks: spoken alerts (omni_talks.lua; Options > Happy Talks).
+do
+    local ok, mod = pcall(require, 'omni_talks');
+    if (ok) then omni.talks = mod; mod.settings = omni.settings; else print('[omni] Happy Talks could not load: ' .. tostring(mod)); end
+end
+
 -- Spell lines: targetlines-style lines with an animation per element (omni_fx.lua).
 do
     local ok, mod = pcall(require, 'omni_fx');
@@ -1616,7 +1624,7 @@ do
         if (imgui.Checkbox(label .. '##opt_' .. key, v)) then s[key] = v[1]; save(); end
         if (tip) then imgui.SameLine(0, 8); imgui.TextColored(DIM, tip); end
     end
-    tab.render = function ()
+    local function render_general()
         local s = omni.settings;
         imgui.TextColored(GOLD, 'AV helper (Absolute Virtue)');
         local modes = { { 'zone', "Only in Al'Taieu" }, { 'always', 'Everywhere' }, { 'off', 'Off' } };
@@ -1706,6 +1714,24 @@ do
         imgui.SameLine(0, 8); imgui.TextColored(DIM, 'also the Follow button on the bar');
 
         tab.height = math.max(160, math.floor(imgui.GetCursorPosY()) + 10);
+    end
+    -- Two pages: General, and Happy Talks (spoken alerts, omni_talks.lua).
+    local talks_opts = { settings = nil, save = save };
+    tab.render = function ()
+        if (imgui.BeginTabBar('##omni_opt_sub')) then
+            if (imgui.BeginTabItem('General##omni_optsub')) then render_general(); imgui.EndTabItem(); end
+            if (imgui.BeginTabItem('Happy Talks##omni_optsub')) then
+                if (omni.talks ~= nil) then
+                    talks_opts.settings = omni.settings;
+                    omni.talks.render(talks_opts);
+                else
+                    imgui.TextColored({ 1.0, 0.45, 0.45, 1.0 }, 'Happy Talks could not load.');
+                end
+                tab.height = math.max(160, math.floor(imgui.GetCursorPosY()) + 10);
+                imgui.EndTabItem();
+            end
+            imgui.EndTabBar();
+        end
     end;
     tabs[#tabs + 1] = tab;
 end

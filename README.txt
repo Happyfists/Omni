@@ -1,5 +1,5 @@
 ==========================================================================================
-  OMNI  -  all-in-one addon for CatsEyeXI (Ashita v4)                 version 1.99 (full)
+  OMNI  -  all-in-one addon for CatsEyeXI (Ashita v4)                 version 2.01 (full)
   by Happyfists
 ==========================================================================================
 
@@ -27,7 +27,7 @@ with a drop-down panel of tabs underneath it for everything else.
   Optional:
     * Multisend plugin (/load multisend) - needed for the Multisend tab and Follow button.
     * You no longer need these separately (omni does their job):
-      easyTH, statustimers, avhelper, craftbook, points, targetlines.
+      easyTH, statustimers, avhelper, craftbook, points, targetlines, chatmon.
       Unload them so you don't get things twice.
 
 
@@ -74,6 +74,17 @@ with a drop-down panel of tabs underneath it for everything else.
     Switches: Show spell and attack animations / Only my party and alliance /
               Lines (target lines and spell lines) / AI art (off = simple drawn look).
     Try one without casting: target something and type  /omni fx fire 3
+
+  HAPPY TALKS (Options > Happy Talks)
+    Spoken alerts: a tell, a GM tell, a party/alliance invite, a trade, an emote at you,
+    someone checking you, bags full, a skill-up, or your name said in chat.
+    * 16 voice packs: Heart, Emma, Lily, Sky, Michael, George, Moogle (kupo!), Butler,
+      Pirate, HYPE!!! (air horn and all), Comedy, Drunk, Grumpy, Whisper,
+      Classic (chatmon's own clips) and Chimes (tones, no voice).
+      Click a pack to use it (it says a line), or Play to just listen.
+    * Each alert has its own tick box and a Test button.
+    * Replaces chatmon - unload chatmon (there's a button) so you don't hear both.
+    Sounds are in assets\alerts\<pack>\ - swap in your own .wav with the same name.
 
   POP-OUTS (small movable windows)
     * Happy Healer Start / Pause - shows while Happy Healer is on and its tab is closed.
@@ -214,6 +225,8 @@ with a drop-down panel of tabs underneath it for everything else.
     * Abystagger by Laudout
     * easyTH by Arielfy - TH idea
     * HXUI by Tirem - FFXI job pictures for the party lists (HXUI_LICENSE)
+    * chatmon by atom0s (Ashita Development Team, GNU GPL v3) - Happy Talks' alert events;
+      Classic voice pack is chatmon's clips. Other voices made with Kokoro TTS.
     * targetlines by Jyouya - the line idea, world-to-screen maths and bone lookup (spell lines)
     * Craftbook by Happys; recipes from the LandSandBoat database (GNU GPL v3)
     * Spell art (assets/fx/) and tab backgrounds made with Canva's AI image generator.
