@@ -56,6 +56,9 @@ local balance = nil;        -- sparks, from the currency packet
 local asked_at = -100;
 
 local job = nil;            -- the purchase in progress
+local balance_at = 0;       -- when the sparks balance last came in
+local last_failed = false;  -- the last purchase ended with an error
+local loop_tick;            -- the Acheron loop's step (further down)
 local status_text, status_col = nil, nil;
 
 local function say(text, col)
@@ -108,6 +111,7 @@ local function finish(text, col)
         end);
     end
     job = nil;
+    last_failed = (col == RED);
     say(text, col);
     asked_at = -100;    -- refresh the sparks balance
 end
@@ -139,10 +143,12 @@ end
 sparks.on_packet = function (e)
     if (e.id == 0x113) then
         balance = struct.unpack('I', e.data, 0x74 + 1);
+        balance_at = os.clock();
         return false;
     end
     if (e.id == 0x110) then
         balance = struct.unpack('I', e.data, 0x04 + 1);
+        balance_at = os.clock();
         return false;
     end
     if ((e.id == 0x032 or e.id == 0x034) and job ~= nil and not job.in_menu) then
@@ -155,6 +161,7 @@ end
 
 -- Called every frame: sends the next purchase when it is due.
 sparks.tick = function ()
+    pcall(loop_tick);
     if (job == nil) then
         return;
     end
@@ -174,6 +181,109 @@ sparks.tick = function ()
     AshitaCore:GetPacketManager():AddOutgoingPacket(0x05B, menu_packet(job.item.option, job.item.index, 1));
     job.left = job.left - 1;
     job.next_at = os.clock() + BUY_GAP + math.random() * 0.5;
+end
+
+----------------------------------------------------------------------------------------------------
+-- Acheron Shield loop: buy as many as you can carry or afford, /sellit them, again, until the
+-- sparks run out. One click; Stop ends it after the current step.
+----------------------------------------------------------------------------------------------------
+local ACHERON = nil;
+for _, it in ipairs(ITEMS) do if (it.name == 'Acheron Shield') then ACHERON = it; end end
+
+local loop = nil;   -- { phase = 'check' | 'buying' | 'selling', wait_until, asked, rounds, sold }
+
+local function held_acheron()
+    local n = 0;
+    pcall(function ()
+        local inv = AshitaCore:GetMemoryManager():GetInventory();
+        for i = 1, (inv:GetContainerCountMax(0) or 80) do
+            local it = inv:GetContainerItem(0, i);
+            if (it ~= nil and ACHERON ~= nil and it.Id == ACHERON.id) then n = n + (it.Count or 1); end
+        end
+    end);
+    return n;
+end
+
+local function loop_end(text, col)
+    loop = nil;
+    say(text, col);
+end
+
+local function ask_balance()
+    pcall(function () AshitaCore:GetPacketManager():AddOutgoingPacket(0x10F, { 0x00, 0x00, 0x00, 0x00 }); end);
+end
+
+loop_tick = function ()
+    if (loop == nil or os.clock() < (loop.wait_until or 0)) then return; end
+    if (loop.phase == 'check') then
+        -- Fresh sparks balance first.
+        if (balance_at < loop.asked) then
+            if (os.clock() - loop.asked > 6) then return loop_end('Could not read your sparks - stopped.', RED); end
+            loop.wait_until = os.clock() + 0.3;
+            return;
+        end
+        local slots = 0;
+        pcall(function () slots = free_slots(); end);
+        local afford = math.floor((balance or 0) / ACHERON.cost);
+        if (afford < 1) then
+            if (held_acheron() > 0) then
+                loop.phase = 'selling'; loop.last = true; loop.sell_started = false;
+                return;
+            end
+            return loop_end(string.format('Done - out of sparks after %d round%s (%d sold).', loop.rounds, loop.rounds == 1 and '' or 's', loop.sold), GREEN);
+        end
+        if (slots < 1) then
+            if (held_acheron() > 0) then
+                loop.phase = 'selling'; loop.sell_started = false;
+                return;
+            end
+            return loop_end('Your bag is full of other things - make some room and try again.', RED);
+        end
+        loop.rounds = loop.rounds + 1;
+        loop.before = held_acheron();
+        loop.phase = 'buying';
+        start(ACHERON, math.min(afford, slots));
+        if (job == nil) then return loop_end('Could not start buying - stopped.', RED); end
+    elseif (loop.phase == 'buying') then
+        if (job ~= nil) then return; end
+        if (last_failed) then return loop_end('Buying stopped - see the message above.', RED); end
+        local got = held_acheron() - (loop.before or 0);
+        if (got <= 0) then
+            -- Bought nothing: maybe the shop said no. Sell what's there, then stop.
+            loop.last = true;
+        end
+        loop.phase = 'selling';
+        loop.wait_until = os.clock() + 1.5;   -- let the last shield land in the bag
+        loop.sell_started = false;
+    elseif (loop.phase == 'selling') then
+        if (not loop.sell_started) then
+            loop.sell_started = true;
+            loop.sell_count = held_acheron();
+            if (loop.sell_count > 0) then sell.sell_names({ 'Acheron Shield' }, 'Acheron Shields'); end
+            loop.wait_until = os.clock() + 0.5;
+            return;
+        end
+        if (sell.busy()) then return; end
+        loop.sold = loop.sold + math.max(0, (loop.sell_count or 0) - held_acheron());
+        if (loop.last) then
+            return loop_end(string.format('Done - sold %d Acheron Shield%s in %d round%s.', loop.sold, loop.sold == 1 and '' or 's', loop.rounds, loop.rounds == 1 and '' or 's'), GREEN);
+        end
+        loop.phase = 'check';
+        loop.sell_started = false;
+        loop.asked = os.clock();
+        ask_balance();
+        loop.wait_until = os.clock() + 0.5;
+    end
+end
+
+local function loop_start()
+    if (ACHERON == nil) then return say('Acheron Shield is not in the sparks list.', RED); end
+    if (job ~= nil or loop ~= nil or sell.busy()) then return say('Busy - wait for the current buy or sell to finish.', RED); end
+    local npc, why = find_npc();
+    if (npc == nil) then return say(why, RED); end
+    loop = { phase = 'check', asked = os.clock(), rounds = 0, sold = 0, sell_started = false };
+    ask_balance();
+    say('Acheron Shields: buying and selling until your sparks run out...', YELLOW);
 end
 
 ----------------------------------------------------------------------------------------------------
@@ -208,6 +318,29 @@ sparks.render = function (host)
     imgui.TextColored(ui.color('dimmed'), 'Free inventory slots:');
     imgui.SameLine(0, 6);
     imgui.TextColored((slots > 0) and ui.color('white') or RED, tostring(slots));
+
+    -- One click: Acheron Shields bought and sold until the sparks run out.
+    if (ACHERON ~= nil) then
+        imgui.Spacing();
+        if (loop == nil) then
+            imgui.PushStyleColor(ImGuiCol_Button, { 0.80, 0.62, 0.22, 1.0 });
+            imgui.PushStyleColor(ImGuiCol_ButtonHovered, { 0.88, 0.70, 0.28, 1.0 });
+            imgui.PushStyleColor(ImGuiCol_Text, { 0.10, 0.08, 0.03, 1.0 });
+            if (imgui.Button('Acheron Shield: buy + sell till out of sparks##sparks_acheron')) then loop_start(); end
+            imgui.PopStyleColor(3);
+            if (imgui.IsItemHovered()) then
+                imgui.SetTooltip(string.format('%s sparks each. Buys as many as you can carry or afford,\n/sellit acheron shield, then again until your sparks run out.', commas(ACHERON.cost)));
+            end
+        else
+            local step = (loop.phase == 'buying') and 'buying' or ((loop.phase == 'selling') and 'selling' or 'checking sparks');
+            imgui.TextColored(YELLOW, string.format('Acheron round %d: %s  (%d sold so far)', loop.rounds, step, loop.sold));
+            imgui.SameLine(0, 12);
+            if (imgui.SmallButton('Stop##sparks_acheron_stop')) then
+                if (job ~= nil) then finish('Stopped.', YELLOW); end
+                loop_end(string.format('Stopped - sold %d Acheron Shield%s.', loop.sold, loop.sold == 1 and '' or 's'), YELLOW);
+            end
+        end
+    end
 
     -- Search.
     imgui.Spacing();

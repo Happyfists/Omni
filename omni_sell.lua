@@ -130,6 +130,10 @@ sell.tick = function ()
     say(string.format('Done - sold %d item%s.', n, n == 1 and '' or 's'), GREEN);
 end
 
+-- Used by the Sparks tab's Acheron button: sell these names now, and whether a sale is running.
+sell.sell_names = function (names, label) start(names, label); end
+sell.busy = function () return queue ~= nil; end
+
 sell.render = function (host)
     local ui = host.ui;
     imgui.Spacing();
