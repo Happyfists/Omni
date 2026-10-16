@@ -4,6 +4,8 @@
     On screen
       * Main bar: job picture with main/sub levels, XP/LP counter on a fill bar (XP/hr), chain, wallet,
         Follow button. In Abyssea it shows Visitant time and lights instead.
+      * Sneak / Invisible buttons on the bar: magic, ninjutsu, Spectral Jig or Silent Oil / Prism
+        Powder, whichever you can use (omni_stealth.lua).
       * Row under it: your buffs (left) and the target bar (right): name, HP, TH, distance, target's buffs.
       * Party jobs: see-through columns of FFXI job pictures beside the game's party and alliance
         lists; each grows upwards as people join (omni_party.lua, assets/jobs/ from HXUI).
@@ -53,7 +55,7 @@
 
 addon.name    = 'omni';
 addon.author  = 'Happyfists';
-addon.version = '2.02';
+addon.version = '2.03';
 addon.desc    = 'All-in-one addon.';
 
 require('common');
@@ -676,6 +678,10 @@ local function draw_bar(player, job)
                     or 'Follow Me is off - click to have your other character follow you (Multisend)');
             end
         end
+        -- Sneak / Invisible: whatever you can use right now (magic, ninjutsu, Spectral Jig or items).
+        if (omni.stealth ~= nil and s.stealth_bar ~= false) then
+            pcall(omni.stealth.draw, { idle = cb and { 0, 0, 0, 0 } or s.colors.button, hover = s.colors.hover });
+        end
         if (cb) then
             imgui.PopStyleColor(2);
             imgui.PopStyleVar(2);
@@ -710,6 +716,10 @@ end
 -- The XP bar (hangs under the main bar, same width)
 ----------------------------------------------------------------------------------------------------
 local status = require('omni_status');   -- buffs and debuffs (used by the XP bar and the target bar)
+do
+    local ok, mod = pcall(require, 'omni_stealth');   -- Sneak / Invisible buttons on the main bar
+    if (ok) then omni.stealth = mod; else print('[omni] Sneak/Invis buttons could not load: ' .. tostring(mod)); end
+end
 
 local EXP_HEIGHT = 24;         -- one slim row: your buffs (time beside each), merits on the right
 local EXP_HEIGHT_BUFFS = 32;   -- buffs with the time under each icon
@@ -1665,6 +1675,7 @@ do
 
         imgui.TextColored(GOLD, 'Bars');
         toggle('Abyssea time and lights on the bar', 'aby_bar', true, 'in Abyssea zones, instead of XP');
+        toggle('Sneak / Invisible buttons on the bar', 'stealth_bar', true, 'magic, ninjutsu, Spectral Jig or oils/powders');
         local hide = { not s.show_native };
         if (imgui.Checkbox("Hide the game's own buff icons##opt_native", hide)) then
             s.show_native = not hide[1];

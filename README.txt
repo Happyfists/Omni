@@ -1,5 +1,5 @@
 ==========================================================================================
-  OMNI  -  all-in-one addon for CatsEyeXI (Ashita v4)                 version 2.01 (full)
+  OMNI  -  all-in-one addon for CatsEyeXI (Ashita v4)                 version 2.03 (full)
   by Happyfists
 ==========================================================================================
 
@@ -42,6 +42,9 @@ with a drop-down panel of tabs underneath it for everything else.
     * Drop-down arrow - opens / closes the panel of tabs.
     * Eye button - hides everything except the main bar. Click again to bring it all back.
     * Follow - Multisend "Follow Me" on/off (green = on).
+    * SNK / INV (or S+I) - Sneak and Invisible on yourself, using whatever you can:
+      Sneak/Invisible magic (WHM, RDM), Monomi / Tonko (NIN), Spectral Jig (DNC), or
+      Silent Oil / Prism Powder from your bag. Green while it's on you. Hidden if nothing.
     * Inside Abyssea the XP part changes to Visitant time left and your seven lights.
 
   ROW UNDER THE BAR
