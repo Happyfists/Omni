@@ -294,6 +294,81 @@ local function commas(n)
     return (s:gsub('^,', ''));
 end
 
+-- "Buy It": type an item's name (all or part of it), set how many, press Buy.
+local buy_name, buy_count = { '' }, { 1 };
+local function find_item(text)
+    local q = tostring(text or ''):lower():gsub('^%s+', ''):gsub('%s+$', '');
+    if (q == '') then return nil, 0, {}; end
+    local hits = {};
+    for _, it in ipairs(ITEMS) do
+        local n = it.name:lower();
+        if (n == q) then return it, 1, { it }; end
+        if (n:find(q, 1, true)) then hits[#hits + 1] = it; end
+    end
+    if (#hits == 1) then return hits[1], 1, hits; end
+    return nil, #hits, hits;
+end
+
+local function buy_box(ui, host, slots)
+    imgui.Spacing();
+    if (not ui.sectionHeader('Buy It', nil, 'sparks:buyit')) then return; end
+    imgui.SetCursorPosX(12);
+    imgui.TextColored(ui.color('dimmed'), 'Item:');
+    imgui.SameLine(0, 6);
+    imgui.PushItemWidth(220);
+    imgui.InputText('##buyit_name', buy_name, 64);
+    imgui.PopItemWidth();
+
+    local item, n, hits = find_item(buy_name[1]);
+    local afford = (item and balance) and math.floor(balance / item.cost) or 0;
+    local most = item and math.min(afford, slots) or 0;
+
+    -- Counter: - [ n ] +  and Max.
+    imgui.SameLine(0, 12);
+    imgui.TextColored(ui.color('dimmed'), 'How many:');
+    imgui.SameLine(0, 6);
+    if (imgui.SmallButton('-##buyit_minus')) then buy_count[1] = buy_count[1] - 1; end
+    imgui.SameLine(0, 4);
+    imgui.PushItemWidth(48);
+    imgui.InputInt('##buyit_count', buy_count, 0, 0);
+    imgui.PopItemWidth();
+    imgui.SameLine(0, 4);
+    if (imgui.SmallButton('+##buyit_plus')) then buy_count[1] = buy_count[1] + 1; end
+    imgui.SameLine(0, 6);
+    if (imgui.SmallButton('Max##buyit_max') and item ~= nil) then buy_count[1] = math.max(1, most); end
+    buy_count[1] = math.max(1, math.min(999, math.floor(tonumber(buy_count[1]) or 1)));
+
+    imgui.SameLine(0, 12);
+    if (imgui.Button(string.format('Buy %d##buyit_go', buy_count[1]))) then
+        if (item == nil) then
+            say((n == 0) and 'No sparks item with that name.' or 'More than one item matches - type more of the name.', RED);
+        else
+            start(item, buy_count[1]);
+        end
+    end
+
+    -- What it found.
+    imgui.SetCursorPosX(12);
+    if (item ~= nil) then
+        if (not host.renderIcon(item.id, 18)) then imgui.Dummy({ 18, 18 }); end
+        imgui.SameLine(0, 6);
+        local total = buy_count[1] * item.cost;
+        local short = (balance ~= nil and total > balance) or buy_count[1] > slots;
+        imgui.TextColored(GOLD, item.name);
+        imgui.SameLine(0, 8);
+        imgui.TextColored(short and RED or ui.color('dimmed'), string.format('%s each, %s for %d  (you can buy %d)',
+            commas(item.cost), commas(total), buy_count[1], most));
+    elseif (n > 1) then
+        local names = {};
+        for i = 1, math.min(4, #hits) do names[#names + 1] = hits[i].name; end
+        imgui.TextColored(ui.color('dimmed'), string.format('%d match: %s%s', n, table.concat(names, ', '), n > 4 and ', ...' or ''));
+    elseif (tostring(buy_name[1] or '') ~= '') then
+        imgui.TextColored(RED, 'No sparks item with that name.');
+    else
+        imgui.TextColored(ui.color('dimmed'), 'Type an item name, e.g. "acheron shield".');
+    end
+end
+
 sparks.render = function (host)
     local ui = host.ui;
 
@@ -438,6 +513,9 @@ sparks.render = function (host)
         imgui.TextColored(status_col, status_text);
         imgui.PopTextWrapPos();
     end
+
+    -- Buy It box: type a name, pick how many, buy.
+    pcall(buy_box, ui, host, slots);
 
     -- Sell It box and the saved sell list (omni_sell.lua).
     pcall(sell.render, host);
