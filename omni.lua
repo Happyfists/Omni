@@ -6,6 +6,8 @@
         Follow button. In Abyssea it shows Visitant time and lights instead.
       * Sneak / Invisible buttons on the bar: magic, ninjutsu, Spectral Jig or Silent Oil / Prism
         Powder, whichever you can use (omni_stealth.lua).
+      * Looks (Options > Look): Crystal & Gold, Black & Gold (black panels with grey and gold buttons on the
+        tabs that have no painted background; themes/blackgold.lua), or Classic.
       * Row under it: your buffs (left) and the target bar (right): name, HP, TH, distance, target's buffs.
       * Party jobs: see-through columns of FFXI job pictures beside the game's party and alliance
         lists; each grows upwards as people join (omni_party.lua, assets/jobs/ from HXUI).
@@ -55,7 +57,7 @@
 
 addon.name    = 'omni';
 addon.author  = 'Happyfists';
-addon.version = '2.04';
+addon.version = '2.05';
 addon.desc    = 'All-in-one addon.';
 
 require('common');
@@ -113,6 +115,10 @@ local BAR_HEIGHT = 32;
 
 -- Look: 'crystal' (thin gold lines, slim bars - design B, the default) or 'classic' (the rounded pills).
 local function crystal() return omni.settings.look ~= 'classic'; end
+-- Black & Gold (on trial): the Crystal bar, but tabs without a painted background get near-black
+-- panels, grey pill buttons and bright gold for the chosen ones (like the Self Chains window).
+local function blackgold() return omni.settings.look == 'blackgold'; end
+local function black_tab() return blackgold() and omni.active ~= nil and omni.active.bg == nil; end
 local GOLD     = { 0.90, 0.77, 0.42, 1.0 };
 local GOLD_DIM = { 0.90, 0.77, 0.42, 0.35 };
 
@@ -1662,7 +1668,7 @@ do
 
         imgui.TextColored(GOLD, 'Look');
         do
-            local looks = { { 'crystal', 'Crystal & Gold' }, { 'classic', 'Classic' } };
+            local looks = { { 'crystal', 'Crystal & Gold' }, { 'blackgold', 'Black & Gold' }, { 'classic', 'Classic' } };
             local cur = s.look or 'crystal';
             for i, m in ipairs(looks) do
                 if (i > 1) then imgui.SameLine(0, 6); end
@@ -1881,9 +1887,57 @@ local function dull(c)
     return hi < 0.40 and (hi - lo) < 0.20 and (c[4] == nil or c[4] > 0.2);
 end
 local cscope = { on = false, vars = 0, cols = 0, real_var = nil, real_col = nil };
+-- Black & Gold inside the page: rounded grey pills, gold when chosen, near-black boxes.
+local BG_PILL, BG_HOVER, BG_GOLD = { 0.150, 0.150, 0.165, 1.0 }, { 0.215, 0.215, 0.235, 1.0 }, { 0.80, 0.62, 0.22, 1.0 };
+local BG_LINE = { 0.20, 0.20, 0.21, 1.0 };
+local function goldish(c)
+    return type(c) == 'table' and #c >= 3 and c[1] > 0.40 and c[1] - c[3] > 0.20 and (c[4] == nil or c[4] > 0.5);
+end
+local function black_begin()
+    local vars = {
+        { 'ImGuiStyleVar_FrameRounding', 6 }, { 'ImGuiStyleVar_ChildRounding', 8 }, { 'ImGuiStyleVar_GrabRounding', 4 },
+        { 'ImGuiStyleVar_TabRounding', 6 }, { 'ImGuiStyleVar_PopupRounding', 6 }, { 'ImGuiStyleVar_ScrollbarRounding', 6 },
+        { 'ImGuiStyleVar_FrameBorderSize', 0 }, { 'ImGuiStyleVar_ChildBorderSize', 1 },
+    };
+    cscope.vars = 0;
+    for _, v in ipairs(vars) do
+        local id = gconst(v[1]);
+        if (id ~= nil and pcall(imgui.PushStyleVar, id, v[2])) then cscope.vars = cscope.vars + 1; end
+    end
+    local cols = {
+        { 'ImGuiCol_Button', BG_PILL }, { 'ImGuiCol_ButtonHovered', BG_HOVER }, { 'ImGuiCol_ButtonActive', BG_GOLD },
+        { 'ImGuiCol_Border', BG_LINE }, { 'ImGuiCol_BorderShadow', { 0, 0, 0, 0 } },
+        { 'ImGuiCol_FrameBg', BG_PILL }, { 'ImGuiCol_FrameBgHovered', BG_HOVER }, { 'ImGuiCol_FrameBgActive', { 0.26, 0.26, 0.28, 1.0 } },
+        { 'ImGuiCol_CheckMark', GOLD }, { 'ImGuiCol_SliderGrab', BG_GOLD }, { 'ImGuiCol_SliderGrabActive', GOLD },
+        { 'ImGuiCol_Header', BG_PILL }, { 'ImGuiCol_HeaderHovered', BG_HOVER }, { 'ImGuiCol_HeaderActive', BG_GOLD },
+        { 'ImGuiCol_Separator', BG_LINE }, { 'ImGuiCol_SeparatorHovered', BG_HOVER }, { 'ImGuiCol_SeparatorActive', GOLD },
+        { 'ImGuiCol_Tab', BG_PILL }, { 'ImGuiCol_TabHovered', BG_HOVER }, { 'ImGuiCol_TabActive', BG_GOLD },
+        { 'ImGuiCol_TabUnfocused', BG_PILL }, { 'ImGuiCol_TabUnfocusedActive', BG_GOLD },
+        { 'ImGuiCol_ChildBg', { 0.062, 0.062, 0.066, 1.0 } }, { 'ImGuiCol_PopupBg', { 0.08, 0.08, 0.085, 0.98 } },
+        { 'ImGuiCol_ScrollbarBg', { 0, 0, 0, 0 } }, { 'ImGuiCol_ScrollbarGrab', BG_HOVER },
+        { 'ImGuiCol_ScrollbarGrabHovered', { 0.30, 0.30, 0.32, 1.0 } }, { 'ImGuiCol_ScrollbarGrabActive', GOLD },
+        { 'ImGuiCol_PlotHistogram', BG_GOLD }, { 'ImGuiCol_TextSelectedBg', { 0.80, 0.62, 0.22, 0.35 } },
+    };
+    cscope.cols = 0;
+    for _, c in ipairs(cols) do
+        local id = gconst(c[1]);
+        if (id ~= nil and pcall(imgui.PushStyleColor, id, c[2])) then cscope.cols = cscope.cols + 1; end
+    end
+    -- While open: pages' plain dark buttons become grey pills, their "chosen" gold-ish ones bright gold.
+    cscope.real_var, cscope.real_col = imgui.PushStyleVar, imgui.PushStyleColor;
+    local rc = cscope.real_col;
+    imgui.PushStyleColor = function (id, col, ...)
+        local kind = BTN_COLS[id];
+        if (kind ~= nil and dull(col)) then return rc(id, BG_PILL); end
+        if ((kind == 'Button' or kind == 'Tab') and goldish(col)) then return rc(id, BG_GOLD); end
+        if (id == ImGuiCol_Border and type(col) == 'table' and (col[4] or 1) > 0.05) then return rc(id, BG_LINE); end
+        return rc(id, col, ...);
+    end;
+end
 local function crystal_begin()
     if (cscope.on or not crystal()) then return; end
     cscope.on = true;
+    if (black_tab()) then return black_begin(); end
     local vars = {
         { 'ImGuiStyleVar_WindowRounding', 0 }, { 'ImGuiStyleVar_ChildRounding', 0 }, { 'ImGuiStyleVar_FrameRounding', 0 },
         { 'ImGuiStyleVar_GrabRounding', 0 }, { 'ImGuiStyleVar_TabRounding', 0 }, { 'ImGuiStyleVar_PopupRounding', 0 },
@@ -1966,7 +2020,13 @@ local function draw_panel()
             local pwx, pwy = imgui.GetWindowPos();
             local pww, pwh = imgui.GetWindowWidth(), imgui.GetWindowHeight();
             if (type(pwh) == 'number' and pwh > 30) then
-                pcall(ornate, imgui.GetWindowDrawList(), pwx + 1, pwy + 2, pwx + pww - 1, pwy + pwh - 1, 'bevel', { 0.035, 0.050, 0.12, 0.95 }, 12);
+                if (black_tab()) then
+                    local pdl = imgui.GetWindowDrawList();
+                    pdl:AddRectFilled({ pwx + 1, pwy + 2 }, { pwx + pww - 1, pwy + pwh - 1 }, imgui.GetColorU32({ 0.086, 0.086, 0.090, 0.97 }), 8);
+                    pdl:AddRect({ pwx + 1, pwy + 2 }, { pwx + pww - 1, pwy + pwh - 1 }, imgui.GetColorU32({ 0.20, 0.20, 0.21, 1.0 }), 8);
+                else
+                    pcall(ornate, imgui.GetWindowDrawList(), pwx + 1, pwy + 2, pwx + pww - 1, pwy + pwh - 1, 'bevel', { 0.035, 0.050, 0.12, 0.95 }, 12);
+                end
             end
         end
         -- Heading (Crystal: "OMNI" in gold capitals on the same line as the top row of tabs).
@@ -2077,6 +2137,13 @@ end
 ----------------------------------------------------------------------------------------------------
 ashita.events.register('load', 'omni_load', function ()
     omni.icons = load_icons();
+    -- 2.05: switch Black & Gold on once so it can be tried (Options > Look puts it back).
+    if (omni.settings.bg_trial ~= true) then
+        omni.settings.bg_trial = true;
+        omni.settings.look_before = omni.settings.look;
+        omni.settings.look = 'blackgold';
+        pcall(settings.save, 'omni');
+    end
     omni.started = true;   -- anything loaded after this (Happy Healer switched on) runs its own load step itself
 end);
 
@@ -2269,7 +2336,7 @@ ashita.events.register('d3d_present', 'omni_present', function ()
     xp_tick();
 
     trove.load();   -- does its work once, on the first frame
-    if (trove.setLook ~= nil) then pcall(trove.setLook, crystal() and 'crystal' or 'omni'); end
+    if (trove.setLook ~= nil) then pcall(trove.setLook, crystal() and (black_tab() and 'blackgold' or 'crystal') or 'omni'); end
 
     -- Keep the game's own buff icons (top-left) hidden; omni shows them on the XP bar instead.
     -- Checked every few seconds so it also takes over if another addon stops hiding them.

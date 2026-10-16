@@ -1,5 +1,5 @@
 ==========================================================================================
-  OMNI  -  all-in-one addon for CatsEyeXI (Ashita v4)                 version 2.03 (full)
+  OMNI  -  all-in-one addon for CatsEyeXI (Ashita v4)                 version 2.05 (full)
   by Happyfists
 ==========================================================================================
 
@@ -161,7 +161,7 @@ with a drop-down panel of tabs underneath it for everything else.
                 party call-outs.
   VENTURES      !ventures areas, HELM, fishing, and VNM armour.
   SPARKS        Sparks shop (buy N / buy all) and Sell It.
-  OPTIONS       AV helper (Only in Al'Taieu / Everywhere / Off), Look (Crystal & Gold or
+  OPTIONS       AV helper (Only in Al'Taieu / Everywhere / Off), Look (Crystal & Gold, Black & Gold or
                 Classic), Abyssea bar, hide the game's own buff icons, brighter chat colours,
                 spell lines, party job pictures (size and spacing per party, move, show when
                 solo), pop-outs, Follow Me.
