@@ -57,7 +57,7 @@
 
 addon.name    = 'omni';
 addon.author  = 'Happyfists';
-addon.version = '2.05';
+addon.version = '2.06';
 addon.desc    = 'All-in-one addon.';
 
 require('common');
@@ -1890,6 +1890,16 @@ local cscope = { on = false, vars = 0, cols = 0, real_var = nil, real_col = nil 
 -- Black & Gold inside the page: rounded grey pills, gold when chosen, near-black boxes.
 local BG_PILL, BG_HOVER, BG_GOLD = { 0.150, 0.150, 0.165, 1.0 }, { 0.215, 0.215, 0.235, 1.0 }, { 0.80, 0.62, 0.22, 1.0 };
 local BG_LINE = { 0.20, 0.20, 0.21, 1.0 };
+-- Navy / blue-grey shades a page picks for itself become the same shade of plain grey-black.
+local function unnavy(c)
+    if (type(c) ~= 'table' or #c < 3) then return c; end
+    local r, g, b = c[1], c[2], c[3];
+    if (math.max(r, g, b) < 0.50 and b - r > 0.025 and b >= g) then
+        local v = (r + g + b) / 3 * 0.80;
+        return { v, v, v * 1.03, c[4] or 1.0 };
+    end
+    return c;
+end
 local function goldish(c)
     return type(c) == 'table' and #c >= 3 and c[1] > 0.40 and c[1] - c[3] > 0.20 and (c[4] == nil or c[4] > 0.5);
 end
@@ -1925,13 +1935,19 @@ local function black_begin()
     end
     -- While open: pages' plain dark buttons become grey pills, their "chosen" gold-ish ones bright gold.
     cscope.real_var, cscope.real_col = imgui.PushStyleVar, imgui.PushStyleColor;
-    local rc = cscope.real_col;
+    cscope.real_u32 = imgui.GetColorU32;
+    local rc, ru = cscope.real_col, cscope.real_u32;
     imgui.PushStyleColor = function (id, col, ...)
         local kind = BTN_COLS[id];
         if (kind ~= nil and dull(col)) then return rc(id, BG_PILL); end
         if ((kind == 'Button' or kind == 'Tab') and goldish(col)) then return rc(id, BG_GOLD); end
         if (id == ImGuiCol_Border and type(col) == 'table' and (col[4] or 1) > 0.05) then return rc(id, BG_LINE); end
-        return rc(id, col, ...);
+        return rc(id, unnavy(col), ...);
+    end;
+    -- Colours pages draw straight onto the screen (bar tracks, boxes, headers) lose their navy too.
+    imgui.GetColorU32 = function (c, ...)
+        if (type(c) == 'table') then return ru(unnavy(c), ...); end
+        return ru(c, ...);
     end;
 end
 local function crystal_begin()
@@ -1987,6 +2003,7 @@ end
 local function crystal_end()
     if (not cscope.on) then return; end
     imgui.PushStyleVar, imgui.PushStyleColor = cscope.real_var, cscope.real_col;
+    if (cscope.real_u32 ~= nil) then imgui.GetColorU32 = cscope.real_u32; cscope.real_u32 = nil; end
     if (cscope.cols > 0) then imgui.PopStyleColor(cscope.cols); end
     if (cscope.vars > 0) then imgui.PopStyleVar(cscope.vars); end
     cscope.on = false;
@@ -2101,7 +2118,11 @@ local function draw_panel()
         imgui.PopStyleColor(1);
         if (sel ~= nil) then
             omni.active = sel;
+            -- Black & Gold: no grey behind the page, the black panel shows through.
+            local bt = cr and blackgold() and sel.bg == nil;
+            if (bt) then imgui.PushStyleColor(ImGuiCol_ChildBg, { 0, 0, 0, 0 }); end
             imgui.BeginChild('##omni_tab_' .. sel.label, { 0, sel.height or 300 }, false);
+            if (bt) then imgui.PopStyleColor(1); end
             -- A painted background behind some tabs (Crystal look), dimmed so the text stays easy to read.
             if (cr and sel.bg ~= nil and trove.fileHandle ~= nil) then
                 local h = trove.fileHandle(sel.bg);
