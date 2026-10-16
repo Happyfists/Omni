@@ -471,6 +471,21 @@ local function visionId(chatName)
     return best;
 end
 
+-- Which Vision list an item is on: organs / tissue / chips are 'sea', everything else 'limbus'.
+local seaIds = nil;
+local function visionKind(id)
+    if seaIds == nil then
+        seaIds = {};
+        local D = afData();
+        for _, pair in pairs(D.AF_HQ or {}) do for _, i in ipairs(pair) do seaIds[i] = true; end end
+        for _, i in ipairs(D.AF_ORGANS or {}) do seaIds[i] = true; end
+        if D.AF_TISSUE then seaIds[D.AF_TISSUE] = true; end
+        if D.ABC then seaIds[D.ABC] = true; end
+    end
+    return seaIds[id] and 'sea' or 'limbus';
+end
+local visionFresh = false;     -- a new list header was just read: its old counts go on the first line
+
 local function onVisionText(msg)
     if type(msg) ~= 'string' then return; end
     -- Drop colour codes and anything that is not plain text.
@@ -482,6 +497,8 @@ local function onVisionText(msg)
         if low:find('sea', 1, true) or low:find('organ', 1, true) then visionList = 'sea';
         elseif low:find('limbus', 1, true) or low:find('af+1', 1, true) or low:find('apollyon', 1, true) or low:find('material', 1, true) then visionList = 'limbus';
         else visionList = nil; end
+        visionFresh = (visionList ~= nil);
+        bagAt = -100;           -- and look through your bags / Mog House again straight away
         return;
     end
     if os.clock() > visionUntil then return; end
@@ -490,7 +507,18 @@ local function onVisionText(msg)
         if visionNames == nil then buildVisionNames(afData()); end
         local id = visionId(name);
         if id == nil then id = visionId(name:match('^%S+%s+(.+)$')); end   -- stray leading word
-        if id then vision.counts[id] = tonumber(n); found = true; end
+        if id then
+            if visionFresh then
+                -- A new list: forget everything from the old one, so items you have used up
+                -- (and Vision no longer lists) drop to 0 instead of keeping their old count.
+                visionFresh = false;
+                for old in pairs(vision.counts) do
+                    if visionKind(old) == visionList then vision.counts[old] = nil; end
+                end
+            end
+            vision.counts[id] = tonumber(n);
+            found = true;
+        end
     end
     if found then
         visionUntil = os.clock() + 2;
@@ -507,6 +535,7 @@ end);
 -- Ask Vision for your stored counts (the same as typing !vision).
 local visionQueue = {};
 local function visionAsk()
+    bagAt = -100;   -- rescan bags and Mog House too
     visionQueue = { { at = os.clock(), cmd = '/say !vision sea organs' }, { at = os.clock() + 3, cmd = '/say !vision limbus mats' } };
 end
 ashita.events.register('d3d_present', 'omni_profile_vision_ask', function ()
