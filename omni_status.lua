@@ -361,7 +361,9 @@ end
 
 -- Draw buffs in one line with each time UNDER its icon, packed close together.
 -- (x, y) is the top of the icons; returns the width used.
-status.draw_stacked = function (buffs, x, y, size, max_w, text_scale, gap)
+-- text_dl / text_y (optional): draw the times with that draw list at that screen y instead
+-- (used to put them just under the bar's frame line, outside the window).
+status.draw_stacked = function (buffs, x, y, size, max_w, text_scale, gap, text_dl, text_y)
     local dl = imgui.GetWindowDrawList();
     if (text_scale ~= nil) then imgui.SetWindowFontScale(text_scale); end
     local white = imgui.GetColorU32({ 1.0, 1.0, 1.0, 1.0 });
@@ -383,8 +385,9 @@ status.draw_stacked = function (buffs, x, y, size, max_w, text_scale, gap)
             end
             if (text ~= '') then
                 local tx = sx + math.floor((size - tw) / 2);
-                dl:AddText({ tx + 1, sy + size + 1 }, shade, text);
-                dl:AddText({ tx, sy + size }, white, text);
+                local d, ty = text_dl or dl, text_y or (sy + size);
+                d:AddText({ tx + 1, ty + 1 }, shade, text);
+                d:AddText({ tx, ty }, white, text);
             end
             cx = cx + cell + gap;
         end

@@ -55,7 +55,7 @@
 
 addon.name    = 'omni';
 addon.author  = 'Happyfists';
-addon.version = '2.03';
+addon.version = '2.04';
 addon.desc    = 'All-in-one addon.';
 
 require('common');
@@ -722,7 +722,8 @@ do
 end
 
 local EXP_HEIGHT = 24;         -- one slim row: your buffs (time beside each), merits on the right
-local EXP_HEIGHT_BUFFS = 32;   -- buffs with the time under each icon
+local EXP_HEIGHT_BUFFS = 28;   -- buffs inside the frame; their times hang just under it
+local BUFF_TIME_H = 12;         -- room under the row for those times
 local EXP_BUFF_ICON = 16;
 
 -- Returns the height of the bar it drew.
@@ -786,12 +787,12 @@ local function draw_exp(player, job, ox, ow, oh)
         -- Your buffs from the left, each with its time under it, packed close together.
         if (#buffs > 0) then
             local room = W - 20 - ((right_w > 0) and (right_w + 16) or 0);
-            imgui.SetWindowFontScale(0.75);
-            local _, small_h = imgui.CalcTextSize('0');
-            imgui.SetWindowFontScale(1.0);
-            small_h = math.floor(small_h or 11);
-            local top = math.max(1, math.floor((height - EXP_BUFF_ICON - small_h) / 2));
-            status.draw_stacked(buffs, 8, top, EXP_BUFF_ICON, room, 0.75, 3);
+            -- Icons sit inside the frame lines; each time goes just under the bottom line.
+            local top = math.floor((height - EXP_BUFF_ICON) / 2) + 1;
+            local tdl = nil;
+            pcall(function () tdl = imgui.GetForegroundDrawList(); end);
+            status.draw_stacked(buffs, 8, top, EXP_BUFF_ICON, room, 0.75, 3, tdl, wy + height + 1);
+            omni.buff_times = true;
         end
     end
     imgui.End();
@@ -2291,6 +2292,7 @@ ashita.events.register('d3d_present', 'omni_present', function ()
     end
     -- One row under the main bar: your buffs on the left, the target bar on the right.
     -- Either one takes the whole width when the other has nothing to show.
+    omni.buff_times = false;
     local eh = exp_need(player);
     local th = target_need();
     local W = omni.bar_width;
@@ -2306,6 +2308,8 @@ ashita.events.register('d3d_present', 'omni_present', function ()
         row = draw_target(0, W, th);
     end
     omni.exp_h = math.max(0, row - 1);
+    -- Buff times hang under the row: keep the panel clear of them.
+    if (omni.buff_times and eh > 0) then omni.exp_h = omni.exp_h + BUFF_TIME_H; end
     omni.target_h = 0;
     if (omni.expanded) then
         draw_panel();
