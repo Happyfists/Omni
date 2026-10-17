@@ -32,6 +32,8 @@ talks.PACKS = {
     { id = 'comedy',  label = 'Comedy',    tip = 'cheeky jokes' },
     { id = 'drunk',   label = 'Drunk',     tip = 'one too many at the Kazham bar' },
     { id = 'rude',    label = 'Rude',      tip = 'oi, numpty!' },
+    { id = 'sweary',  label = 'Sweary',    tip = 'mild swearing - bloody hell!' },
+    { id = 'violent', label = 'Violent',   tip = 'cartoon berserker - SMASH!' },
     { id = 'grumpy',  label = 'Grumpy',    tip = 'not impressed' },
     { id = 'whisper', label = 'Whisper',   tip = 'psst...' },
     { id = 'frat',    label = 'Frat Bro',  tip = 'brooo, gains' },
