@@ -1,5 +1,5 @@
 ==========================================================================================
-  OMNI  -  all-in-one addon for CatsEyeXI (Ashita v4)                 version 2.05 (full)
+  OMNI  -  all-in-one addon for CatsEyeXI (Ashita v4)                 version 2.11 (full)
   by Happyfists
 ==========================================================================================
 
@@ -90,7 +90,6 @@ with a drop-down panel of tabs underneath it for everything else.
     Sounds are in assets\alerts\<pack>\ - swap in your own .wav with the same name.
 
   POP-OUTS (small movable windows)
-    * Happy Healer Start / Pause - shows while Happy Healer is on and its tab is closed.
     * Abyssea proc tracker - what weapon skills / spells to use right now.
 
 
@@ -98,21 +97,11 @@ with a drop-down panel of tabs underneath it for everything else.
  3. THE TABS
 ------------------------------------------------------------------------------------------
 
-  Top row:     Happy Healer (+ switch)  Abyssea  Quests  Multisend  Damage
+  Top row:     Abyssea  Quests  Multisend  Damage
   Second row:  Character  Currency  Dailies  Codex  Sky  Sea  Ventures  Sparks  Options  TH
 
-  HAPPY HEALER
-    Cure Please style auto-healer (built on Sidekick by Seekey).
-    Works on WHM, RDM, BRD, COR, SCH and GEO.
-    * The switch beside the tab turns it on and off.
-        Off (default): not loaded at all - no chat messages.
-        On: loads straight away and starts healing.
-    * Main page: Selected PL, Monitored Player (another of your characters running omni on
-      this PC), your party with job pictures and HP/MP, tick boxes to skip people, click a
-      name to focus them, big Start / Pause.
-    * Other pages: Healing, Debuff Removal, Enhancing, Geomancy (GEO), Bard Songs (BRD),
-      Job Abilities, Other Options, Program Options, Save.
-    * Commands: /hh help
+  (Happy Healer used to be a tab here. It is now its own addon - happyhealer - so omni has
+   no healing automation in it at all.)
 
   ABYSSEA
     Procs page
@@ -182,7 +171,6 @@ with a drop-down panel of tabs underneath it for everything else.
     /omni fx <kind> [n]  play a spell animation at your target (fire, ice, earth... n shots)
     /ddr                 reset the damage meter
     /ddp [n]             post the top n damage dealers in party chat
-    /hh help             Happy Healer commands (when it is switched on)
     /avh help            AV helper commands
 
 
@@ -196,7 +184,6 @@ with a drop-down panel of tabs underneath it for everything else.
         vision_<Name>.txt      Vision storage counts
         rolls_<Name>.txt       Corsair rolls seen
         abypops_<Name>.lua     Abyssea key items
-        hh_share\              party info shared between your characters (Happy Healer)
 
 
 ------------------------------------------------------------------------------------------
@@ -207,8 +194,6 @@ with a drop-down panel of tabs underneath it for everything else.
     * Quest log or Abyssea key items empty/wrong -> change zone once.
     * Party pictures not lined up               -> Options > Move them, drag, untick;
                                                     adjust "Space between rows".
-    * Happy Healer does nothing                  -> is the switch green? Is your job one of
-                                                    WHM RDM BRD COR SCH GEO?
     * Old buff icons back on screen              -> Options > "Hide the game's own buff icons".
     * Backups of whole versions are in  Ashita\addons\omni_backups\
 
@@ -221,7 +206,6 @@ with a drop-down panel of tabs underneath it for everything else.
     * Bar style and job icon sheet: points addon by Shinzaku, based on Pointwatch by
       Byrthnoth (POINTS_LICENSE)
     * Trove by Loxley - Currency, Dailies, Codex, Character, Sea screens (TROVE_LICENSE)
-    * Sidekick by Seekey - the engine behind Happy Healer (SIDEKICK_LICENSE)
     * AVHelper by ClutchHawks (AVHELPER_LICENSE)
     * FFXI Journal by AndreYMods - quest / mission data and pictures (JOURNAL_LICENSE)
     * Abyssea Tracker - CatsEyeXI Edition by IntegReady - Abyssea NM / pop / drop data

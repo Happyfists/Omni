@@ -16,13 +16,12 @@
         (omni_talks.lua, assets/alerts/; Options > Happy Talks). Based on chatmon by atom0s.
       * Spell lines: targetlines-style lines with an animation per element - lightning, fireballs,
         ice shards, cures... (omni_fx.lua, maths from Jyouya's targetlines; Options, /omni fx).
-      * Pop-outs: Happy Healer Start/Pause and the Abyssea proc tracker.
+      * Pop-out: the Abyssea proc tracker.
+      * Happy Healer is now its own addon (happyhealer) - not part of omni.
       * Panel (drops down under the bars): tabs in two rows, then the chosen tab's page.
 
     Panel tabs (and the file that draws each one)
       Top row
-        Happy Healer - Cure Please style auto-healer built on Sidekick, with an On/Off switch beside the
-                       tab; off it is not loaded at all (omni_healer_ui.lua, omni_sidekick.lua, lib/)
         Abyssea    - Procs (+ pop-out) and NM Pops (omni_abyssea.lua, omni_abypops.lua, abydata/)
         Quests     - Journey overview, quests by region, mission storylines (omni_quests.lua, qdata/)
         Multisend  - Follow Me, sim-cast and quick commands (omni_multisend.lua)
@@ -45,7 +44,6 @@
       * Bar style and job icon sheet adapted from the points addon by Shinzaku, based on Pointwatch by
         Byrthnoth (BSD-style licence, POINTS_LICENSE).
       * Trove by Loxley (TROVE_LICENSE).
-      * Sidekick by Seekey, the engine behind Happy Healer (SIDEKICK_LICENSE).
       * AVHelper by ClutchHawks (AVHELPER_LICENSE).
       * Quest / mission data and storyline pictures from FFXI Journal by AndreYMods (JOURNAL_LICENSE).
       * TH helper idea from easyTH by Arielfy. Spell lines based on targetlines by Jyouya.
@@ -57,7 +55,7 @@
 
 addon.name    = 'omni';
 addon.author  = 'Happyfists';
-addon.version = '2.10';
+addon.version = '2.11';
 addon.desc    = 'All-in-one addon.';
 
 require('common');
@@ -652,7 +650,7 @@ local function draw_bar(player, job)
         if (not s.minimal and toggle_button('bar')) then
             omni.expanded = not omni.expanded;
         end
-        -- Hide / show everything else (XP strip, target bar, panel, Happy Healer pop-out).
+        -- Hide / show everything else (XP strip, target bar, panel, pop-outs).
         if (not s.minimal) then imgui.SameLine(0, 4); end
         imgui.SetCursorPosY(5);
         imgui.PushStyleColor(ImGuiCol_Button, s.minimal and s.colors.tab_active or (cb and { 0, 0, 0, 0 } or s.colors.button));
@@ -1436,91 +1434,6 @@ do
     tabs[#tabs + 1] = tab;
 end
 
--- Happy Healer: support-job automation (built on Sidekick by Seekey, MIT) for WHM, RDM, BRD, COR, SCH and GEO (omni_sidekick.lua).
--- A tab on the top row with an On/Off switch beside it. Off (the default) it is not loaded at all,
--- so no chat lines; switching it on loads it there and then and starts it.
-do
-    local RED = { 1.00, 0.45, 0.45, 1.0 };
-    local hui = require('omni_healer_ui');   -- laid out like Cure Please's main window
-    local hh = { loaded = false, ok = false, sk = nil, start_at = nil };
-    omni.hh = hh;
-
-    local function load_hh()
-        if (hh.loaded) then return; end
-        hh.loaded = true;
-        -- Loaded after omni's own start: its "load" step would never run, so run it straight after.
-        local real, late = ashita.events.register, {};
-        if (omni.started) then
-            ashita.events.register = function (ev, name, fn)
-                if (ev == 'load') then late[#late + 1] = fn; return; end
-                return real(ev, name, fn);
-            end;
-        end
-        hh.ok, hh.sk = pcall(require, 'omni_sidekick');
-        ashita.events.register = real;
-        for _, fn in ipairs(late) do pcall(fn); end
-        if (not hh.ok) then print('[omni] Happy Healer could not start: ' .. tostring(hh.sk)); end
-    end
-    if (omni.settings.hh_on == true) then load_hh(); end
-
-    hh.is_on = function () return omni.settings.hh_on == true; end;
-    hh.set_on = function (on)
-        omni.settings.hh_on = on;
-        settings.save('omni');
-        if (on) then
-            load_hh();
-            hh.start_at = os.clock() + 1.0;   -- give it a moment to read your job first
-        else
-            hh.start_at = nil;
-            if (hh.ok and hh.sk.is_running()) then AshitaCore:GetChatManager():QueueCommand(-1, '/hh stop'); end
-            print('[omni] Happy Healer off.');
-        end
-    end;
-    -- Called every frame: the delayed start after turning it on.
-    hh.tick = function ()
-        if (hh.start_at == nil or os.clock() < hh.start_at) then return; end
-        hh.start_at = nil;
-        if (not hh.ok) then return; end
-        if (hh.sk.has_job()) then
-            if (not hh.sk.is_running()) then AshitaCore:GetChatManager():QueueCommand(-1, '/hh start'); end
-        else
-            print('[omni] Happy Healer is on, but has nothing to do on this job (it works on WHM, RDM, BRD, COR, SCH and GEO).');
-        end
-    end;
-
-    local tab = { label = 'Happy Healer', width = 800, height = 420 };
-    tab.render = function ()
-        if (not hh.is_on() or not hh.loaded) then
-            imgui.TextColored({ 0.62, 0.66, 0.80, 1.0 }, 'Happy Healer is off.');
-            imgui.SameLine(0, 12);
-            imgui.PushStyleColor(ImGuiCol_Button, { 0.24, 0.62, 0.30, 1.0 });
-            if (imgui.Button('Turn it on##hh_page_on', { imgui.CalcTextSize('Turn it on') + 22, 0 })) then hh.set_on(true); end
-            imgui.PopStyleColor(1);
-            tab.height = 40;
-            return;
-        end
-        if (not hh.ok) then
-            imgui.TextColored(RED, 'Happy Healer could not start: ' .. tostring(hh.sk));
-            return;
-        end
-        hui.icons = omni.icons;   -- job pictures on each party row
-        hui.dark = (omni.crystal ~= nil) and omni.crystal() or false;
-        hui.render(hh.sk);
-        tab.height = math.max(200, math.min(900, math.floor(hui.height)));
-    end;
-    omni.side_tab = tab;   -- placed on the top row by TAB_ROWS
-    -- Pop-out Start/Pause button, drawn while the Happy Healer page is not open.
-    omni.healer_popout = function ()
-        if (not hh.is_on() or not hh.ok) then return; end
-        hui.dark = (omni.crystal ~= nil) and omni.crystal() or false;
-        pcall(hui.render_popout, hh.sk, {
-            settings = omni.settings,
-            save = function () settings.save('omni'); end,
-            open = function () omni.expanded = true; omni.sel = 'Happy Healer'; end,
-        });
-    end;
-end
-
 -- Multisend: Follow Me, sim-cast and quick commands for your other characters (omni_multisend.lua).
 do
     local ok, msend = pcall(require, 'omni_multisend');
@@ -1726,7 +1639,6 @@ do
         imgui.Dummy({ 1, 6 });
 
         imgui.TextColored(GOLD, 'Pop-outs');
-        toggle('Happy Healer Start / Pause button', 'hh_popout', true, 'while its page is closed');
         local pv = { s.aby_pop == true };
         if (imgui.Checkbox('Abyssea proc tracker##opt_abypop', pv)) then s.aby_pop = pv[1]; save(); end
         imgui.Dummy({ 1, 6 });
@@ -1807,7 +1719,7 @@ end
 
 -- Tab layout: two rows. Anything not named here goes on the second row, before TH.
 local TAB_ROWS = {
-    { 'Happy Healer', 'Abyssea', 'Quests', 'Multisend', 'Damage' },
+    { 'Abyssea', 'Quests', 'Multisend', 'Damage' },
     { 'Character', 'Currency', 'Dailies', 'Codex', 'Sky', 'Sea', 'Ventures', 'Sparks', 'Options', 'TH' },
 };
 local TAB_PAD, TAB_GAP = 8, 4;
@@ -1844,25 +1756,6 @@ local function tab_rows()
     end
     omni.tab_rows_width = math.floor(wmax + 22);
     return rows;
-end
-
--- Happy Healer's On / Off switch: a small pill, green when on.
-local function hh_switch()
-    local hon = omni.hh.is_on();
-    local x, y = imgui.GetCursorScreenPos();
-    local _, th = imgui.CalcTextSize('Ag');
-    local h = math.floor(th or 14);
-    local w = h * 2;
-    local bh = h + 6;                      -- same height as the tab buttons
-    y = y + math.floor((bh - h) / 2);
-    if (imgui.InvisibleButton('##hh_switch', { w, bh })) then omni.hh.set_on(not hon); end
-    local dl = imgui.GetWindowDrawList();
-    dl:AddRectFilled({ x, y }, { x + w, y + h }, imgui.GetColorU32(hon and { 0.24, 0.62, 0.30, 1.0 } or { 0.22, 0.23, 0.32, 1.0 }), h / 2);
-    local cx = hon and (x + w - h / 2) or (x + h / 2);
-    dl:AddCircleFilled({ cx, y + h / 2 }, h / 2 - 2, imgui.GetColorU32({ 0.95, 0.95, 0.97, 1.0 }), 16);
-    if (imgui.IsItemHovered()) then
-        imgui.SetTooltip(hon and 'Happy Healer is on - click to turn it off.' or 'Happy Healer is off - click to turn it on and start it.');
-    end
 end
 
 -- Crystal look for everything drawn inside the panel and the pop-outs: square corners, thin gold
@@ -2105,11 +1998,6 @@ local function draw_panel()
                     end
                 end
                 imgui.PopStyleColor(cr and 4 or 1);
-                -- Happy Healer's On / Off switch sits right after its tab.
-                if (t == omni.side_tab and omni.hh ~= nil) then
-                    imgui.SameLine(0, 4);
-                    hh_switch();
-                end
             end
         end
         imgui.PopStyleVar(2);
@@ -2165,7 +2053,7 @@ ashita.events.register('load', 'omni_load', function ()
         omni.settings.look = 'blackgold';
         pcall(settings.save, 'omni');
     end
-    omni.started = true;   -- anything loaded after this (Happy Healer switched on) runs its own load step itself
+    omni.started = true;   -- the game is up
 end);
 
 ashita.events.register('unload', 'omni_unload', function ()
@@ -2180,13 +2068,6 @@ ashita.events.register('command', 'omni_command', function (e)
         return;
     end
     local cmd = args[1]:lower();
-
-    -- /hh while Happy Healer is off.
-    if (cmd == '/hh' and (omni.hh == nil or not omni.hh.loaded)) then
-        e.blocked = true;
-        print('[omni] Happy Healer is off. Click the switch next to the Happy Healer button to turn it on.');
-        return;
-    end
 
     -- /ddr : reset the damage meter.
     if (cmd == '/ddr') then
@@ -2333,7 +2214,6 @@ ashita.events.register('text_in', 'omni_text_in', function (e)
 end);
 
 ashita.events.register('d3d_present', 'omni_present', function ()
-    if (omni.hh ~= nil) then pcall(omni.hh.tick); end
     if (omni.chatcolors ~= nil) then omni.chatcolors.settings = omni.settings; end
     pcall(sparks.tick);
     pcall(sparks.sell.tick);
@@ -2401,9 +2281,6 @@ ashita.events.register('d3d_present', 'omni_present', function ()
     omni.target_h = 0;
     if (omni.expanded) then
         draw_panel();
-    end
-    if (not (omni.expanded and omni.sel == 'Happy Healer') and omni.healer_popout ~= nil and omni.settings.hh_popout ~= false) then
-        crystal_begin(); pcall(omni.healer_popout); crystal_end();
     end
     if (omni.abyssea_popout ~= nil) then
         crystal_begin(); pcall(omni.abyssea_popout); crystal_end();
