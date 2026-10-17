@@ -1227,9 +1227,13 @@ local function renderWeaponSkillsTab()
         local label = string.format('%s  (%d / %d)   your skill: %d', SKILL_NAME[skillId] or ('Skill ' .. skillId), have, #list, value);
         if ui.sectionHeader(label, nil, 'profile:ws:' .. skillId) then
             local half = imgui.GetContentRegionAvail() / 2;
-            for i, ws in ipairs(list) do
-                local st = states[i];
-                if (i - 1) % 2 == 1 then imgui.SameLine(half + 8); else imgui.SetCursorPosX(8); end
+            -- The ones you can use first (green), then the rest (red); each keeps its usual order.
+            local shown = {};
+            for i = 1, #list do if states[i].can then shown[#shown + 1] = i; end end
+            for i = 1, #list do if not states[i].can then shown[#shown + 1] = i; end end
+            for n, i in ipairs(shown) do
+                local ws, st = list[i], states[i];
+                if (n - 1) % 2 == 1 then imgui.SameLine(half + 8); else imgui.SetCursorPosX(8); end
                 imgui.TextColored(st.can and { 0.45, 0.90, 0.45, 1.0 } or { 1.0, 0.45, 0.45, 1.0 }, ws.name);
                 if imgui.IsItemHovered() then
                     imgui.BeginTooltip();
