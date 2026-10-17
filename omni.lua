@@ -55,7 +55,7 @@
 
 addon.name    = 'omni';
 addon.author  = 'Happyfists';
-addon.version = '2.19';
+addon.version = '2.20';
 addon.desc    = 'All-in-one addon.';
 
 require('common');
@@ -1509,6 +1509,19 @@ do
     tabs[#tabs + 1] = tab;
 end
 
+-- Ultimates: every ultimate weapon / weapon skill as a quest with a % bar (omni_ultimates.lua).
+do
+    local ok, ultm = pcall(require, 'omni_ultimates');
+    if (not ok) then print('[omni] Ultimates could not load: ' .. tostring(ultm)); end
+    local tab = { label = 'Ultimates', width = 780, height = 400 };
+    tab.render = function ()
+        if (not ok) then imgui.TextColored({ 1.0, 0.45, 0.45, 1.0 }, 'Ultimates could not load: ' .. tostring(ultm)); return; end
+        ultm.render({});
+        tab.height = math.max(160, math.min(900, math.floor(ultm.height)));
+    end;
+    tabs[#tabs + 1] = tab;
+end
+
 -- Multisend: Follow Me, sim-cast and quick commands for your other characters (omni_multisend.lua).
 do
     local ok, msend = pcall(require, 'omni_multisend');
@@ -1814,7 +1827,7 @@ end
 -- Tab layout: two rows. Anything not named here goes on the second row, before TH.
 local TAB_ROWS = {
     { 'Abyssea', 'Quests', 'Multisend', 'Damage' },
-    { 'Character', 'Currency', 'Dailies', 'Codex', 'Sky', 'Sea', 'Ventures', 'Sparks', 'Options', 'TH' },
+    { 'Character', 'Ultimates', 'Currency', 'Dailies', 'Codex', 'Sky', 'Sea', 'Ventures', 'Sparks', 'Options', 'TH' },
 };
 local TAB_PAD, TAB_GAP = 8, 4;
 

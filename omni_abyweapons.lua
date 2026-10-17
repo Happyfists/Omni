@@ -338,6 +338,15 @@ local function pop_lines(nmname)
     return out;
 end
 
+-- For the Ultimates tab: the trial you are on for a weapon (0 = not started / unknown).
+weapons.step_of = function (name)
+    load();
+    scan();
+    local w = find_weapon(name);
+    if w == nil then return 0; end
+    return st.step[name] or guess_step(w) or 0;
+end
+
 weapons.render = function (opts)
     load();
     scan();
