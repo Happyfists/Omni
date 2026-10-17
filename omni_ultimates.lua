@@ -253,9 +253,40 @@ local function scan()
 end
 local function have(name) return bag.count[norm(name)] or 0; end
 
+-- Weapon skills you know. The game only lists the ones for the weapon in your hand, so each one
+-- seen is remembered (saved as "learned:<name>") and stays done after you swap weapons.
+local WS_ID = nil;
+local ws_at = -100;
+local function ws_scan()
+    if os.clock() - ws_at < 2 then return; end
+    ws_at = os.clock();
+    if WS_ID == nil then
+        WS_ID = {};
+        local ok, d = pcall(require, 'plugins/data/ws_data');
+        if ok and type(d) == 'table' then for _, w in ipairs(d) do WS_ID[norm(w.name)] = w.id; end end
+    end
+    if st.owner == nil then return; end
+    local changed = false;
+    pcall(function ()
+        local player = AshitaCore:GetMemoryManager():GetPlayer();
+        for _, cat in ipairs(CATS) do
+            for _, q in ipairs(cat.list or {}) do
+                local id = q.ws and WS_ID[norm(q.ws)];
+                local key = 'learned:' .. norm(q.ws or '');
+                if id and not st.ticks[key] and player:HasWeaponSkill(id) == true then st.ticks[key] = true; changed = true; end
+            end
+        end
+    end);
+    if changed then save(); end
+end
+local function learned(q) return q.ws ~= nil and st.ticks['learned:' .. norm(q.ws)] == true; end
+local function marked(cat, name) return st.ticks[cat.id .. ':' .. name .. ':done'] == true; end
+
 -- A quest's progress (0..1) and each step's own fraction.
 local function progress(cat, q)
     if q.final and have(q.final) > 0 then return 1, true; end
+    if learned(q) then return 1, 'learned'; end
+    if marked(cat, q.name) then return 1, 'marked'; end
     local sum, n = 0, 0;
     for i, s in ipairs(q.steps) do
         local f;
@@ -309,6 +340,24 @@ local function render_steps(cat, q)
     end
 end
 
+-- Right-click a name: mark it done (you already have it) or clear it.
+local function context_menu(cat, name, ws)
+    if imgui.BeginPopupContextItem('##ult_ctx_' .. cat.id .. name) then
+        imgui.TextColored(C.gold, name);
+        imgui.Separator();
+        local dkey = cat.id .. ':' .. name .. ':done';
+        if st.ticks[dkey] then
+            if imgui.MenuItem('Not done yet') then st.ticks[dkey] = nil; save(); end
+        else
+            if imgui.MenuItem(ws and 'I have unlocked this' or 'I have this') then st.ticks[dkey] = true; save(); end
+        end
+        if ws and st.ticks['learned:' .. norm(ws)] then
+            if imgui.MenuItem('Forget it was found automatically') then st.ticks['learned:' .. norm(ws)] = nil; save(); end
+        end
+        imgui.EndPopup();
+    end
+end
+
 local function render_list(cat, W)
     local rows = {};
     for _, q in ipairs(cat.list) do
@@ -317,7 +366,7 @@ local function render_list(cat, W)
     end
     local done = 0;
     for _, r in ipairs(rows) do if r.p >= 0.999 then done = done + 1; end end
-    imgui.TextColored(C.dim, string.format('%d of %d done. Click a name for its steps.', done, #rows));
+    imgui.TextColored(C.dim, string.format('%d of %d done. Click a name for its steps, right-click if you already have it.', done, #rows));
     local barW = math.max(160, math.min(320, W - 300));
     for _, r in ipairs(rows) do
         local q = r.q;
@@ -328,12 +377,16 @@ local function render_list(cat, W)
         imgui.PushStyleColor(ImGuiCol_Text, r.p >= 0.999 and C.green or C.gold);
         if imgui.Selectable((open and '- ' or '+ ') .. q.name .. '##ult_row_' .. key, open, 0, { 170, 0 }) then st.open[key] = not open; end
         imgui.PopStyleColor(1);
+        context_menu(cat, q.name, q.ws);
         imgui.SetCursorPos({ 186, y });
         imgui.TextColored(C.dim, q.sub or '');
         imgui.SetCursorPos({ W - barW - 8, y + 1 });
         bar(barW, 14, r.p);
         if open then
-            if r.owned then imgui.SetCursorPosX(28); imgui.TextColored(C.green, 'You have it!'); end
+            if r.owned then
+                imgui.SetCursorPosX(28);
+                imgui.TextColored(C.green, (r.owned == 'learned' and 'Learned - found automatically.') or (r.owned == 'marked' and 'Marked as done (right-click to undo).') or 'You have it!');
+            end
             render_steps(cat, q);
             imgui.Dummy({ 1, 4 });
         end
@@ -349,16 +402,19 @@ local function render_empyrean(cat, W)
     local rows = {};
     for _, w in ipairs(aw.LIST) do
         local step = (aw.step_of and aw.step_of(w.name)) or 0;
-        local owned = have(w.name) > 0;
+        local owned = have(w.name) > 0 or marked(cat, w.name);
         local p = owned and 1 or (math.max(0, step - 1) / 10);
         rows[#rows + 1] = { w = w, p = p, step = step, owned = owned };
         if p >= 0.999 then done = done + 1; end
     end
-    imgui.TextColored(C.dim, string.format('%d of %d done. Trial you are on comes from Abyssea > Weapons.', done, #rows));
+    imgui.TextColored(C.dim, string.format('%d of %d done. Trial you are on comes from Abyssea > Weapons. Right-click if you already have one.', done, #rows));
     for _, r in ipairs(rows) do
         local y = imgui.GetCursorPosY();
         imgui.SetCursorPosX(8);
-        imgui.TextColored(r.p >= 0.999 and C.green or C.gold, r.w.name);
+        imgui.PushStyleColor(ImGuiCol_Text, r.p >= 0.999 and C.green or C.gold);
+        imgui.Selectable(r.w.name .. '##ult_emp_' .. r.w.name, false, 0, { 170, 0 });
+        imgui.PopStyleColor(1);
+        context_menu(cat, r.w.name, nil);
         imgui.SetCursorPos({ 186, y });
         imgui.TextColored(C.dim, r.w.type .. (r.owned and '' or (r.step > 0 and string.format('  -  trial %d of 10', r.step) or '')));
         imgui.SetCursorPos({ W - barW - 8, y + 1 });
@@ -369,6 +425,7 @@ end
 ult.render = function (opts)
     load();
     scan();
+    ws_scan();
     local W = math.floor(imgui.GetContentRegionAvail());
 
     -- Category buttons, each with how many are done.

@@ -399,9 +399,35 @@ weapons.render = function (opts)
     imgui.Dummy({ 1, 2 });
 
     -- The 10 trials: number, trade in, what to do, progress, what you get.
-    local cx = { 8, 62, 250, 0, 0 };
-    cx[4] = math.max(520, W - 260);
-    cx[5] = math.max(cx[4] + 90, W - 170);
+    -- Columns are sized to what is in them, so nothing runs into the next one.
+    local function tw(t) return (imgui.CalcTextSize(t)); end
+    local function objective(tr)
+        if tr.kind == 'D' then return string.format('Defeat %s x%d', tr.who, tr.cnt); end
+        return string.format('Trade %s x%d', tr.item, tr.cnt);
+    end
+    local function fit(t, maxw)          -- cut a too-long line and end it with ".."
+        if tw(t) <= maxw then return t, false; end
+        while #t > 1 and tw(t .. '..') > maxw do t = t:sub(1, -2); end
+        return t .. '..', true;
+    end
+    local wN, wIn, wObj, wOut = tw('Trial'), tw('Trade in'), tw('Objective'), tw('Receive');
+    for _, tr in ipairs(w.trials) do
+        wN   = math.max(wN, tw('> ' .. tostring(tr.n)));
+        wIn  = math.max(wIn, tw(tr.inp));
+        wObj = math.max(wObj, tw(objective(tr)));
+        wOut = math.max(wOut, tw(tr.out));
+    end
+    local wProg = tw('999 / 999') + 46;   -- the count plus the - and + buttons
+    local gap = 16;
+    local cx = { 8, 0, 0, 0, 0 };
+    cx[2] = cx[1] + wN + gap;
+    cx[3] = cx[2] + wIn + gap;
+    -- The objective gets whatever room is left after the other columns.
+    local objRoom = math.max(120, W - 8 - cx[3] - gap - wProg - gap - math.min(wOut, 200));
+    wObj = math.min(wObj, objRoom);
+    cx[4] = cx[3] + wObj + gap;
+    cx[5] = cx[4] + wProg + gap;
+    local outRoom = math.max(60, W - 8 - cx[5]);
     local y0 = imgui.GetCursorPosY();
     imgui.SetCursorPos({ cx[1], y0 }); imgui.TextColored(C.faint, 'Trial');
     imgui.SetCursorPos({ cx[2], y0 }); imgui.TextColored(C.faint, 'Trade in');
@@ -422,12 +448,11 @@ weapons.render = function (opts)
         imgui.SetCursorPos({ cx[1], y }); imgui.TextColored(done and C.green or (now and C.gold or C.dim), (done and '+ ' or (now and '> ' or '  ')) .. tostring(tr.n));
         imgui.SetCursorPos({ cx[2], y }); imgui.TextColored(col, tr.inp);
         imgui.SetCursorPos({ cx[3], y });
-        local obj;
-        if tr.kind == 'D' then obj = string.format('Defeat %s x%d', tr.who, tr.cnt) .. (tr.where and ('  (' .. tr.where .. ')') or '');
-        else obj = string.format('Trade %s x%d', tr.item, tr.cnt); end
+        local obj = fit(objective(tr), wObj);
         imgui.TextColored(col, obj);
         if imgui.IsItemHovered() then
             imgui.BeginTooltip();
+            imgui.TextColored(C.text, objective(tr) .. ((tr.kind == 'D' and tr.where) and ('  -  Abyssea - ' .. tr.where) or ''));
             imgui.TextColored(C.gold, (tr.kind == 'D') and tr.who or (tr.item .. '  -  from ' .. tr.who));
             if tr.kind == 'T' then imgui.TextColored(C.dim, 'Drops from ' .. tr.who .. ', Abyssea - ' .. tr.where); end
             local lines = pop_lines(tr.who);
@@ -450,7 +475,9 @@ weapons.render = function (opts)
             imgui.TextColored(n >= tr.cnt and C.green or (now and C.yellow or C.dim), string.format('%d / %d', n, tr.cnt));
             if imgui.IsItemHovered() then imgui.SetTooltip('In your bags (all of them).'); end
         end
-        imgui.SetCursorPos({ cx[5], y }); imgui.TextColored(i == 10 and C.gold or col, tr.out);
+        local outTxt, cut = fit(tr.out, outRoom);
+        imgui.SetCursorPos({ cx[5], y }); imgui.TextColored(i == 10 and C.gold or col, outTxt);
+        if cut and imgui.IsItemHovered() and not now then imgui.SetTooltip(tr.out); end
         if now and imgui.IsItemHovered() then imgui.SetTooltip('Click "Done - next" when you have this.'); end
     end
     imgui.Dummy({ 1, 6 });
@@ -467,11 +494,15 @@ weapons.render = function (opts)
         end
     else
         local n = have(t.item);
+        imgui.PushTextWrapPos(W - 8);
         imgui.TextColored(C.text, string.format('Collect %s  -  %d of %d, from %s (Abyssea - %s)', t.item, n, t.cnt, t.who, t.where));
+        imgui.PopTextWrapPos();
     end
     local lines = pop_lines(t.who);
     if lines then
+        imgui.PushTextWrapPos(W - 8);
         for _, l in ipairs(lines) do imgui.SetCursorPosX(18); imgui.TextColored(l[1], l[2]); end
+        imgui.PopTextWrapPos();
     elseif t.kind == 'D' and t.where then
         imgui.SetCursorPosX(18); imgui.TextColored(C.dim, 'Abyssea - ' .. t.where .. '.');
     end
