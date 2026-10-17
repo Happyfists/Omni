@@ -55,7 +55,7 @@
 
 addon.name    = 'omni';
 addon.author  = 'Happyfists';
-addon.version = '2.12';
+addon.version = '2.13';
 addon.desc    = 'All-in-one addon.';
 
 require('common');
@@ -178,8 +178,14 @@ local function theme_frame(dl, x1, y1, x2, y2, fill)
         dl:AddRectFilled({ x1 + 1, y1 + 3 }, { x2 + 1, y2 + 4 }, u({ 0, 0, 0, 0.35 }), r);
     end
     dl:AddRectFilled({ x1, y1 }, { x2, y2 }, u(fill or t.bar), r);
-    dl:AddRect({ x1, y1 }, { x2, y2 }, u(t.line), r);
-    dl:AddLine({ x1 + r + 1, y1 + 1 }, { x2 - r - 1, y1 + 1 }, u({ 1, 1, 1, 0.06 }), 1);
+    -- Outline in the theme's accent (like Crystal's gold edge), with a faint second line inside it.
+    local ac = t.accent;
+    dl:AddRect({ x1, y1 }, { x2, y2 }, u({ ac[1], ac[2], ac[3], 0.80 }), r);
+    if (y2 - y1 > 14) then
+        local ri = math.max(0, r - 3);
+        dl:AddRect({ x1 + 3, y1 + 3 }, { x2 - 3, y2 - 3 }, u({ ac[1], ac[2], ac[3], 0.18 }), ri);
+    end
+    dl:AddLine({ x1 + r + 4, y1 + 1 }, { x2 - r - 4, y1 + 1 }, u({ 1, 1, 1, 0.06 }), 1);
 end
 omni.theme_frame = theme_frame;
 

@@ -32,6 +32,11 @@ talks.PACKS = {
     { id = 'drunk',   label = 'Drunk',     tip = 'one too many at the Kazham bar' },
     { id = 'grumpy',  label = 'Grumpy',    tip = 'not impressed' },
     { id = 'whisper', label = 'Whisper',   tip = 'psst...' },
+    { id = 'frat',    label = 'Frat Bro',  tip = 'brooo, gains' },
+    { id = 'fratgirl',label = 'Frat Girl', tip = 'oh my gosh, literally' },
+    { id = 'indian',  label = 'Indian',    tip = 'kindly do the needful' },
+    { id = 'german',  label = 'German',    tip = 'Achtung! very efficient' },
+    { id = 'italian', label = 'Italian',   tip = 'mamma mia!' },
     { id = 'classic', label = 'Classic',   tip = "chatmon's own voice" },
     { id = 'chimes',  label = 'Chimes',    tip = 'no voice, just tones' },
 };
