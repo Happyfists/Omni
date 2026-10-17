@@ -6,8 +6,8 @@
         Follow button. In Abyssea it shows Visitant time and lights instead.
       * Sneak / Invisible buttons on the bar: magic, ninjutsu, Spectral Jig or Silent Oil / Prism
         Powder, whichever you can use (omni_stealth.lua).
-      * Looks (Options > Look): Crystal & Gold, Black & Gold (black panels with grey and gold buttons on the
-        tabs that have no painted background; themes/blackgold.lua), or Classic.
+      * Looks (Options > Look): Crystal & Gold, Classic, and themes (THEMES in omni.lua, themes/<id>.lua
+        for the Trove screens): Obsidian & Gold, Slate Minimal, Crimson Night, Emerald Grove, Amethyst, Frost.
       * Row under it: your buffs (left) and the target bar (right): name, HP, TH, distance, target's buffs.
       * Party jobs: see-through columns of FFXI job pictures beside the game's party and alliance
         lists; each grows upwards as people join (omni_party.lua, assets/jobs/ from HXUI).
@@ -55,7 +55,7 @@
 
 addon.name    = 'omni';
 addon.author  = 'Happyfists';
-addon.version = '2.11';
+addon.version = '2.12';
 addon.desc    = 'All-in-one addon.';
 
 require('common');
@@ -115,10 +115,73 @@ local BAR_HEIGHT = 32;
 local function crystal() return omni.settings.look ~= 'classic'; end
 -- Black & Gold (on trial): the Crystal bar, but tabs without a painted background get near-black
 -- panels, grey pill buttons and bright gold for the chosen ones (like the Self Chains window).
-local function blackgold() return omni.settings.look == 'blackgold'; end
-local function black_tab() return blackgold() and omni.active ~= nil and omni.active.bg == nil; end
 local GOLD     = { 0.90, 0.77, 0.42, 1.0 };
 local GOLD_DIM = { 0.90, 0.77, 0.42, 0.35 };
+
+-- Themes (Options > Look). 'crystal' and 'classic' are the original looks; every other look is a
+-- set of colours used for the bar, the row under it, the panel and every tab without a painted
+-- background (Sea and Sky keep their pictures). style: 'card' = rounded, 'flat' = square 1px lines.
+--   bg: panel  bar: bar / row  line: borders  accent: highlights and chosen tabs  pill: buttons
+--   hover: buttons under the mouse  inner: boxes inside pages  tint: what navy colours turn into
+local THEMES = {
+    blackgold = { label = 'Obsidian & Gold', style = 'card', radius = 8,
+        bg = { 0.086, 0.086, 0.090, 0.97 }, bar = { 0.070, 0.070, 0.075, 0.96 }, line = { 0.20, 0.20, 0.21, 1.0 },
+        accent = { 0.91, 0.73, 0.29, 1.0 }, pill = { 0.150, 0.150, 0.165, 1.0 }, hover = { 0.215, 0.215, 0.235, 1.0 },
+        inner = { 0.062, 0.062, 0.066, 1.0 }, tint = { 1.00, 1.00, 1.03 } },
+    slate = { label = 'Slate Minimal', style = 'flat', radius = 0,
+        bg = { 0.078, 0.086, 0.094, 0.95 }, bar = { 0.070, 0.078, 0.086, 0.95 }, line = { 0.18, 0.196, 0.212, 1.0 },
+        accent = { 0.37, 0.83, 0.78, 1.0 }, pill = { 0.140, 0.155, 0.170, 1.0 }, hover = { 0.190, 0.210, 0.230, 1.0 },
+        inner = { 0.060, 0.067, 0.075, 1.0 }, tint = { 0.97, 1.00, 1.04 } },
+    crimson = { label = 'Crimson Night', style = 'card', radius = 8,
+        bg = { 0.092, 0.070, 0.075, 0.97 }, bar = { 0.078, 0.058, 0.062, 0.96 }, line = { 0.26, 0.17, 0.18, 1.0 },
+        accent = { 0.88, 0.36, 0.38, 1.0 }, pill = { 0.175, 0.130, 0.140, 1.0 }, hover = { 0.245, 0.175, 0.190, 1.0 },
+        inner = { 0.066, 0.050, 0.054, 1.0 }, tint = { 1.06, 0.96, 0.97 } },
+    emerald = { label = 'Emerald Grove', style = 'card', radius = 8,
+        bg = { 0.060, 0.086, 0.074, 0.97 }, bar = { 0.050, 0.072, 0.062, 0.96 }, line = { 0.15, 0.25, 0.20, 1.0 },
+        accent = { 0.38, 0.82, 0.56, 1.0 }, pill = { 0.110, 0.170, 0.140, 1.0 }, hover = { 0.150, 0.230, 0.190, 1.0 },
+        inner = { 0.045, 0.066, 0.056, 1.0 }, tint = { 0.95, 1.05, 1.00 } },
+    amethyst = { label = 'Amethyst', style = 'card', radius = 8,
+        bg = { 0.086, 0.070, 0.112, 0.97 }, bar = { 0.072, 0.058, 0.096, 0.96 }, line = { 0.23, 0.18, 0.31, 1.0 },
+        accent = { 0.74, 0.58, 0.96, 1.0 }, pill = { 0.160, 0.130, 0.210, 1.0 }, hover = { 0.220, 0.180, 0.290, 1.0 },
+        inner = { 0.060, 0.050, 0.080, 1.0 }, tint = { 1.00, 0.96, 1.10 } },
+    frost = { label = 'Frost', style = 'card', radius = 10,
+        bg = { 0.070, 0.090, 0.115, 0.96 }, bar = { 0.060, 0.078, 0.100, 0.95 }, line = { 0.22, 0.30, 0.38, 1.0 },
+        accent = { 0.55, 0.80, 1.00, 1.0 }, pill = { 0.130, 0.165, 0.205, 1.0 }, hover = { 0.180, 0.225, 0.280, 1.0 },
+        inner = { 0.050, 0.066, 0.086, 1.0 }, tint = { 0.94, 1.00, 1.12 } },
+};
+-- Order shown in Options > Look.
+local LOOK_ORDER = { 'crystal', 'blackgold', 'slate', 'crimson', 'emerald', 'amethyst', 'frost', 'classic' };
+local LOOK_LABEL = { crystal = 'Crystal & Gold', classic = 'Classic' };
+for id, t in pairs(THEMES) do
+    LOOK_LABEL[id] = t.label;
+    -- Accent buttons are a touch darker than the accent so their light text stays readable.
+    t.btn = { t.accent[1] * 0.78, t.accent[2] * 0.78, t.accent[3] * 0.78, 1.0 };
+end
+local function theme() return THEMES[omni.settings.look]; end
+local function black_tab() return theme() ~= nil and omni.active ~= nil and omni.active.bg == nil; end
+-- GOLD / GOLD_DIM follow the theme's accent, so every gold heading and chosen tab changes with it.
+local GOLD_BASE = { GOLD[1], GOLD[2], GOLD[3] };
+local function apply_accent()
+    local t = theme();
+    local a = t and t.accent or GOLD_BASE;
+    GOLD[1], GOLD[2], GOLD[3] = a[1], a[2], a[3];
+    GOLD_DIM[1], GOLD_DIM[2], GOLD_DIM[3] = a[1], a[2], a[3];
+end
+omni.theme = theme;
+-- A themed frame: soft shadow, body, 1px line and a faint highlight along the top.
+local function theme_frame(dl, x1, y1, x2, y2, fill)
+    local t = theme();
+    if (t == nil) then return; end
+    local r = math.min(t.radius, math.floor((y2 - y1) / 2));
+    local u = imgui.GetColorU32;
+    if (t.style ~= 'flat') then
+        dl:AddRectFilled({ x1 + 1, y1 + 3 }, { x2 + 1, y2 + 4 }, u({ 0, 0, 0, 0.35 }), r);
+    end
+    dl:AddRectFilled({ x1, y1 }, { x2, y2 }, u(fill or t.bar), r);
+    dl:AddRect({ x1, y1 }, { x2, y2 }, u(t.line), r);
+    dl:AddLine({ x1 + r + 1, y1 + 1 }, { x2 - r - 1, y1 + 1 }, u({ 1, 1, 1, 0.06 }), 1);
+end
+omni.theme_frame = theme_frame;
 
 -- A slim flat bar (Crystal look): empty track, filled part, nothing rounded.
 local function draw_line_bar(dl, x1, y1, x2, y2, fraction, color)
@@ -575,7 +638,11 @@ local function draw_bar(player, job)
             local bwx, bwy = imgui.GetWindowPos();
             local bww = imgui.GetWindowWidth();
             if (type(bww) == 'number' and bww > 40) then
-                pcall(ornate, imgui.GetWindowDrawList(), bwx + 1, bwy + 1, bwx + bww - 1, bwy + BAR_HEIGHT - 1, 'point');
+                if (theme() ~= nil) then
+                    pcall(theme_frame, imgui.GetWindowDrawList(), bwx + 1, bwy + 1, bwx + bww - 1, bwy + BAR_HEIGHT - 1);
+                else
+                    pcall(ornate, imgui.GetWindowDrawList(), bwx + 1, bwy + 1, bwx + bww - 1, bwy + BAR_HEIGHT - 1, 'point');
+                end
             end
         end
 
@@ -775,7 +842,8 @@ local function draw_exp(player, job, ox, ow, oh)
     if (imgui.Begin('OmniExp' .. omni.suffix, omni.bar_open, flags)) then
         local dl = imgui.GetWindowDrawList();
         local wx, wy = imgui.GetWindowPos();
-        if (orn) then pcall(ornate, dl, wx + 1, wy + 1, wx + W - 1, wy + height - 1, 'bevel', nil, 5); end
+        if (orn and theme() ~= nil) then pcall(theme_frame, dl, wx + 1, wy + 1, wx + W - 1, wy + height - 1);
+        elseif (orn) then pcall(ornate, dl, wx + 1, wy + 1, wx + W - 1, wy + height - 1, 'bevel', nil, 5); end
         local white = imgui.GetColorU32({ 1.0, 1.0, 1.0, 1.0 });
         local _, text_h = imgui.CalcTextSize('Ag');
         text_h = text_h or 14;
@@ -893,7 +961,8 @@ local function draw_target(ox, ow, oh)
         -- HP bar: a rounded pill like HXUI's, drawn by hand so it can have that shape.
         local dl = imgui.GetWindowDrawList();
         local wx, wy = imgui.GetWindowPos();
-        if (orn) then pcall(ornate, dl, wx + 1, wy + 1, wx + W - 1, wy + height - 1, 'bevel', nil, 5); end
+        if (orn and theme() ~= nil) then pcall(theme_frame, dl, wx + 1, wy + 1, wx + W - 1, wy + height - 1);
+        elseif (orn) then pcall(ornate, dl, wx + 1, wy + 1, wx + W - 1, wy + height - 1, 'bevel', nil, 5); end
         -- The HP bar fills the row; the target's buffs / debuffs sit inside it at the left end.
         local icons_w = 0;
         if (#ids > 0) then
@@ -1581,10 +1650,17 @@ do
 
         imgui.TextColored(GOLD, 'Look');
         do
-            local looks = { { 'crystal', 'Crystal & Gold' }, { 'blackgold', 'Black & Gold' }, { 'classic', 'Classic' } };
+            local looks = {};
+            for _, id in ipairs(LOOK_ORDER) do looks[#looks + 1] = { id, LOOK_LABEL[id] }; end
             local cur = s.look or 'crystal';
+            local availw = imgui.GetContentRegionAvail();
+            local used = 0;
             for i, m in ipairs(looks) do
-                if (i > 1) then imgui.SameLine(0, 6); end
+                local bw = imgui.CalcTextSize(m[2]) + 24;
+                if (i > 1) then
+                    if (used + 6 + bw > availw) then used = 0; else imgui.SameLine(0, 6); used = used + 6; end
+                end
+                used = used + bw;
                 local on = (cur == m[1]);
                 imgui.PushStyleColor(ImGuiCol_Button, on and { 0.55, 0.45, 0.18, 1.0 } or { 0.16, 0.17, 0.26, 1.0 });
                 if (imgui.Button(m[2] .. '##opt_look' .. i, { imgui.CalcTextSize(m[2]) + 24, 0 })) then s.look = m[1]; save(); end
@@ -1780,16 +1856,15 @@ local function dull(c)
     return hi < 0.40 and (hi - lo) < 0.20 and (c[4] == nil or c[4] > 0.2);
 end
 local cscope = { on = false, vars = 0, cols = 0, real_var = nil, real_col = nil };
--- Black & Gold inside the page: rounded grey pills, gold when chosen, near-black boxes.
-local BG_PILL, BG_HOVER, BG_GOLD = { 0.150, 0.150, 0.165, 1.0 }, { 0.215, 0.215, 0.235, 1.0 }, { 0.80, 0.62, 0.22, 1.0 };
-local BG_LINE = { 0.20, 0.20, 0.21, 1.0 };
--- Navy / blue-grey shades a page picks for itself become the same shade of plain grey-black.
+-- Themed pages: the theme's pills, its accent when chosen, its dark boxes.
+local BG_PILL, BG_HOVER, BG_GOLD, BG_LINE, BG_TINT, BG_INNER = nil, nil, nil, nil, { 1, 1, 1.03 }, nil;
+-- Navy / blue-grey shades a page picks for itself become the same shade in the theme's colour.
 local function unnavy(c)
     if (type(c) ~= 'table' or #c < 3) then return c; end
     local r, g, b = c[1], c[2], c[3];
     if (math.max(r, g, b) < 0.50 and b - r > 0.025 and b >= g) then
         local v = (r + g + b) / 3 * 0.80;
-        return { v, v, v * 1.03, c[4] or 1.0 };
+        return { math.min(1, v * BG_TINT[1]), math.min(1, v * BG_TINT[2]), math.min(1, v * BG_TINT[3]), c[4] or 1.0 };
     end
     return c;
 end
@@ -1797,9 +1872,12 @@ local function goldish(c)
     return type(c) == 'table' and #c >= 3 and c[1] > 0.40 and c[1] - c[3] > 0.20 and (c[4] == nil or c[4] > 0.5);
 end
 local function black_begin()
+    local t = theme();
+    BG_PILL, BG_HOVER, BG_GOLD, BG_LINE, BG_TINT, BG_INNER = t.pill, t.hover, t.btn, t.line, t.tint, t.inner;
+    local rr = (t.style == 'flat') and 0 or 1;
     local vars = {
-        { 'ImGuiStyleVar_FrameRounding', 6 }, { 'ImGuiStyleVar_ChildRounding', 8 }, { 'ImGuiStyleVar_GrabRounding', 4 },
-        { 'ImGuiStyleVar_TabRounding', 6 }, { 'ImGuiStyleVar_PopupRounding', 6 }, { 'ImGuiStyleVar_ScrollbarRounding', 6 },
+        { 'ImGuiStyleVar_FrameRounding', 6 * rr }, { 'ImGuiStyleVar_ChildRounding', 8 * rr }, { 'ImGuiStyleVar_GrabRounding', 4 * rr },
+        { 'ImGuiStyleVar_TabRounding', 6 * rr }, { 'ImGuiStyleVar_PopupRounding', 6 * rr }, { 'ImGuiStyleVar_ScrollbarRounding', 6 * rr },
         { 'ImGuiStyleVar_FrameBorderSize', 0 }, { 'ImGuiStyleVar_ChildBorderSize', 1 },
     };
     cscope.vars = 0;
@@ -1810,16 +1888,16 @@ local function black_begin()
     local cols = {
         { 'ImGuiCol_Button', BG_PILL }, { 'ImGuiCol_ButtonHovered', BG_HOVER }, { 'ImGuiCol_ButtonActive', BG_GOLD },
         { 'ImGuiCol_Border', BG_LINE }, { 'ImGuiCol_BorderShadow', { 0, 0, 0, 0 } },
-        { 'ImGuiCol_FrameBg', BG_PILL }, { 'ImGuiCol_FrameBgHovered', BG_HOVER }, { 'ImGuiCol_FrameBgActive', { 0.26, 0.26, 0.28, 1.0 } },
+        { 'ImGuiCol_FrameBg', BG_PILL }, { 'ImGuiCol_FrameBgHovered', BG_HOVER }, { 'ImGuiCol_FrameBgActive', BG_HOVER },
         { 'ImGuiCol_CheckMark', GOLD }, { 'ImGuiCol_SliderGrab', BG_GOLD }, { 'ImGuiCol_SliderGrabActive', GOLD },
         { 'ImGuiCol_Header', BG_PILL }, { 'ImGuiCol_HeaderHovered', BG_HOVER }, { 'ImGuiCol_HeaderActive', BG_GOLD },
         { 'ImGuiCol_Separator', BG_LINE }, { 'ImGuiCol_SeparatorHovered', BG_HOVER }, { 'ImGuiCol_SeparatorActive', GOLD },
         { 'ImGuiCol_Tab', BG_PILL }, { 'ImGuiCol_TabHovered', BG_HOVER }, { 'ImGuiCol_TabActive', BG_GOLD },
         { 'ImGuiCol_TabUnfocused', BG_PILL }, { 'ImGuiCol_TabUnfocusedActive', BG_GOLD },
-        { 'ImGuiCol_ChildBg', { 0.062, 0.062, 0.066, 1.0 } }, { 'ImGuiCol_PopupBg', { 0.08, 0.08, 0.085, 0.98 } },
+        { 'ImGuiCol_ChildBg', BG_INNER }, { 'ImGuiCol_PopupBg', { t.bg[1], t.bg[2], t.bg[3], 0.98 } },
         { 'ImGuiCol_ScrollbarBg', { 0, 0, 0, 0 } }, { 'ImGuiCol_ScrollbarGrab', BG_HOVER },
-        { 'ImGuiCol_ScrollbarGrabHovered', { 0.30, 0.30, 0.32, 1.0 } }, { 'ImGuiCol_ScrollbarGrabActive', GOLD },
-        { 'ImGuiCol_PlotHistogram', BG_GOLD }, { 'ImGuiCol_TextSelectedBg', { 0.80, 0.62, 0.22, 0.35 } },
+        { 'ImGuiCol_ScrollbarGrabHovered', BG_LINE }, { 'ImGuiCol_ScrollbarGrabActive', GOLD },
+        { 'ImGuiCol_PlotHistogram', BG_GOLD }, { 'ImGuiCol_TextSelectedBg', { t.accent[1], t.accent[2], t.accent[3], 0.35 } },
     };
     cscope.cols = 0;
     for _, c in ipairs(cols) do
@@ -1931,9 +2009,7 @@ local function draw_panel()
             local pww, pwh = imgui.GetWindowWidth(), imgui.GetWindowHeight();
             if (type(pwh) == 'number' and pwh > 30) then
                 if (black_tab()) then
-                    local pdl = imgui.GetWindowDrawList();
-                    pdl:AddRectFilled({ pwx + 1, pwy + 2 }, { pwx + pww - 1, pwy + pwh - 1 }, imgui.GetColorU32({ 0.086, 0.086, 0.090, 0.97 }), 8);
-                    pdl:AddRect({ pwx + 1, pwy + 2 }, { pwx + pww - 1, pwy + pwh - 1 }, imgui.GetColorU32({ 0.20, 0.20, 0.21, 1.0 }), 8);
+                    pcall(theme_frame, imgui.GetWindowDrawList(), pwx + 1, pwy + 2, pwx + pww - 1, pwy + pwh - 1, theme().bg);
                 else
                     pcall(ornate, imgui.GetWindowDrawList(), pwx + 1, pwy + 2, pwx + pww - 1, pwy + pwh - 1, 'bevel', { 0.035, 0.050, 0.12, 0.95 }, 12);
                 end
@@ -2007,7 +2083,7 @@ local function draw_panel()
         if (sel ~= nil) then
             omni.active = sel;
             -- Black & Gold: no grey behind the page, the black panel shows through.
-            local bt = cr and blackgold() and sel.bg == nil;
+            local bt = cr and theme() ~= nil and sel.bg == nil;
             if (bt) then imgui.PushStyleColor(ImGuiCol_ChildBg, { 0, 0, 0, 0 }); end
             imgui.BeginChild('##omni_tab_' .. sel.label, { 0, sel.height or 300 }, false);
             if (bt) then imgui.PopStyleColor(1); end
@@ -2215,6 +2291,7 @@ end);
 
 ashita.events.register('d3d_present', 'omni_present', function ()
     if (omni.chatcolors ~= nil) then omni.chatcolors.settings = omni.settings; end
+    pcall(apply_accent);
     pcall(sparks.tick);
     pcall(sparks.sell.tick);
     local entity = GetPlayerEntity();
@@ -2237,7 +2314,7 @@ ashita.events.register('d3d_present', 'omni_present', function ()
     xp_tick();
 
     trove.load();   -- does its work once, on the first frame
-    if (trove.setLook ~= nil) then pcall(trove.setLook, crystal() and (black_tab() and 'blackgold' or 'crystal') or 'omni'); end
+    if (trove.setLook ~= nil) then pcall(trove.setLook, crystal() and (black_tab() and omni.settings.look or 'crystal') or 'omni'); end
 
     -- Keep the game's own buff icons (top-left) hidden; omni shows them on the XP bar instead.
     -- Checked every few seconds so it also takes over if another addon stops hiding them.
