@@ -22,7 +22,7 @@
 
     Panel tabs (and the file that draws each one)
       Top row
-        Abyssea    - Procs (+ pop-out) and NM Pops (omni_abyssea.lua, omni_abypops.lua, abydata/)
+        Abyssea    - Procs (+ pop-out), NM Pops and Weapons (omni_abyssea.lua, omni_abypops.lua, omni_abyweapons.lua, abydata/)
         Quests     - Journey overview, quests by region, mission storylines (omni_quests.lua, qdata/)
         Multisend  - Follow Me, sim-cast and quick commands (omni_multisend.lua)
         Damage     - Simple meter and Advanced breakdown (this file, omni_damage.lua, omni_action.lua)
@@ -55,7 +55,7 @@
 
 addon.name    = 'omni';
 addon.author  = 'Happyfists';
-addon.version = '2.18';
+addon.version = '2.19';
 addon.desc    = 'All-in-one addon.';
 
 require('common');
@@ -1545,6 +1545,10 @@ do
     local okp, abypops = pcall(require, 'omni_abypops');
     local abypops_err = nil;
     if (not okp) then abypops_err = abypops; abypops = nil; print('[omni] NM Pops could not load: ' .. tostring(abypops_err)); end
+    -- Weapons: Empyrean weapon Magian trials, kill and trophy tracker (omni_abyweapons.lua).
+    local okw, abyweapons = pcall(require, 'omni_abyweapons');
+    local abyweapons_err = nil;
+    if (not okw) then abyweapons_err = abyweapons; abyweapons = nil; print('[omni] Abyssea Weapons could not load: ' .. tostring(abyweapons_err)); end
     local tab = { label = 'Abyssea', width = 900, height = 600 };
     local opts = { settings = nil, save = function () settings.save('omni'); end };
     tab.render = function ()
@@ -1556,6 +1560,14 @@ do
         if (imgui.BeginTabBar('##omni_aby_sub')) then
             if (imgui.BeginTabItem('Procs##omni_abysub')) then
                 abyssea.render_procs(opts);
+                imgui.EndTabItem();
+            end
+            if (imgui.BeginTabItem('Weapons##omni_abysub')) then
+                if (abyweapons ~= nil) then
+                    abyweapons.render(opts);
+                else
+                    imgui.TextColored({ 1.0, 0.45, 0.45, 1.0 }, 'Weapons could not load: ' .. tostring(abyweapons_err));
+                end
                 imgui.EndTabItem();
             end
             if (imgui.BeginTabItem('NM Pops##omni_abysub')) then
