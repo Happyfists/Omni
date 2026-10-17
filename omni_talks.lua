@@ -40,6 +40,9 @@ talks.PACKS = {
     { id = 'aussie',  label = 'Aussie',    tip = 'crikey, mate!' },
     { id = 'southern',label = 'Southern',  tip = 'well, bless your heart' },
     { id = 'chinese', label = 'Chinese',   tip = 'very lucky, very good!' },
+    { id = 'singalong',label = 'Sing-along', tip = 'old nursery tunes, new words' },
+    { id = 'quotes',  label = 'Quotes',    tip = 'Shakespeare and history, Vana\'diel style' },
+    { id = 'trailer', label = 'Trailer',   tip = 'in a world... (movie trailer voice)' },
     { id = 'classic', label = 'Classic',   tip = "chatmon's own voice" },
     { id = 'chimes',  label = 'Chimes',    tip = 'no voice, just tones' },
 };
