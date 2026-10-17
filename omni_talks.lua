@@ -18,6 +18,7 @@ talks.settings = nil;
 
 -- The voice packs, in the order shown.
 talks.PACKS = {
+    { id = 'random',  label = 'Random!',   tip = 'a different voice pack every time' },
     { id = 'heart',   label = 'Heart',     tip = 'US woman' },
     { id = 'emma',    label = 'Emma',      tip = 'British woman' },
     { id = 'lily',    label = 'Lily',      tip = 'British woman' },
@@ -30,6 +31,7 @@ talks.PACKS = {
     { id = 'hype',    label = 'HYPE!!!',   tip = 'way over the top, with an air horn' },
     { id = 'comedy',  label = 'Comedy',    tip = 'cheeky jokes' },
     { id = 'drunk',   label = 'Drunk',     tip = 'one too many at the Kazham bar' },
+    { id = 'rude',    label = 'Rude',      tip = 'oi, numpty!' },
     { id = 'grumpy',  label = 'Grumpy',    tip = 'not impressed' },
     { id = 'whisper', label = 'Whisper',   tip = 'psst...' },
     { id = 'frat',    label = 'Frat Bro',  tip = 'brooo, gains' },
@@ -77,8 +79,22 @@ local function base()
 end
 
 -- Play one alert's clip from a pack (the current one unless given).
+-- "Random!" picks any voiced pack (not Chimes) each time, never the same one twice running.
+local last_rand = nil;
+local function random_pack()
+    local pool = {};
+    for _, p in ipairs(talks.PACKS) do
+        if p.id ~= 'random' and p.id ~= 'chimes' and p.id ~= last_rand then pool[#pool + 1] = p.id; end
+    end
+    last_rand = pool[math.random(#pool)];
+    return last_rand;
+end
+math.randomseed(os.time());
+
 talks.play = function (key, pk)
-    local path = base() .. (pk or pack()) .. '\\' .. key .. '.wav';
+    pk = pk or pack();
+    if pk == 'random' then pk = random_pack(); end
+    local path = base() .. pk .. '\\' .. key .. '.wav';
     pcall(function () ashita.misc.play_sound(path); end);
 end
 
