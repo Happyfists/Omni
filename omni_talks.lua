@@ -43,6 +43,12 @@ talks.PACKS = {
     { id = 'singalong',label = 'Sing-along', tip = 'old nursery tunes, new words' },
     { id = 'quotes',  label = 'Quotes',    tip = 'Shakespeare and history, Vana\'diel style' },
     { id = 'trailer', label = 'Trailer',   tip = 'in a world... (movie trailer voice)' },
+    { id = 'nature',  label = 'Nature Show', tip = 'hushed wildlife documentary' },
+    { id = 'action',  label = 'Action Hero', tip = 'gruff, explosions' },
+    { id = 'royal',   label = 'Royal',     tip = 'one is most amused' },
+    { id = 'football',label = 'Football',  tip = 'GET IN! back of the net!' },
+    { id = 'wrestling',label = 'Wrestling', tip = 'ring the bell!' },
+    { id = 'wizard',  label = 'Wizard',    tip = 'wise old mage' },
     { id = 'classic', label = 'Classic',   tip = "chatmon's own voice" },
     { id = 'chimes',  label = 'Chimes',    tip = 'no voice, just tones' },
 };
