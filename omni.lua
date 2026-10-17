@@ -55,7 +55,7 @@
 
 addon.name    = 'omni';
 addon.author  = 'Happyfists';
-addon.version = '2.17';
+addon.version = '2.18';
 addon.desc    = 'All-in-one addon.';
 
 require('common');
@@ -1695,7 +1695,7 @@ do
         toggle('Show spell and attack animations', 'fx_on', true, 'lightning, fireballs, cures...');
         toggle('Only my party and alliance', 'fx_party', true);
         toggle('Lines', 'fx_lines', true, 'target lines between fighters and spell lines; off = animations only');
-        toggle('AI art', 'fx_art', true, 'painted fireballs, lightning, halos... off = simple drawn look');
+        toggle('AI art', 'fx_art', false, 'painted fireballs, lightning, halos... off = the drawn look');
         imgui.Dummy({ 1, 6 });
 
         imgui.TextColored(GOLD, 'Party job pictures');
@@ -2133,6 +2133,12 @@ ashita.events.register('load', 'omni_load', function ()
         omni.settings.bg_trial = true;
         omni.settings.look_before = omni.settings.look;
         omni.settings.look = 'blackgold';
+        pcall(settings.save, 'omni');
+    end
+    -- 2.18: spell lines back to the drawn look (AI art off) once; Options > AI art turns it on again.
+    if (omni.settings.fx_art_reset ~= true) then
+        omni.settings.fx_art_reset = true;
+        omni.settings.fx_art = false;
         pcall(settings.save, 'omni');
     end
     omni.started = true;   -- the game is up

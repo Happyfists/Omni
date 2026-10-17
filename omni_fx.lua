@@ -254,7 +254,7 @@ end
 -- Draw sprite `name` so that its point (ax, ay) (0..1 across the picture) sits at (x, y), w x h
 -- pixels, turned by `ang` radians. Falls back to an unturned picture if quads are not available.
 local quad_ok = nil;
-local function art_on() return on('fx_art', true); end
+local function art_on() return on('fx_art', false); end   -- off by default: the drawn look
 local function draw_sprite(name, x, y, ax, ay, w, h, ang, alpha, flipv, tint)
     if not art_on() then return false; end
     local hnd = sprite(name);
