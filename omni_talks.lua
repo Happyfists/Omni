@@ -37,6 +37,9 @@ talks.PACKS = {
     { id = 'indian',  label = 'Indian',    tip = 'kindly do the needful' },
     { id = 'german',  label = 'German',    tip = 'Achtung! very efficient' },
     { id = 'italian', label = 'Italian',   tip = 'mamma mia!' },
+    { id = 'aussie',  label = 'Aussie',    tip = 'crikey, mate!' },
+    { id = 'southern',label = 'Southern',  tip = 'well, bless your heart' },
+    { id = 'chinese', label = 'Chinese',   tip = 'very lucky, very good!' },
     { id = 'classic', label = 'Classic',   tip = "chatmon's own voice" },
     { id = 'chimes',  label = 'Chimes',    tip = 'no voice, just tones' },
 };
