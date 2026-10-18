@@ -74,6 +74,7 @@ local default_settings = T{
         play_sound          = true,
         party_callout       = true,    -- omni addition: say AV's 2-hours in party chat
         party_warning       = true,    -- omni addition: warn the party 10s before each 2-hour
+        auto_open           = true,    -- omni addition: open the Happy Virtue window when AV pops
         -- These point at stock Windows sound files so alerts work out of the box.
         -- Replace with your own .wav paths (e.g. C:\FFXI\config\addons\avhelper\alert.wav) if you like.
         sound_trigger       = 'C:\\Windows\\Media\\Windows Notify System Generic.wav',
@@ -514,20 +515,32 @@ local function check_spawn()
     if (os.clock() - spawn_checked < 1) then return; end
     spawn_checked = os.clock();
     local name = (avh.settings.general.mob_name or 'Absolute Virtue'):lower();
-    local found = false;
+    local found, hpp = false, 0;
     pcall(function ()
         local ent = AshitaCore:GetMemoryManager():GetEntity();
         for i = 1, 0x3FF do
             local n = ent:GetName(i);
             if (n ~= nil and n:lower() == name and ent:GetHPPercent(i) > 0
                 and bit.band(ent:GetRenderFlags0(i), 0x200) == 0x200) then
-                found = true;
+                found, hpp = true, ent:GetHPPercent(i);
                 break;
             end
         end
     end);
-    if (found and not spawn_seen and (fight.start == nil or fight.stop ~= nil)) then
-        fight_begin('Absolute Virtue appeared');
+    if (found and not spawn_seen) then
+        if (hpp >= 100) then
+            -- A fresh pop (full HP): always a new fight, even if an old timer was left running
+            -- (a wipe or depop never shows the "defeats" line, so the old one never stopped).
+            fight.start, fight.stop = nil, nil;
+            fight_begin('Absolute Virtue popped');
+            if (avh.settings.general.auto_reset_on_speech) then reset_state(); end
+            if (avh.settings.general.auto_open ~= false and not avh.settings.visible[1]) then
+                avh.settings.visible[1] = true;   -- open the Happy Virtue window
+            end
+        elseif (fight.start == nil or fight.stop ~= nil) then
+            -- Walked up to a fight already going: start counting from now.
+            fight_begin('Absolute Virtue in view');
+        end
     end
     spawn_seen = found;
 end
@@ -1206,6 +1219,11 @@ return {
     -- omni: the floating AV tracker window (Options > Pop-outs).
     float_shown = function () return avh.settings.visible[1] == true; end,
     set_float = function (on) avh.settings.visible[1] = (on == true); settings.save('omni_av'); end,
+    -- omni: open Happy Virtue by itself when AV pops (get, or set with a value).
+    auto_open = function (on)
+        if (on ~= nil) then avh.settings.general.auto_open = (on == true); settings.save('omni_av'); end
+        return avh.settings.general.auto_open ~= false;
+    end,
     draw_tab = function (host)
         draw_body();
         imgui.Spacing();
