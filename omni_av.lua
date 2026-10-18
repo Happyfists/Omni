@@ -914,7 +914,22 @@ local function render()
     -- omni change: drawn in omni's own look (the Look picked in Options), not the default red.
     local st = package.loaded['omni_style'];
     local ns = st and st.begin() or nil;
-    if (imgui.Begin('Happy Virtue##avh_float', avh.settings.visible, bit.bor(ImGuiWindowFlags_NoResize, ImGuiWindowFlags_NoCollapse))) then
+    -- The arrow on the title bar minimises it to just the bar; the bar keeps the fight time,
+    -- the next 2-hour and how many are locked, so it is still useful when small.
+    -- (kept short to fit the 300px window: "Virtue 0:13:09 | 2h 1:00 | 3/12")
+    local title;
+    local ft = fight_text();
+    if (ft ~= nil) then
+        title = 'Virtue ' .. ft;
+        if (fight.next_2h ~= nil and fight.stop == nil) then
+            local left = math.max(0, fight.next_2h - os.clock());
+            title = title .. (' | 2h %d:%02d'):fmt(math.floor(left / 60), math.floor(left) % 60);
+        end
+        title = title .. (' | %d/%d'):fmt(locked_count(), #ABILITY_ORDER);
+    else
+        title = ('Happy Virtue   %d/%d locked'):fmt(locked_count(), #ABILITY_ORDER);
+    end
+    if (imgui.Begin(title .. '###avh_float', avh.settings.visible, ImGuiWindowFlags_NoResize)) then
         draw_body();
     end
     imgui.End();
