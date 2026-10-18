@@ -661,20 +661,22 @@ local function handle_av_use(name)
     st.armed      = true;
     st.armed_time = os.clock();
 
-    print_msg(chat.warning(('Absolute Virtue used %s! Counter within %.1fs to lock it.'):fmt(name, LOCK_WINDOW)));
+    -- omni: the job that can lock it, three times first ("BLM BLM BLM"), then the alert.
+    local job = '';
+    for code, ability in pairs(JOB_TO_ABILITY) do
+        if (ability == name) then job = code:upper(); end
+    end
+    local shout = (job ~= '') and (job .. ' ' .. job .. ' ' .. job .. ' - ') or '';
+    print_msg(chat.warning(('%sAbsolute Virtue used %s! Counter within %.1fs to lock it.'):fmt(shout, name, LOCK_WINDOW)));
 
     -- omni addition: call it out in party chat, naming the job that can lock it.
     if (avh.settings.general.party_callout) then
-        local job = '';
-        for code, ability in pairs(JOB_TO_ABILITY) do
-            if (ability == name) then job = code:upper(); end
-        end
-        local line = ('/p AV used %s! %s use %s within %ds to lock it!'):fmt(name, (job ~= '') and job or 'Someone', name, math.floor(LOCK_WINDOW));
+        local line = ('/p %sAV used %s! %s use %s within %ds to lock it!'):fmt(shout, name, (job ~= '') and job or 'Someone', name, math.floor(LOCK_WINDOW));
         local cn = tonumber(avh.settings.general.party_call) or 0;
         if (cn > 0) then line = line .. (' <call%d>'):fmt(cn); end
         send_party(line);
     end
-    set_alert(('%s used by AV - counter now!'):fmt(name), COLOR_ARMED);
+    set_alert(('%s%s used by AV - counter now!'):fmt(shout, name), COLOR_ARMED);
 
     avh.bar_active = true;
     avh.bar_start  = os.clock();
@@ -826,11 +828,20 @@ local function draw_body()
     local col = running and T{ 1.0, 0.82, 0.25, 1.0 } or ((fight.stop ~= nil) and COLOR_LOCKED or T{ 0.55, 0.55, 0.60, 1.0 });
     imgui.TextColored(col, ft);
     imgui.SetWindowFontScale(1.0);
+    -- How many are locked, right-aligned beside the big time.
+    do
+        local lc = locked_count();
+        local txt = ('%d/%d locked'):fmt(lc, #ABILITY_ORDER);
+        local tw = imgui.CalcTextSize(txt);
+        imgui.SameLine(math.max(120, avail - tw));
+        imgui.SetCursorPosY(imgui.GetCursorPosY() + 7);   -- line it up with the middle of the big time
+        imgui.TextColored((lc > 0) and COLOR_LOCKED or T{ 0.55, 0.55, 0.60, 1.0 }, txt);
+    end
 
     if (running and fight.next_2h ~= nil) then
         local left = math.max(0, fight.next_2h - os.clock());
         imgui.TextColored((left <= WARN_AT) and COLOR_ARMED or COLOR_UNLOCKED,
-            ('Next 2-hour in %d:%02d  -  %d/%d locked'):fmt(math.floor(left / 60), math.floor(left) % 60, locked_count(), #ABILITY_ORDER));
+            ('Next 2-hour in %d:%02d'):fmt(math.floor(left / 60), math.floor(left) % 60));
     elseif (fight.stop ~= nil) then
         imgui.TextDisabled('Finished. Reset for the next pop.');
     else
@@ -843,7 +854,9 @@ local function draw_body()
     -- window visibly grow and shrink as the countdown text changed. Passing a fixed width with
     -- height 0 every frame (ImGuiCond_Always) keeps the width constant while the height still
     -- auto-fits the content, and ImGuiWindowFlags_NoResize hides the now-pointless resize grip.
+        imgui.PushTextWrapPos(0);   -- omni: long alerts wrap instead of running off the edge
         imgui.TextColored(avh.alert_color, avh.alert_text);
+        imgui.PopTextWrapPos();
 
         if (avh.bar_active) then
             local remaining = math.max(0, avh.bar_window - (now - avh.bar_start));
@@ -868,10 +881,16 @@ local function draw_body()
                     imgui.TableNextRow();
 
                     imgui.TableNextColumn();
-                    if (name == my_ability) then
-                        imgui.TextColored(COLOR_MY_JOB, name);
-                    else
-                        imgui.Text(name);
+                    -- omni: click the row to mark it LOCKED (or unlocked again) by hand.
+                    local cur = avh.state[name];
+                    local is_locked = (cur ~= nil and cur.status == 'locked');
+                    imgui.PushStyleColor(ImGuiCol_Text, (name == my_ability) and COLOR_MY_JOB or { 0.92, 0.92, 0.95, 1.0 });
+                    if (imgui.Selectable(name .. '##avh_row_' .. name, false, ImGuiSelectableFlags_SpanAllColumns or 0)) then
+                        if (is_locked) then force_unlock(name, 'by hand'); else force_lock(name, 'by hand'); end
+                    end
+                    imgui.PopStyleColor(1);
+                    if (imgui.IsItemHovered()) then
+                        imgui.SetTooltip(is_locked and 'Click to mark it unlocked again.' or 'Click to mark it LOCKED.');
                     end
 
                     imgui.TableNextColumn();
