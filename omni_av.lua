@@ -746,6 +746,10 @@ local function handle_player_use(name, actor_name)
         set_alert(('%s LOCKED by %s!'):fmt(name, actor_name), COLOR_LOCKED);
         play_sound(avh.settings.general.sound_lock);
         avh.bar_active = false;
+        -- omni: a thank-you in party chat (with the party call-outs, so the same tick box).
+        if (avh.settings.general.party_callout) then
+            send_party(('/p Good job %s! %s is LOCKED (%d/%d locked)'):fmt(actor_name, name, locked_count(), #ABILITY_ORDER));
+        end
     else
         -- Used outside any active window - informational only, doesn't change any state.
         print_msg(chat.message(('%s used %s (Absolute Virtue hasn\'t shown it recently - no effect).'):fmt(actor_name, name)));
