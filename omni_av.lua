@@ -1199,6 +1199,9 @@ return {
     -- omni: 'zone' (Al'Taieu only), 'always' or 'off'.
     set_mode = function (m) if (m == 'zone' or m == 'always' or m == 'off') then listen_mode = m; end end,
     get_mode = function () return listen_mode; end,
+    -- omni: the floating AV tracker window (Options > Pop-outs).
+    float_shown = function () return avh.settings.visible[1] == true; end,
+    set_float = function (on) avh.settings.visible[1] = (on == true); settings.save('omni_av'); end,
     draw_tab = function (host)
         draw_body();
         imgui.Spacing();

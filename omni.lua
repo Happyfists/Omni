@@ -55,7 +55,7 @@
 
 addon.name    = 'omni';
 addon.author  = 'Happyfists';
-addon.version = '2.28';
+addon.version = '2.29';
 addon.desc    = 'All-in-one addon.';
 
 require('common');
@@ -1663,103 +1663,122 @@ do
         local s = omni.settings;
         local v = { (s[key] == nil) and default_on or (s[key] == true) };
         if (imgui.Checkbox(label .. '##opt_' .. key, v)) then s[key] = v[1]; save(); end
-        if (tip) then imgui.SameLine(0, 8); imgui.TextColored(DIM, tip); end
+        if (tip and imgui.IsItemHovered()) then imgui.SetTooltip(tip); end
+    end
+    -- A section title: gold, with a thin line under it the width of the column.
+    local function section(title)
+        imgui.Dummy({ 1, 2 });
+        imgui.TextColored(GOLD, title);
+        local x, y = imgui.GetCursorScreenPos();
+        local w = imgui.GetContentRegionAvail();
+        imgui.GetWindowDrawList():AddLine({ x, y }, { x + w, y }, imgui.GetColorU32({ GOLD[1], GOLD[2], GOLD[3], 0.30 }), 1);
+        imgui.Dummy({ 1, 3 });
+    end
+    -- A row of choice buttons that wraps inside the column; the chosen one is gold.
+    local function choices(id, list, cur, on_pick)
+        local availw = imgui.GetContentRegionAvail();
+        local used = 0;
+        for i, m in ipairs(list) do
+            local bw = imgui.CalcTextSize(m[2]) + 16;
+            if (i > 1) then
+                if (used + 4 + bw > availw) then used = 0; else imgui.SameLine(0, 4); used = used + 4; end
+            end
+            used = used + bw;
+            local on = (cur == m[1]);
+            imgui.PushStyleColor(ImGuiCol_Button, on and { 0.55, 0.45, 0.18, 1.0 } or { 0.16, 0.17, 0.26, 1.0 });
+            if (imgui.Button(m[2] .. '##' .. id .. i, { bw, 0 })) then on_pick(m[1]); end
+            imgui.PopStyleColor(1);
+            if (m[3] and imgui.IsItemHovered()) then imgui.SetTooltip(m[3]); end
+        end
     end
     local function render_general()
         local s = omni.settings;
-        imgui.TextColored(GOLD, 'AV helper (Absolute Virtue)');
-        local modes = { { 'zone', "Only in Al'Taieu" }, { 'always', 'Everywhere' }, { 'off', 'Off' } };
-        local cur = s.av_mode or 'zone';
-        for i, m in ipairs(modes) do
-            if (i > 1) then imgui.SameLine(0, 6); end
-            local on = (cur == m[1]);
-            imgui.PushStyleColor(ImGuiCol_Button, on and { 0.55, 0.45, 0.18, 1.0 } or { 0.16, 0.17, 0.26, 1.0 });
-            local clicked = imgui.Button(m[2] .. '##opt_av' .. i, { imgui.CalcTextSize(m[2]) + 24, 0 });
-            imgui.PopStyleColor(1);
-            if (clicked) then
-                s.av_mode = m[1];
-                if (omni.av ~= nil) then pcall(omni.av.set_mode, m[1]); end
-                save();
-            end
-        end
-        imgui.TextColored(DIM, "AV is only ever in Al'Taieu, so the first choice keeps it quiet everywhere else.");
-        imgui.Dummy({ 1, 6 });
+        local flags = bit.bor(ImGuiTableFlags_SizingStretchSame or 0, ImGuiTableFlags_NoPadOuterX or 0);
+        if (imgui.BeginTable('##opt_gen', 2, flags)) then
+            imgui.TableNextRow();
 
-        imgui.TextColored(GOLD, 'Look');
-        do
+            ------------------------------------------------------------------ left column
+            imgui.TableNextColumn();
+            section('Look');
             local looks = {};
             for _, id in ipairs(LOOK_ORDER) do looks[#looks + 1] = { id, LOOK_LABEL[id] }; end
-            local cur = s.look or 'crystal';
-            local availw = imgui.GetContentRegionAvail();
-            local used = 0;
-            for i, m in ipairs(looks) do
-                local bw = imgui.CalcTextSize(m[2]) + 24;
-                if (i > 1) then
-                    if (used + 6 + bw > availw) then used = 0; else imgui.SameLine(0, 6); used = used + 6; end
-                end
-                used = used + bw;
-                local on = (cur == m[1]);
-                imgui.PushStyleColor(ImGuiCol_Button, on and { 0.55, 0.45, 0.18, 1.0 } or { 0.16, 0.17, 0.26, 1.0 });
-                if (imgui.Button(m[2] .. '##opt_look' .. i, { imgui.CalcTextSize(m[2]) + 24, 0 })) then s.look = m[1]; save(); end
-                imgui.PopStyleColor(1);
+            choices('opt_look', looks, s.look or 'crystal', function (id) s.look = id; save(); end);
+
+            section('Bars');
+            toggle('Abyssea time and lights', 'aby_bar', true, 'In Abyssea zones the bar shows Visitant time and lights instead of XP.');
+            toggle('Sneak / Invisible buttons', 'stealth_bar', true, 'Magic, ninjutsu, Spectral Jig or oils and powders.');
+            local hide = { not s.show_native };
+            if (imgui.Checkbox("Hide the game's buff icons##opt_native", hide)) then
+                s.show_native = not hide[1];
+                omni.native_check = 0;   -- apply now
+                save();
             end
+            if (imgui.IsItemHovered()) then imgui.SetTooltip('omni shows your buffs under the bar instead.'); end
+
+            section('Chat');
+            toggle('Brighter chat colours', 'chat_bright', true, 'Party, linkshells and tells.');
+
+            section('Multisend');
+            local fm = { omni.msend ~= nil and omni.msend.following() };
+            if (imgui.Checkbox('Follow Me##opt_follow', fm) and omni.msend ~= nil) then omni.msend.toggle_follow(); end
+            if (imgui.IsItemHovered()) then imgui.SetTooltip('Same as the Follow button on the bar.'); end
+
+            ------------------------------------------------------------------ right column
+            imgui.TableNextColumn();
+            section('Pop-outs');
+            local pv = { s.aby_pop == true };
+            if (imgui.Checkbox('Abyssea proc tracker##opt_abypop', pv)) then s.aby_pop = pv[1]; save(); end
+            local av_on = { omni.av ~= nil and omni.av.float_shown ~= nil and omni.av.float_shown() };
+            if (imgui.Checkbox('AV tracker (Absolute Virtue)##opt_avpop', av_on) and omni.av ~= nil and omni.av.set_float ~= nil) then
+                omni.av.set_float(av_on[1]);
+            end
+            if (imgui.IsItemHovered()) then imgui.SetTooltip('The floating Absolute Virtue window: 2-hour locks and timers.\nSame as /avh show and /avh hide.'); end
+
+            section('AV helper listens');
+            choices('opt_av', {
+                { 'zone', "In Al'Taieu", "AV is only ever in Al'Taieu, so this keeps it quiet everywhere else." },
+                { 'always', 'Everywhere' },
+                { 'off', 'Off' },
+            }, s.av_mode or 'zone', function (m)
+                s.av_mode = m;
+                if (omni.av ~= nil) then pcall(omni.av.set_mode, m); end
+                save();
+            end);
+
+            section('Spell lines');
+            toggle('Animations', 'fx_on', true, 'Lightning, fireballs, cures and more.');
+            toggle('Only my party and alliance', 'fx_party', true);
+            toggle('Lines', 'fx_lines', true, 'Target lines between fighters and spell lines. Off = animations only.');
+            toggle('AI art', 'fx_art', false, 'Painted fireballs, lightning, halos. Off = the drawn look.');
+
+            imgui.EndTable();
         end
-        imgui.Dummy({ 1, 6 });
 
-        imgui.TextColored(GOLD, 'Bars');
-        toggle('Abyssea time and lights on the bar', 'aby_bar', true, 'in Abyssea zones, instead of XP');
-        toggle('Sneak / Invisible buttons on the bar', 'stealth_bar', true, 'magic, ninjutsu, Spectral Jig or oils/powders');
-        local hide = { not s.show_native };
-        if (imgui.Checkbox("Hide the game's own buff icons##opt_native", hide)) then
-            s.show_native = not hide[1];
-            omni.native_check = 0;   -- apply now
-            save();
-        end
-        imgui.SameLine(0, 8); imgui.TextColored(DIM, 'omni shows them under the bar');
-        imgui.Dummy({ 1, 6 });
-
-        imgui.TextColored(GOLD, 'Chat');
-        toggle('Brighter chat colours', 'chat_bright', true, 'party, linkshells and tells');
-        imgui.Dummy({ 1, 6 });
-
-        imgui.TextColored(GOLD, 'Spell lines');
-        toggle('Show spell and attack animations', 'fx_on', true, 'lightning, fireballs, cures...');
-        toggle('Only my party and alliance', 'fx_party', true);
-        toggle('Lines', 'fx_lines', true, 'target lines between fighters and spell lines; off = animations only');
-        toggle('AI art', 'fx_art', false, 'painted fireballs, lightning, halos... off = the drawn look');
-        imgui.Dummy({ 1, 6 });
-
-        imgui.TextColored(GOLD, 'Party job pictures');
-        toggle('Show job pictures beside the party and alliance lists', 'party_icons', true);
-        toggle('Move them', 'party_icons_unlocked', false, 'tick, drag each next to its party list, then untick');
+        ---------------------------------------------------------------------- full width
+        section('Party job pictures');
+        toggle('Show beside the party lists', 'party_icons', true, 'Job pictures beside your party and alliance lists.');
+        imgui.SameLine(0, 16);
+        toggle('Move them', 'party_icons_unlocked', false, 'Tick, drag each next to its party list, then untick.');
+        imgui.SameLine(0, 16);
         toggle('Show when solo', 'party_solo', false);
+        -- Size and row spacing for each party (the game draws them at different sizes).
         local function slider(label, key, default, lo, hi)
             local v = { s[key] or default };
-            imgui.PushItemWidth(120);
+            imgui.PushItemWidth(110);
             if (imgui.SliderInt(label .. '##opt_' .. key, v, lo, hi)) then s[key] = v[1]; save(); end
             imgui.PopItemWidth();
         end
-        -- Size and row spacing for each party on its own (the game draws them at different sizes).
         local names = { 'Your party', 'Alliance 2', 'Alliance 3' };
+        local x0 = imgui.GetCursorPosX();
         for n = 1, 3 do
             local pre = (n == 1) and 'party_' or ('party' .. n .. '_');
+            imgui.SetCursorPosX(x0);
             imgui.TextColored(DIM, names[n]);
-            imgui.SameLine(110);
+            imgui.SameLine(x0 + 90);
             slider('Size##p' .. n, pre .. 'icon_size', s.party_icon_size or 20, 12, 40);
-            imgui.SameLine(0, 12);
+            imgui.SameLine(x0 + 260);
             slider('Rows##p' .. n, pre .. 'icon_gap', s.party_icon_gap or 22, 12, 60);
         end
-        imgui.Dummy({ 1, 6 });
-
-        imgui.TextColored(GOLD, 'Pop-outs');
-        local pv = { s.aby_pop == true };
-        if (imgui.Checkbox('Abyssea proc tracker##opt_abypop', pv)) then s.aby_pop = pv[1]; save(); end
-        imgui.Dummy({ 1, 6 });
-
-        imgui.TextColored(GOLD, 'Multisend');
-        local fm = { omni.msend ~= nil and omni.msend.following() };
-        if (imgui.Checkbox('Follow Me##opt_follow', fm) and omni.msend ~= nil) then omni.msend.toggle_follow(); end
-        imgui.SameLine(0, 8); imgui.TextColored(DIM, 'also the Follow button on the bar');
 
         tab.height = math.max(160, math.floor(imgui.GetCursorPosY()) + 10);
     end
