@@ -978,6 +978,8 @@ local function print_help()
         { '/avh abilities',            'List tracked abilities and resolved ids.', },
         { '/avh lock <job>',           'Manually mark a job\'s 2hr LOCKED (e.g. /avh lock drg).', },
         { '/avh unlock <job>',         'Manually mark a job\'s 2hr UNLOCKED again (e.g. /avh unlock sam).', },
+        { '/avh locked',               'Show which 2-hours are locked and which are still open.', },
+        { '/avh locked party',         'Post that list to party chat.', },
         { '/avh test',                 'Act out AV using a 2-hour: alert, sound, window, and a party message marked (test) with the call sound.', },
         { '/avh test <job>',           'Same, with that job\'s 2-hour (e.g. /avh test blm).', },
         { '/avh test quiet',           'Same, but the party message is only shown to you.', },
@@ -1006,7 +1008,38 @@ ashita.events.register('command', 'avh_command_cb', function (e)
 
     if (sub == 'help') then
         print_help();
-    elseif (sub == 'test') then
+    elseif (sub == 'locked' or sub == 'locks') then
+        -- omni addition: what has been locked so far (and what is still open).
+        local locked, open_ = {}, {};
+        for _, n in ipairs(ABILITY_ORDER) do
+            if (avh.settings.abilities[n]) then
+                local st = avh.state[n];
+                if (st ~= nil and st.status == 'locked') then locked[#locked + 1] = n; else open_[#open_ + 1] = n; end
+            end
+        end
+        local head = ('Locked %d/%d: %s'):fmt(#locked, #locked + #open_, (#locked > 0) and table.concat(locked, ', ') or 'none yet');
+        local tail = ('Still open: %s'):fmt((#open_ > 0) and table.concat(open_, ', ') or 'none - all locked!');
+        if ((args[3] or ''):lower() == 'party' or (args[3] or ''):lower() == 'p') then
+            -- party chat lines are short, so send it in pieces of a few names each
+            local function post(prefix, list)
+                local line = prefix;
+                for i, n in ipairs(list) do
+                    local add = ((i > 1) and ', ' or ' ') .. n;
+                    if (#line + #add > 90) then
+                        pcall(function () AshitaCore:GetChatManager():QueueCommand(1, '/p ' .. line); end);
+                        line = '  ' .. n;
+                    else
+                        line = line .. add;
+                    end
+                end
+                pcall(function () AshitaCore:GetChatManager():QueueCommand(1, '/p ' .. line); end);
+            end
+            post(('AV locked %d/%d:'):fmt(#locked, #locked + #open_), (#locked > 0) and locked or { 'none yet' });
+            post('Still open:', (#open_ > 0) and open_ or { 'none - all locked!' });
+        else
+            print_msg(chat.success(head));
+            print_msg(tail);
+        end
         -- omni addition: act out AV using a 2-hour, without a real fight.
         local arg = (args[3] or ''):lower();
         local name = nil;
