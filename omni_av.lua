@@ -75,7 +75,8 @@ local default_settings = T{
         party_callout       = true,    -- omni addition: say AV's 2-hours in party chat
         party_warning       = true,    -- omni addition: warn the party 10s before each 2-hour
         auto_open           = true,    -- omni addition: open the Happy Virtue window when AV pops
-        party_call          = 14,      -- omni addition: <callN> sound on the party messages (0 = none)
+        party_call          = 3,       -- omni addition: <callN> sound on the party messages (0 = none)
+        party_call_set      = false,   -- omni: the one-time move from <call14> to <call3> is done
         -- These point at stock Windows sound files so alerts work out of the box.
         -- Replace with your own .wav paths (e.g. C:\FFXI\config\addons\avhelper\alert.wav) if you like.
         sound_trigger       = 'C:\\Windows\\Media\\Windows Notify System Generic.wav',
@@ -232,6 +233,15 @@ local COLOR_MY_JOB          = T{ 0.40, 0.70, 1.00, 1.0 };
 local function print_msg(str)
     print(chat.header(AVH_NAME):append(chat.message(str)));
 end
+
+-- omni: the call sound moved from <call14> to <call3>; do the move once, as soon as omni loads.
+pcall(function ()
+    if (not avh.settings.general.party_call_set) then
+        avh.settings.general.party_call_set = true;
+        if (tonumber(avh.settings.general.party_call) == 14) then avh.settings.general.party_call = 3; end
+        settings.save('omni_av');
+    end
+end);
 
 local function reset_state()
     for _, name in ipairs(ABILITY_ORDER) do
@@ -1257,7 +1267,7 @@ return {
         local cn = tonumber(avh.settings.general.party_call) or 0;
         local con = { cn > 0 };
         if (imgui.Checkbox('Call sound##avh_call', con)) then
-            avh.settings.general.party_call = con[1] and 14 or 0;
+            avh.settings.general.party_call = con[1] and 3 or 0;
             settings.save('omni_av');
         end
         if (imgui.IsItemHovered()) then imgui.SetTooltip('Adds <call> to the party messages so everyone hears a sound.'); end
