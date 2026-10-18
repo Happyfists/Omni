@@ -978,8 +978,8 @@ local function print_help()
         { '/avh abilities',            'List tracked abilities and resolved ids.', },
         { '/avh lock <job>',           'Manually mark a job\'s 2hr LOCKED (e.g. /avh lock drg).', },
         { '/avh unlock <job>',         'Manually mark a job\'s 2hr UNLOCKED again (e.g. /avh unlock sam).', },
-        { '/avh locked',               'Show which 2-hours are locked and which are still open.', },
-        { '/avh locked party',         'Post that list to party chat.', },
+        { '/av lock',                  'Show which 2-hours are locked and which are still open (/av = /avh).', },
+        { '/av lock party',            'Post that list to party chat.', },
         { '/avh test',                 'Act out AV using a 2-hour: alert, sound, window, and a party message marked (test) with the call sound.', },
         { '/avh test <job>',           'Same, with that job\'s 2-hour (e.g. /avh test blm).', },
         { '/avh test quiet',           'Same, but the party message is only shown to you.', },
@@ -993,7 +993,8 @@ end
 
 ashita.events.register('command', 'avh_command_cb', function (e)
     local args = e.command:args();
-    if (#args == 0 or args[1]:lower() ~= '/avh') then
+    -- omni: /av works as a short name for /avh.
+    if (#args == 0 or (args[1]:lower() ~= '/avh' and args[1]:lower() ~= '/av')) then
         return;
     end
     e.blocked = true;
@@ -1005,6 +1006,8 @@ ashita.events.register('command', 'avh_command_cb', function (e)
     end
 
     local sub = args[2]:lower();
+    -- omni: "/av lock" on its own (or "/av lock party") shows what is locked; "/av lock blm" still locks.
+    if (sub == 'lock' and (args[3] == nil or args[3]:lower() == 'party' or args[3]:lower() == 'p')) then sub = 'locked'; end
 
     if (sub == 'help') then
         print_help();
