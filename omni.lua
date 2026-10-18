@@ -55,7 +55,7 @@
 
 addon.name    = 'omni';
 addon.author  = 'Happyfists';
-addon.version = '2.30';
+addon.version = '2.31';
 addon.desc    = 'All-in-one addon.';
 
 require('common');
@@ -1744,12 +1744,12 @@ do
             imgui.TableNextColumn();
             if (section('Pop-outs')) then
             local pv = { s.aby_pop == true };
-            if (imgui.Checkbox('Abyssea proc tracker##opt_abypop', pv)) then s.aby_pop = pv[1]; save(); end
+            if (imgui.Checkbox('Happy Procs (Abyssea procs)##opt_abypop', pv)) then s.aby_pop = pv[1]; save(); end
             local av_on = { omni.av ~= nil and omni.av.float_shown ~= nil and omni.av.float_shown() };
-            if (imgui.Checkbox('AV tracker (Absolute Virtue)##opt_avpop', av_on) and omni.av ~= nil and omni.av.set_float ~= nil) then
+            if (imgui.Checkbox('Happy Virtue (Absolute Virtue)##opt_avpop', av_on) and omni.av ~= nil and omni.av.set_float ~= nil) then
                 omni.av.set_float(av_on[1]);
             end
-            if (imgui.IsItemHovered()) then imgui.SetTooltip('The floating Absolute Virtue window: 2-hour locks and timers.\nSame as /avh show and /avh hide.'); end
+            if (imgui.IsItemHovered()) then imgui.SetTooltip('Happy Virtue: the floating Absolute Virtue window, 2-hour locks and timers.\nSame as /avh show and /avh hide.'); end
             end
 
             if (section('AV helper listens')) then
@@ -2066,6 +2066,60 @@ local function crystal_end()
     cscope.on = false;
 end
 omni.crystal = crystal;
+
+-- One look for every omni pop-out window (AV tracker, Abyssea procs, Happy Healer button):
+-- the same background, outline, title bar, buttons and tables as omni's own panel.
+-- Modules use it with: local st = package.loaded['omni_style']; local n = st and st.begin(); ... st.finish(n)
+local function popout_begin()
+    local t = theme();
+    local cr = crystal();
+    local bg = t and t.bg or (cr and { 0.05, 0.06, 0.12, 0.95 } or { 0.07, 0.08, 0.14, 0.94 });
+    local ac = t and t.accent or { 0.90, 0.77, 0.42, 1.0 };
+    local rr = (t == nil and cr) and 0 or ((t and t.style == 'flat') and 0 or 8);
+    local mix = function (a, k) return { bg[1] + (ac[1] - bg[1]) * k, bg[2] + (ac[2] - bg[2]) * k, bg[3] + (ac[3] - bg[3]) * k, 1.0 }; end
+    local n = { cols = 0, vars = 0 };
+    local function col(name, c)
+        local id = gconst(name);
+        if (id ~= nil and pcall(imgui.PushStyleColor, id, c)) then n.cols = n.cols + 1; end
+    end
+    local function var(name, v)
+        local id = gconst(name);
+        if (id ~= nil and pcall(imgui.PushStyleVar, id, v)) then n.vars = n.vars + 1; end
+    end
+    col('ImGuiCol_WindowBg', { bg[1], bg[2], bg[3], 0.96 });
+    col('ImGuiCol_Border', { ac[1], ac[2], ac[3], 0.55 });
+    col('ImGuiCol_TitleBg', mix(nil, 0.10));
+    col('ImGuiCol_TitleBgActive', mix(nil, 0.22));
+    col('ImGuiCol_TitleBgCollapsed', mix(nil, 0.10));
+    col('ImGuiCol_Text', { 0.92, 0.92, 0.95, 1.0 });
+    col('ImGuiCol_TextDisabled', { 0.55, 0.57, 0.63, 1.0 });
+    col('ImGuiCol_ResizeGrip', { 0, 0, 0, 0 });
+    col('ImGuiCol_TableHeaderBg', mix(nil, 0.14));
+    col('ImGuiCol_TableBorderStrong', { ac[1], ac[2], ac[3], 0.30 });
+    col('ImGuiCol_TableBorderLight', { ac[1], ac[2], ac[3], 0.15 });
+    col('ImGuiCol_TableRowBg', { 0, 0, 0, 0 });
+    col('ImGuiCol_TableRowBgAlt', { 1, 1, 1, 0.03 });
+    var('ImGuiStyleVar_WindowRounding', rr);
+    var('ImGuiStyleVar_WindowBorderSize', 1);
+    -- Buttons, boxes, tabs and the rest: the same as the panel's.
+    if (not cscope.on and cr) then
+        if (t ~= nil) then
+            cscope.on = true;
+            black_begin();
+        else
+            crystal_begin();
+        end
+        n.scope = cscope.on;
+    end
+    return n;
+end
+local function popout_end(n)
+    if (n == nil) then return; end
+    if (n.scope) then crystal_end(); end
+    if (n.cols > 0) then imgui.PopStyleColor(n.cols); end
+    if (n.vars > 0) then imgui.PopStyleVar(n.vars); end
+end
+package.loaded['omni_style'] = { begin = popout_begin, finish = popout_end, theme = theme };
 
 local function draw_panel()
     local s = omni.settings;

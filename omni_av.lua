@@ -862,10 +862,14 @@ local function render()
         return;
     end
     imgui.SetNextWindowSize({ WINDOW_WIDTH, 0, }, ImGuiCond_Always);
-    if (imgui.Begin('Absolute Virtue Helper', avh.settings.visible, ImGuiWindowFlags_NoResize)) then
+    -- omni change: drawn in omni's own look (the Look picked in Options), not the default red.
+    local st = package.loaded['omni_style'];
+    local ns = st and st.begin() or nil;
+    if (imgui.Begin('Happy Virtue##avh_float', avh.settings.visible, bit.bor(ImGuiWindowFlags_NoResize, ImGuiWindowFlags_NoCollapse))) then
         draw_body();
     end
     imgui.End();
+    if (st) then st.finish(ns); end
 end
 
 --------------------------------------------------------------------------------------------------

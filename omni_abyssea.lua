@@ -642,8 +642,9 @@ aby.render_popout = function (opts)
     local W = 290;
     imgui.SetNextWindowPos({ S.aby_pop_x or 400, S.aby_pop_y or 200 }, ImGuiCond_FirstUseEver);
     imgui.SetNextWindowSizeConstraints({ W, 60 }, { W, 900 });
-    imgui.PushStyleColor(ImGuiCol_WindowBg, { 0.05, 0.06, 0.11, 0.94 });
-    imgui.PushStyleColor(ImGuiCol_Border, { 0.90, 0.78, 0.40, 0.55 });
+    -- omni's own look (Options > Look) for the window, its outline and buttons.
+    local ost = package.loaded['omni_style'];
+    local ons = ost and ost.begin() or nil;
     imgui.PushStyleColor(ImGuiCol_Header, { 0.90, 0.78, 0.40, 0.0 });
     imgui.PushStyleColor(ImGuiCol_HeaderHovered, { 0.90, 0.78, 0.40, 0.12 });
     imgui.PushStyleColor(ImGuiCol_HeaderActive, { 0.90, 0.78, 0.40, 0.22 });
@@ -655,7 +656,7 @@ aby.render_popout = function (opts)
     if imgui.Begin('Procs##aby_popout', true, flags) then
         local inner = W - 16;
         -- Title line: clock and a close button.
-        imgui.TextColored(C.gold, 'Procs');
+        imgui.TextColored(C.gold, 'Happy Procs');
         if info then
             imgui.SameLine(0, 8);
             imgui.TextColored(C.dim, string.format('%02d:%02d %s', info.t.hour, info.t.minute, info.day));
@@ -698,7 +699,8 @@ aby.render_popout = function (opts)
     end
     imgui.End();
     imgui.PopStyleVar(2);
-    imgui.PopStyleColor(5);
+    imgui.PopStyleColor(3);
+    if ost then ost.finish(ons); end
 end
 
 return aby;
