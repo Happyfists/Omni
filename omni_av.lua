@@ -501,7 +501,11 @@ local WARN_AT  = 10;
 local function fight_begin(why)
     if (fight.start == nil or fight.stop ~= nil) then
         fight.start, fight.stop = os.time(), nil;
-        fight.next_2h, fight.warned, fight.used = os.clock() + FIRST_2H, false, 0;
+        -- omni: the first 2-hour time is learned from real fights (falls back to 2m10s).
+        local L = avh.settings.general.learned_2h;
+        local first = (type(L) == 'table' and tonumber(L.first)) or FIRST_2H;
+        fight.clock0, fight.last_use, fight.last_locked = os.clock(), nil, nil;
+        fight.next_2h, fight.warned, fight.used = os.clock() + first, false, 0;
         print_msg(('Fight timer started (%s).'):fmt(why));
     end
 end
@@ -654,6 +658,54 @@ local function locked_count()
     return n;
 end
 
+-- omni: AV's 2-hour timing learns itself. Each real 2-hour re-syncs the countdown to that moment,
+-- and the gap since the one before is remembered for that many locked 2-hours (saved, so it is
+-- right from the start of the next fight). Locking one re-times the countdown straight away.
+local function learned_2h()
+    local L = avh.settings.general.learned_2h;
+    if (type(L) ~= 'table') then L = T{}; avh.settings.general.learned_2h = L; end
+    return L;
+end
+local function predict_gap(n)
+    local L = learned_2h();
+    local v = tonumber(L[tostring(n)]);
+    if (v ~= nil) then return v; end
+    -- nothing learned for exactly this many: use the closest count that has been seen
+    local best, bd = nil, 99;
+    for k, g in pairs(L) do
+        local kn = tonumber(k);
+        if (kn ~= nil and tonumber(g) ~= nil and math.abs(kn - n) < bd) then best, bd = tonumber(g), math.abs(kn - n); end
+    end
+    return best or EVERY_2H;
+end
+local function learn_gap(key, gap)
+    if (gap < 20 or gap > 400) then return; end   -- ignore nonsense (missed 2-hours, reloads)
+    local L = learned_2h();
+    local old = tonumber(L[key]);
+    L[key] = old and math.floor((old * 0.5 + gap * 0.5) * 10 + 0.5) / 10 or math.floor(gap * 10 + 0.5) / 10;
+    settings.save('omni_av');
+end
+-- Called when AV really uses a 2-hour (not for /avh test).
+local function sync_2h_timer()
+    if (fight.start == nil or fight.stop ~= nil) then return; end
+    local now = os.clock();
+    local n = locked_count();
+    if (fight.last_use ~= nil) then
+        learn_gap(tostring(n), now - fight.last_use);
+    elseif (fight.clock0 ~= nil) then
+        learn_gap('first', now - fight.clock0);
+    end
+    fight.last_use, fight.last_locked = now, n;
+    fight.used = (fight.used or 0) + 1;
+    fight.next_2h, fight.warned = now + predict_gap(n), false;
+end
+-- Called when something gets locked (or unlocked): re-time the countdown for the new count.
+local function retime_2h_timer()
+    if (fight.start == nil or fight.stop ~= nil or fight.last_use == nil) then return; end
+    local nxt = fight.last_use + predict_gap(locked_count());
+    if (nxt > os.clock()) then fight.next_2h, fight.warned = nxt, false; end
+end
+
 local function handle_av_use(name)
     local st = avh.state[name];
     if (st == nil or st.status == 'locked') then
@@ -691,6 +743,7 @@ local function handle_av_use(name)
     else
         play_sound(avh.settings.general.sound_trigger);
     end
+    if (test_mode == nil) then pcall(sync_2h_timer); end
 end
 
 --------------------------------------------------------------------------------------------------
@@ -706,6 +759,7 @@ local function force_lock(name, note)
     st.armed  = false;
     avh.bar_active = false;
 
+    pcall(retime_2h_timer);
     print_msg(chat.success(('%s marked LOCKED (%s).'):fmt(name, note)));
     set_alert(('%s LOCKED (%s)'):fmt(name, note), COLOR_LOCKED);
     play_sound(avh.settings.general.sound_lock);
@@ -724,6 +778,7 @@ local function force_unlock(name, note)
     st.armed  = false;
     avh.bar_active = false;
 
+    pcall(retime_2h_timer);
     print_msg(chat.warning(('%s marked UNLOCKED (%s).'):fmt(name, note)));
     set_alert(('%s UNLOCKED (%s)'):fmt(name, note), COLOR_UNLOCKED);
 end
@@ -744,6 +799,7 @@ local function handle_player_use(name, actor_name)
         st.status = 'locked';
         st.armed  = false;
 
+        pcall(retime_2h_timer);
         print_msg(chat.success(('%s LOCKED by %s!'):fmt(name, actor_name)));
         set_alert(('%s LOCKED by %s!'):fmt(name, actor_name), COLOR_LOCKED);
         play_sound(avh.settings.general.sound_lock);
@@ -779,8 +835,8 @@ local function update()
             play_sound(avh.settings.general.sound_trigger);
         end
         if (left <= 0) then
-            -- That 2-hour is due now; the next is 90 seconds later.
-            fight.next_2h, fight.warned = fight.next_2h + EVERY_2H, false;
+            -- That 2-hour is due now (none seen yet); the next one is a learned gap later.
+            fight.next_2h, fight.warned = fight.next_2h + predict_gap(locked_count()), false;
             fight.used = fight.used + 1;
         end
     end
@@ -978,6 +1034,7 @@ local function print_help()
         { '/avh abilities',            'List tracked abilities and resolved ids.', },
         { '/avh lock <job>',           'Manually mark a job\'s 2hr LOCKED (e.g. /avh lock drg).', },
         { '/avh unlock <job>',         'Manually mark a job\'s 2hr UNLOCKED again (e.g. /avh unlock sam).', },
+        { '/av timing',                'Show the 2-hour timings learned from real fights (/av timing reset to forget).', },
         { '/av lock',                  'Show which 2-hours are locked and which are still open (/av = /avh).', },
         { '/av lock party',            'Post that list to party chat.', },
         { '/avh test',                 'Act out AV using a 2-hour: alert, sound, window, and a party message marked (test) with the call sound.', },
@@ -1011,6 +1068,22 @@ ashita.events.register('command', 'avh_command_cb', function (e)
 
     if (sub == 'help') then
         print_help();
+    elseif (sub == 'timing' or sub == 'timings') then
+        -- omni: what the 2-hour timer has learned. "/av timing reset" forgets it.
+        if ((args[3] or ''):lower() == 'reset') then
+            avh.settings.general.learned_2h = T{};
+            settings.save('omni_av');
+            print_msg('2-hour timings forgotten - back to 2:10 first, then 90 seconds.');
+            return;
+        end
+        local L = learned_2h();
+        print_msg(('First 2-hour: %s after AV pops.'):fmt(L.first and ('%.0fs'):fmt(L.first) or '130s (not learned yet)'));
+        local any = false;
+        for n = 0, #ABILITY_ORDER do
+            local g = tonumber(L[tostring(n)]);
+            if (g ~= nil) then any = true; print_msg(('With %d locked: one every %.0fs'):fmt(n, g)); end
+        end
+        if (not any) then print_msg('Between 2-hours: 90s (nothing learned yet - it learns during fights).'); end
     elseif (sub == 'locked' or sub == 'locks') then
         -- omni addition: what has been locked so far (and what is still open).
         local locked, open_ = {}, {};
