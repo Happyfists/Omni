@@ -631,6 +631,18 @@ local function set_alert(text, color)
     avh.alert_set_at = os.clock();
 end
 
+-- omni addition: /avh test. While testing, party lines are only shown to you (or, with
+-- /avh test party, posted with "(test)" in front so the party knows it isn't real).
+local test_mode = nil;   -- nil = real, 'local' = echo only, 'party' = post marked as a test
+local function send_party(line)
+    if (test_mode == 'local') then
+        print_msg('[test] would post: ' .. line:gsub('^/p ', ''));
+        return;
+    end
+    if (test_mode == 'party') then line = line:gsub('^/p ', '/p (test) '); end
+    pcall(function () AshitaCore:GetChatManager():QueueCommand(1, line); end);
+end
+
 local function handle_av_use(name)
     local st = avh.state[name];
     if (st == nil or st.status == 'locked') then
@@ -651,7 +663,7 @@ local function handle_av_use(name)
         local line = ('/p AV used %s! %s use %s within %ds to lock it!'):fmt(name, (job ~= '') and job or 'Someone', name, math.floor(LOCK_WINDOW));
         local cn = tonumber(avh.settings.general.party_call) or 0;
         if (cn > 0) then line = line .. (' <call%d>'):fmt(cn); end
-        pcall(function () AshitaCore:GetChatManager():QueueCommand(1, line); end);
+        send_party(line);
     end
     set_alert(('%s used by AV - counter now!'):fmt(name), COLOR_ARMED);
 
@@ -917,6 +929,9 @@ local function print_help()
         { '/avh abilities',            'List tracked abilities and resolved ids.', },
         { '/avh lock <job>',           'Manually mark a job\'s 2hr LOCKED (e.g. /avh lock drg).', },
         { '/avh unlock <job>',         'Manually mark a job\'s 2hr UNLOCKED again (e.g. /avh unlock sam).', },
+        { '/avh test',                 'Act out AV using a 2-hour: alert, sound, window (party message only shown to you).', },
+        { '/avh test <job>',           'Same, with that job\'s 2-hour (e.g. /avh test blm).', },
+        { '/avh test party',           'Same, but really posts it to party chat marked (test), with the call sound.', },
         { '/avh help',                 'Shows this help.', },
     };
 
@@ -942,6 +957,31 @@ ashita.events.register('command', 'avh_command_cb', function (e)
 
     if (sub == 'help') then
         print_help();
+    elseif (sub == 'test') then
+        -- omni addition: act out AV using a 2-hour, without a real fight.
+        local arg = (args[3] or ''):lower();
+        local name = nil;
+        if (arg ~= '' and arg ~= 'party') then
+            name = JOB_TO_ABILITY[arg];
+            if (name == nil) then print_msg('No 2-hour for "' .. arg .. '". Try a job like blm, war, whm.'); return; end
+        else
+            -- your own job's 2-hour if it is one AV uses, otherwise any unlocked one
+            name = get_my_job_ability();
+            if (name == nil or avh.state[name] == nil or avh.state[name].status == 'locked') then
+                local pool = {};
+                for _, n in ipairs(ABILITY_ORDER) do
+                    if (avh.state[n] and avh.state[n].status ~= 'locked') then pool[#pool + 1] = n; end
+                end
+                name = pool[math.random(math.max(1, #pool))] or ABILITY_ORDER[1];
+            end
+        end
+        if (avh.state[name] and avh.state[name].status == 'locked') then avh.state[name].status = 'unlocked'; end
+        avh.settings.visible[1] = true;
+        test_mode = (arg == 'party') and 'party' or 'local';
+        print_msg('TEST - this is not a real AV fight.');
+        local ok, err = pcall(handle_av_use, name);
+        test_mode = nil;
+        if (not ok) then print_msg('Test failed: ' .. tostring(err)); end
     elseif (sub == 'show') then
         avh.settings.visible[1] = true;
         settings.save('omni_av');
