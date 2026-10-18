@@ -75,6 +75,7 @@ local default_settings = T{
         party_callout       = true,    -- omni addition: say AV's 2-hours in party chat
         party_warning       = true,    -- omni addition: warn the party 10s before each 2-hour
         auto_open           = true,    -- omni addition: open the Happy Virtue window when AV pops
+        party_call          = 14,      -- omni addition: <callN> sound on the party messages (0 = none)
         -- These point at stock Windows sound files so alerts work out of the box.
         -- Replace with your own .wav paths (e.g. C:\FFXI\config\addons\avhelper\alert.wav) if you like.
         sound_trigger       = 'C:\\Windows\\Media\\Windows Notify System Generic.wav',
@@ -638,6 +639,8 @@ local function handle_av_use(name)
             if (ability == name) then job = code:upper(); end
         end
         local line = ('/p AV used %s! %s use %s within %ds to lock it!'):fmt(name, (job ~= '') and job or 'Someone', name, math.floor(LOCK_WINDOW));
+        local cn = tonumber(avh.settings.general.party_call) or 0;
+        if (cn > 0) then line = line .. (' <call%d>'):fmt(cn); end
         pcall(function () AshitaCore:GetChatManager():QueueCommand(1, line); end);
     end
     set_alert(('%s used by AV - counter now!'):fmt(name), COLOR_ARMED);
@@ -730,6 +733,8 @@ local function update()
             fight.warned = true;
             if (avh.settings.general.party_warning) then
                 local line = ('/p Warning: AV 2-hour %d/%d incoming in 10 seconds!'):fmt(math.min(fight.used + 1, #ABILITY_ORDER), #ABILITY_ORDER);
+                local cn = tonumber(avh.settings.general.party_call) or 0;
+                if (cn > 0) then line = line .. (' <call%d>'):fmt(cn); end
                 pcall(function () AshitaCore:GetChatManager():QueueCommand(1, line); end);
             end
             play_sound(avh.settings.general.sound_trigger);
@@ -1247,6 +1252,22 @@ return {
         if (imgui.Checkbox('Warn party 10s before each 2-hour##avh_warn', warn)) then
             avh.settings.general.party_warning = warn[1];
             settings.save('omni_av');
+        end
+        -- Call sound on both party messages: everyone in the party hears it.
+        local cn = tonumber(avh.settings.general.party_call) or 0;
+        local con = { cn > 0 };
+        if (imgui.Checkbox('Call sound##avh_call', con)) then
+            avh.settings.general.party_call = con[1] and 14 or 0;
+            settings.save('omni_av');
+        end
+        if (imgui.IsItemHovered()) then imgui.SetTooltip('Adds <call> to the party messages so everyone hears a sound.'); end
+        if (cn > 0) then
+            imgui.SameLine(0, 8);
+            if (imgui.SmallButton('-##avh_call_dn')) then avh.settings.general.party_call = math.max(1, cn - 1); settings.save('omni_av'); end
+            imgui.SameLine(0, 4);
+            imgui.TextColored({ 0.92, 0.92, 0.95, 1.0 }, ('<call%d>'):fmt(cn));
+            imgui.SameLine(0, 4);
+            if (imgui.SmallButton('+##avh_call_up')) then avh.settings.general.party_call = math.min(21, cn + 1); settings.save('omni_av'); end
         end
         draw_weapons(host);
     end,
