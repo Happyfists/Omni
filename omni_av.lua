@@ -929,9 +929,9 @@ local function print_help()
         { '/avh abilities',            'List tracked abilities and resolved ids.', },
         { '/avh lock <job>',           'Manually mark a job\'s 2hr LOCKED (e.g. /avh lock drg).', },
         { '/avh unlock <job>',         'Manually mark a job\'s 2hr UNLOCKED again (e.g. /avh unlock sam).', },
-        { '/avh test',                 'Act out AV using a 2-hour: alert, sound, window (party message only shown to you).', },
+        { '/avh test',                 'Act out AV using a 2-hour: alert, sound, window, and a party message marked (test) with the call sound.', },
         { '/avh test <job>',           'Same, with that job\'s 2-hour (e.g. /avh test blm).', },
-        { '/avh test party',           'Same, but really posts it to party chat marked (test), with the call sound.', },
+        { '/avh test quiet',           'Same, but the party message is only shown to you.', },
         { '/avh help',                 'Shows this help.', },
     };
 
@@ -961,7 +961,7 @@ ashita.events.register('command', 'avh_command_cb', function (e)
         -- omni addition: act out AV using a 2-hour, without a real fight.
         local arg = (args[3] or ''):lower();
         local name = nil;
-        if (arg ~= '' and arg ~= 'party') then
+        if (arg ~= '' and arg ~= 'party' and arg ~= 'quiet') then
             name = JOB_TO_ABILITY[arg];
             if (name == nil) then print_msg('No 2-hour for "' .. arg .. '". Try a job like blm, war, whm.'); return; end
         else
@@ -977,9 +977,14 @@ ashita.events.register('command', 'avh_command_cb', function (e)
         end
         if (avh.state[name] and avh.state[name].status == 'locked') then avh.state[name].status = 'unlocked'; end
         avh.settings.visible[1] = true;
-        test_mode = (arg == 'party') and 'party' or 'local';
+        -- Posts to party chat (marked "(test)", with the call sound) so the party can check they hear it.
+        -- /avh test quiet keeps it to yourself.
+        test_mode = ((args[4] or arg) == 'quiet') and 'local' or 'party';
         print_msg('TEST - this is not a real AV fight.');
+        local was = avh.settings.general.party_callout;
+        avh.settings.general.party_callout = true;    -- a test always posts, even with the box off
         local ok, err = pcall(handle_av_use, name);
+        avh.settings.general.party_callout = was;
         test_mode = nil;
         if (not ok) then print_msg('Test failed: ' .. tostring(err)); end
     elseif (sub == 'show') then
