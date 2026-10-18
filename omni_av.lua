@@ -643,6 +643,15 @@ local function send_party(line)
     pcall(function () AshitaCore:GetChatManager():QueueCommand(1, line); end);
 end
 
+-- omni: how many of the tracked 2-hours are locked (the X in "X/12").
+local function locked_count()
+    local n = 0;
+    for _, name in ipairs(ABILITY_ORDER) do
+        if (avh.state[name] ~= nil and avh.state[name].status == 'locked') then n = n + 1; end
+    end
+    return n;
+end
+
 local function handle_av_use(name)
     local st = avh.state[name];
     if (st == nil or st.status == 'locked') then
@@ -754,7 +763,7 @@ local function update()
         if (left <= WARN_AT and not fight.warned) then
             fight.warned = true;
             if (avh.settings.general.party_warning) then
-                local line = ('/p Warning: AV 2-hour %d/%d incoming in 10 seconds!'):fmt(math.min(fight.used + 1, #ABILITY_ORDER), #ABILITY_ORDER);
+                local line = ('/p Warning: AV 2-hour incoming in 10 seconds! (%d/%d locked)'):fmt(locked_count(), #ABILITY_ORDER);
                 local cn = tonumber(avh.settings.general.party_call) or 0;
                 if (cn > 0) then line = line .. (' <call%d>'):fmt(cn); end
                 pcall(function () AshitaCore:GetChatManager():QueueCommand(1, line); end);
@@ -821,7 +830,7 @@ local function draw_body()
     if (running and fight.next_2h ~= nil) then
         local left = math.max(0, fight.next_2h - os.clock());
         imgui.TextColored((left <= WARN_AT) and COLOR_ARMED or COLOR_UNLOCKED,
-            ('Next 2-hour %d/%d in %d:%02d'):fmt(math.min(fight.used + 1, #ABILITY_ORDER), #ABILITY_ORDER, math.floor(left / 60), math.floor(left) % 60));
+            ('Next 2-hour in %d:%02d  -  %d/%d locked'):fmt(math.floor(left / 60), math.floor(left) % 60, locked_count(), #ABILITY_ORDER));
     elseif (fight.stop ~= nil) then
         imgui.TextDisabled('Finished. Reset for the next pop.');
     else
