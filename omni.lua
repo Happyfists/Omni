@@ -55,7 +55,7 @@
 
 addon.name    = 'omni';
 addon.author  = 'Happyfists';
-addon.version = '2.29';
+addon.version = '2.30';
 addon.desc    = 'All-in-one addon.';
 
 require('common');
@@ -1656,7 +1656,7 @@ end
 
 -- Options: switch parts of omni on or off.
 do
-    local tab = { label = 'Options', width = 560, height = 300 };
+    local tab = { label = 'Options', width = 560, height = 300, bg = 'bg_sea.png' };
     local GOLD, DIM = { 0.90, 0.78, 0.40, 1.0 }, { 0.62, 0.66, 0.80, 1.0 };
     local function save() settings.save('omni'); end
     local function toggle(label, key, default_on, tip)
@@ -1665,14 +1665,27 @@ do
         if (imgui.Checkbox(label .. '##opt_' .. key, v)) then s[key] = v[1]; save(); end
         if (tip and imgui.IsItemHovered()) then imgui.SetTooltip(tip); end
     end
-    -- A section title: gold, with a thin line under it the width of the column.
+    -- A section heading like the Sea tab's: a deep-blue bar with a bright stripe on the left.
+    -- Click it to fold the section away; the fold is remembered.
+    local SEA = { 0.15, 0.18, 0.28 };
     local function section(title)
+        local s = omni.settings;
+        local key = 'optfold_' .. title:gsub('[^%w]', '');
+        local folded = s[key] == true;
         imgui.Dummy({ 1, 2 });
-        imgui.TextColored(GOLD, title);
-        local x, y = imgui.GetCursorScreenPos();
-        local w = imgui.GetContentRegionAvail();
-        imgui.GetWindowDrawList():AddLine({ x, y }, { x + w, y }, imgui.GetColorU32({ GOLD[1], GOLD[2], GOLD[3], 0.30 }), 1);
-        imgui.Dummy({ 1, 3 });
+        imgui.PushStyleColor(ImGuiCol_ChildBg, { SEA[1], SEA[2], SEA[3], 0.85 });
+        imgui.BeginChild('##opt_hdr_' .. key, { -1, 22 }, false, bit.bor(ImGuiWindowFlags_NoScrollbar, ImGuiWindowFlags_NoScrollWithMouse));
+        local dl = imgui.GetWindowDrawList();
+        local wx, wy = imgui.GetWindowPos();
+        dl:AddRectFilled({ wx, wy }, { wx + 3, wy + 22 }, imgui.GetColorU32({ SEA[1] * 2.5, SEA[2] * 2.5, SEA[3] * 2.5, 1.0 }));
+        imgui.SetCursorPos({ 0, 0 });
+        if (imgui.Selectable('##opt_fold_' .. key, false, 0, { 0, 22 })) then s[key] = not folded or nil; save(); end
+        imgui.SetCursorPos({ 10, 3 });
+        imgui.TextColored(GOLD, (folded and '+ ' or '- ') .. title);
+        imgui.EndChild();
+        imgui.PopStyleColor(1);
+        imgui.Dummy({ 1, 2 });
+        return not folded;
     end
     -- A row of choice buttons that wraps inside the column; the chosen one is gold.
     local function choices(id, list, cur, on_pick)
@@ -1699,12 +1712,13 @@ do
 
             ------------------------------------------------------------------ left column
             imgui.TableNextColumn();
-            section('Look');
-            local looks = {};
-            for _, id in ipairs(LOOK_ORDER) do looks[#looks + 1] = { id, LOOK_LABEL[id] }; end
-            choices('opt_look', looks, s.look or 'crystal', function (id) s.look = id; save(); end);
+            if (section('Look')) then
+                local looks = {};
+                for _, id in ipairs(LOOK_ORDER) do looks[#looks + 1] = { id, LOOK_LABEL[id] }; end
+                choices('opt_look', looks, s.look or 'crystal', function (id) s.look = id; save(); end);
+            end
 
-            section('Bars');
+            if (section('Bars')) then
             toggle('Abyssea time and lights', 'aby_bar', true, 'In Abyssea zones the bar shows Visitant time and lights instead of XP.');
             toggle('Sneak / Invisible buttons', 'stealth_bar', true, 'Magic, ninjutsu, Spectral Jig or oils and powders.');
             local hide = { not s.show_native };
@@ -1714,18 +1728,21 @@ do
                 save();
             end
             if (imgui.IsItemHovered()) then imgui.SetTooltip('omni shows your buffs under the bar instead.'); end
+            end
 
-            section('Chat');
-            toggle('Brighter chat colours', 'chat_bright', true, 'Party, linkshells and tells.');
+            if (section('Chat')) then
+                toggle('Brighter chat colours', 'chat_bright', true, 'Party, linkshells and tells.');
+            end
 
-            section('Multisend');
+            if (section('Multisend')) then
             local fm = { omni.msend ~= nil and omni.msend.following() };
             if (imgui.Checkbox('Follow Me##opt_follow', fm) and omni.msend ~= nil) then omni.msend.toggle_follow(); end
             if (imgui.IsItemHovered()) then imgui.SetTooltip('Same as the Follow button on the bar.'); end
+            end
 
             ------------------------------------------------------------------ right column
             imgui.TableNextColumn();
-            section('Pop-outs');
+            if (section('Pop-outs')) then
             local pv = { s.aby_pop == true };
             if (imgui.Checkbox('Abyssea proc tracker##opt_abypop', pv)) then s.aby_pop = pv[1]; save(); end
             local av_on = { omni.av ~= nil and omni.av.float_shown ~= nil and omni.av.float_shown() };
@@ -1733,8 +1750,9 @@ do
                 omni.av.set_float(av_on[1]);
             end
             if (imgui.IsItemHovered()) then imgui.SetTooltip('The floating Absolute Virtue window: 2-hour locks and timers.\nSame as /avh show and /avh hide.'); end
+            end
 
-            section('AV helper listens');
+            if (section('AV helper listens')) then
             choices('opt_av', {
                 { 'zone', "In Al'Taieu", "AV is only ever in Al'Taieu, so this keeps it quiet everywhere else." },
                 { 'always', 'Everywhere' },
@@ -1744,18 +1762,20 @@ do
                 if (omni.av ~= nil) then pcall(omni.av.set_mode, m); end
                 save();
             end);
+            end
 
-            section('Spell lines');
+            if (section('Spell lines')) then
             toggle('Animations', 'fx_on', true, 'Lightning, fireballs, cures and more.');
             toggle('Only my party and alliance', 'fx_party', true);
             toggle('Lines', 'fx_lines', true, 'Target lines between fighters and spell lines. Off = animations only.');
             toggle('AI art', 'fx_art', false, 'Painted fireballs, lightning, halos. Off = the drawn look.');
+            end
 
             imgui.EndTable();
         end
 
         ---------------------------------------------------------------------- full width
-        section('Party job pictures');
+        if (section('Party job pictures')) then
         toggle('Show beside the party lists', 'party_icons', true, 'Job pictures beside your party and alliance lists.');
         imgui.SameLine(0, 16);
         toggle('Move them', 'party_icons_unlocked', false, 'Tick, drag each next to its party list, then untick.');
@@ -1778,6 +1798,7 @@ do
             slider('Size##p' .. n, pre .. 'icon_size', s.party_icon_size or 20, 12, 40);
             imgui.SameLine(x0 + 260);
             slider('Rows##p' .. n, pre .. 'icon_gap', s.party_icon_gap or 22, 12, 60);
+        end
         end
 
         tab.height = math.max(160, math.floor(imgui.GetCursorPosY()) + 10);
