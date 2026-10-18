@@ -658,25 +658,18 @@ local function locked_count()
     return n;
 end
 
--- omni: AV's 2-hour timing learns itself. Each real 2-hour re-syncs the countdown to that moment,
--- and the gap since the one before is remembered for that many locked 2-hours (saved, so it is
--- right from the start of the next fight). Locking one re-times the countdown straight away.
+-- omni: AV's 2-hours are always 90 seconds apart (Leon, tested in game) - locking does not
+-- change that. What drifts is where the countdown starts, so every real 2-hour re-syncs the
+-- countdown to that moment (next = then + 90s). The time of the FIRST 2-hour after the pop is
+-- learned (saved) so the countdown is right from the start of the next fight too.
 local function learned_2h()
     local L = avh.settings.general.learned_2h;
     if (type(L) ~= 'table') then L = T{}; avh.settings.general.learned_2h = L; end
+    for k in pairs(L) do if (k ~= 'first') then L[k] = nil; end end
     return L;
 end
 local function predict_gap(n)
-    local L = learned_2h();
-    local v = tonumber(L[tostring(n)]);
-    if (v ~= nil) then return v; end
-    -- nothing learned for exactly this many: use the closest count that has been seen
-    local best, bd = nil, 99;
-    for k, g in pairs(L) do
-        local kn = tonumber(k);
-        if (kn ~= nil and tonumber(g) ~= nil and math.abs(kn - n) < bd) then best, bd = tonumber(g), math.abs(kn - n); end
-    end
-    return best or EVERY_2H;
+    return EVERY_2H;   -- always 90 seconds
 end
 local function learn_gap(key, gap)
     if (gap < 20 or gap > 400) then return; end   -- ignore nonsense (missed 2-hours, reloads)
@@ -690,10 +683,8 @@ local function sync_2h_timer()
     if (fight.start == nil or fight.stop ~= nil) then return; end
     local now = os.clock();
     local n = locked_count();
-    if (fight.last_use ~= nil) then
-        learn_gap(tostring(n), now - fight.last_use);
-    elseif (fight.clock0 ~= nil) then
-        learn_gap('first', now - fight.clock0);
+    if (fight.last_use == nil and fight.clock0 ~= nil) then
+        learn_gap('first', now - fight.clock0);   -- only the first one after the pop is learned
     end
     fight.last_use, fight.last_locked = now, n;
     fight.used = (fight.used or 0) + 1;
@@ -701,9 +692,7 @@ local function sync_2h_timer()
 end
 -- Called when something gets locked (or unlocked): re-time the countdown for the new count.
 local function retime_2h_timer()
-    if (fight.start == nil or fight.stop ~= nil or fight.last_use == nil) then return; end
-    local nxt = fight.last_use + predict_gap(locked_count());
-    if (nxt > os.clock()) then fight.next_2h, fight.warned = nxt, false; end
+    -- (locking does not change AV's timing, so nothing to re-time)
 end
 
 local function handle_av_use(name)
@@ -1034,7 +1023,7 @@ local function print_help()
         { '/avh abilities',            'List tracked abilities and resolved ids.', },
         { '/avh lock <job>',           'Manually mark a job\'s 2hr LOCKED (e.g. /avh lock drg).', },
         { '/avh unlock <job>',         'Manually mark a job\'s 2hr UNLOCKED again (e.g. /avh unlock sam).', },
-        { '/av timing',                'Show the 2-hour timings learned from real fights (/av timing reset to forget).', },
+        { '/av timing',                'Show the first-2-hour time learned from real fights (/av timing reset to forget).', },
         { '/av lock',                  'Show which 2-hours are locked and which are still open (/av = /avh).', },
         { '/av lock party',            'Post that list to party chat.', },
         { '/avh test',                 'Act out AV using a 2-hour: alert, sound, window, and a party message marked (test) with the call sound.', },
@@ -1073,17 +1062,12 @@ ashita.events.register('command', 'avh_command_cb', function (e)
         if ((args[3] or ''):lower() == 'reset') then
             avh.settings.general.learned_2h = T{};
             settings.save('omni_av');
-            print_msg('2-hour timings forgotten - back to 2:10 first, then 90 seconds.');
+            print_msg('First 2-hour time forgotten - back to 2:10 after the pop, then every 90 seconds.');
             return;
         end
         local L = learned_2h();
         print_msg(('First 2-hour: %s after AV pops.'):fmt(L.first and ('%.0fs'):fmt(L.first) or '130s (not learned yet)'));
-        local any = false;
-        for n = 0, #ABILITY_ORDER do
-            local g = tonumber(L[tostring(n)]);
-            if (g ~= nil) then any = true; print_msg(('With %d locked: one every %.0fs'):fmt(n, g)); end
-        end
-        if (not any) then print_msg('Between 2-hours: 90s (nothing learned yet - it learns during fights).'); end
+        print_msg('Then one every 90s. Each real 2-hour re-syncs the countdown, so it cannot drift.');
     elseif (sub == 'locked' or sub == 'locks') then
         -- omni addition: what has been locked so far (and what is still open).
         local locked, open_ = {}, {};
