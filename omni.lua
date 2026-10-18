@@ -55,7 +55,7 @@
 
 addon.name    = 'omni';
 addon.author  = 'Happyfists';
-addon.version = '2.26';
+addon.version = '2.28';
 addon.desc    = 'All-in-one addon.';
 
 require('common');
@@ -1631,6 +1631,12 @@ do
     if (ok) then omni.talks = mod; mod.settings = omni.settings; else print('[omni] Happy Talks could not load: ' .. tostring(mod)); end
 end
 
+-- Roll Tracker: the /random order for NM pops (omni_rolls.lua; Options > Roll Tracker).
+do
+    local ok, mod = pcall(require, 'omni_rolls');
+    if (ok) then omni.rolls = mod; else print('[omni] Roll Tracker could not load: ' .. tostring(mod)); end
+end
+
 -- Spell lines: targetlines-style lines with an animation per element (omni_fx.lua).
 do
     local ok, mod = pcall(require, 'omni_fx');
@@ -1757,7 +1763,7 @@ do
 
         tab.height = math.max(160, math.floor(imgui.GetCursorPosY()) + 10);
     end
-    -- Two pages: General, and Happy Talks (spoken alerts, omni_talks.lua).
+    -- Three pages: General, Happy Talks (spoken alerts, omni_talks.lua) and Roll Tracker (omni_rolls.lua).
     local talks_opts = { settings = nil, save = save };
     tab.render = function ()
         if (imgui.BeginTabBar('##omni_opt_sub')) then
@@ -1768,6 +1774,15 @@ do
                     omni.talks.render(talks_opts);
                 else
                     imgui.TextColored({ 1.0, 0.45, 0.45, 1.0 }, 'Happy Talks could not load.');
+                end
+                tab.height = math.max(160, math.floor(imgui.GetCursorPosY()) + 10);
+                imgui.EndTabItem();
+            end
+            if (imgui.BeginTabItem('Roll Tracker##omni_optsub')) then
+                if (omni.rolls ~= nil) then
+                    omni.rolls.render();
+                else
+                    imgui.TextColored({ 1.0, 0.45, 0.45, 1.0 }, 'Roll Tracker could not load.');
                 end
                 tab.height = math.max(160, math.floor(imgui.GetCursorPosY()) + 10);
                 imgui.EndTabItem();
