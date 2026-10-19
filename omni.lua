@@ -55,7 +55,7 @@
 
 addon.name    = 'omni';
 addon.author  = 'Happyfists';
-addon.version = '2.48';
+addon.version = '2.49';
 addon.desc    = 'All-in-one addon.';
 
 require('common');
@@ -1637,6 +1637,12 @@ do
     if (ok) then omni.rolls = mod; else print('[omni] Roll Tracker could not load: ' .. tostring(mod)); end
 end
 
+-- Happy Pops: HNM pop timers with window warnings (omni_pops.lua; /pops).
+do
+    local ok, mod = pcall(require, 'omni_pops');
+    if (ok) then omni.pops = mod; else print('[omni] Happy Pops could not load: ' .. tostring(mod)); end
+end
+
 -- Spell lines: targetlines-style lines with an animation per element (omni_fx.lua).
 do
     local ok, mod = pcall(require, 'omni_fx');
@@ -1750,6 +1756,9 @@ do
                 omni.av.set_float(av_on[1]);
             end
             if (imgui.IsItemHovered()) then imgui.SetTooltip('Happy Virtue: the floating Absolute Virtue window, 2-hour locks and timers.\nSame as /avh show and /avh hide.'); end
+            local pp = { omni.pops ~= nil and omni.pops.shown() };
+            if (imgui.Checkbox('Happy Pops (HNM timers)##opt_pops', pp) and omni.pops ~= nil) then omni.pops.set_shown(pp[1]); end
+            if (imgui.IsItemHovered()) then imgui.SetTooltip('Happy Pops: type an HNM time of death and it warns you before every window.\nSame as /pops.'); end
             if (omni.av ~= nil and omni.av.auto_open ~= nil) then
                 local ao = { omni.av.auto_open() };
                 imgui.SetCursorPosX(imgui.GetCursorPosX() + 22);
