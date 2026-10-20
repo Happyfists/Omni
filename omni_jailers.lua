@@ -90,30 +90,55 @@ local NMS = {
 
 -- How many of each pop item you hold (all bags), looked up every few seconds.
 local held, held_at = {}, -100;
-local function scan()
-    if os.clock() - held_at < 3 then return; end
+local BAGS = { [0] = 'Inventory', 'Mog Safe', 'Storage', 'Temporary', 'Mog Locker', 'Mog Satchel', 'Mog Sack', 'Mog Case',
+    'Wardrobe', 'Mog Safe 2', 'Wardrobe 2', 'Wardrobe 3', 'Wardrobe 4', 'Wardrobe 5', 'Wardrobe 6', 'Wardrobe 7', 'Wardrobe 8' };
+local where_held = {};   -- lowercase name -> { bag name = count }
+local ids = nil;         -- item id -> lowercase pop item name (looked up once)
+
+local function scan(force)
+    if not force and os.clock() - held_at < 3 then return; end
     held_at = os.clock();
-    local wanted = {};
-    for _, nm in ipairs(NMS) do for _, p in ipairs(nm.pop or {}) do wanted[p[1]:lower()] = true; end end
-    local found = {};
+    local found, at = {}, {};
     pcall(function ()
         local inv = AshitaCore:GetMemoryManager():GetInventory();
         local res = AshitaCore:GetResourceManager();
+        -- Match by item number as well as by name, so a name spelt differently still counts.
+        if ids == nil then
+            ids = {};
+            for _, nm in ipairs(NMS) do
+                for _, p in ipairs(nm.pop or {}) do
+                    for _, lang in ipairs({ 0, 2, 1 }) do
+                        local ok, r = pcall(function () return res:GetItemByName(p[1], lang); end);
+                        if ok and r ~= nil and r.Id ~= nil and r.Id ~= 0 then ids[r.Id] = p[1]:lower(); break; end
+                    end
+                end
+            end
+        end
+        local wanted = {};
+        for _, nm in ipairs(NMS) do for _, p in ipairs(nm.pop or {}) do wanted[p[1]:lower()] = true; end end
         for bag = 0, 16 do
-            for slot = 1, (inv:GetContainerCountMax(bag) or 0) do
-                local it = inv:GetContainerItem(bag, slot);
-                if it ~= nil and it.Id ~= nil and it.Id ~= 0 and it.Id ~= 65535 then
-                    local r = res:GetItemById(it.Id);
-                    local n = r and r.Name and r.Name[1];
+            -- Every slot, not just up to the bag's size (a bag that is not loaded can report 0).
+            for slot = 0, 80 do
+                local ok, it = pcall(function () return inv:GetContainerItem(bag, slot); end);
+                if ok and it ~= nil and it.Id ~= nil and it.Id ~= 0 and it.Id ~= 65535 then
+                    local n = ids[it.Id];
+                    if n == nil then
+                        local r = res:GetItemById(it.Id);
+                        local nn = r and r.Name and r.Name[1];
+                        if nn ~= nil and wanted[nn:lower()] then n = nn:lower(); end
+                    end
                     if n ~= nil then
-                        n = n:lower();
-                        if wanted[n] then found[n] = (found[n] or 0) + (it.Count or 1); end
+                        local c = (it.Count ~= nil and it.Count > 0) and it.Count or 1;
+                        found[n] = (found[n] or 0) + c;
+                        at[n] = at[n] or {};
+                        local bn = BAGS[bag] or ('bag ' .. bag);
+                        at[n][bn] = (at[n][bn] or 0) + c;
                     end
                 end
             end
         end
     end);
-    held = found;
+    held, where_held = found, at;
 end
 
 local function wrap(col, text)
@@ -142,6 +167,15 @@ jailers.render = function (host)
     end
     local pushed = ui.pushWindowStyle();
     imgui.Spacing();
+    if imgui.Button('Rescan bags##jl_rescan') then
+        scan(true);
+        local t = {};
+        for n, c in pairs(held) do t[#t + 1] = ('%s x%d'):format(n, c); end
+        table.sort(t);
+        print('\30\68[omni Jailers]\30\01 ' .. (#t > 0 and ('found: ' .. table.concat(t, ', ')) or 'no Sea pop items found in any bag.'));
+    end
+    if imgui.IsItemHovered() then imgui.SetTooltip('Look through every bag again (inventory, safes, storage, locker,\nsatchel, sack, case, wardrobes). It also checks by itself every 3 sec.'); end
+    imgui.Spacing();
     wrap(DIM, 'Temperance, Fortitude, Faith -> 1st/2nd/3rd Virtue.  Ix\'aern -> Deeds.  Hope, Justice, Prudence -> 5th/4th/6th Virtue.  Love -> Suspended Virtue -> AV.');
     imgui.Spacing();
     for _, nm in ipairs(NMS) do
@@ -162,11 +196,18 @@ jailers.render = function (host)
                     for i, p in ipairs(nm.pop) do
                         local have = held[p[1]:lower()] or 0;
                         local need = p[2];
-                        local ok = have >= ((need == 3) and 1 or need);
+                        local want = (need == 3) and 1 or need;
+                        local ok = have >= want;
                         if i == 1 then imgui.SameLine(70); else imgui.SetCursorPosX(70); end
-                        imgui.TextColored(ok and GREEN or RED, (ok and 'O ' or 'X ') .. ('%s x%s'):format(p[1], (need == 3) and '1-3' or tostring(need)));
+                        imgui.TextColored(ok and GREEN or RED, (ok and 'O ' or 'X ') .. p[1]);
                         imgui.SameLine(0, 8);
-                        imgui.TextColored(DIM, ('(have %d)'):format(have));
+                        imgui.TextColored(ok and GREEN or RED, ('%d/%d'):format(math.min(have, want), want) .. ((need == 3) and ' (up to 3)' or ''));
+                        if have > want then imgui.SameLine(0, 6); imgui.TextColored(DIM, ('(%d held)'):format(have)); end
+                        if imgui.IsItemHovered() and where_held[p[1]:lower()] then
+                            local t = {};
+                            for bn, c in pairs(where_held[p[1]:lower()]) do t[#t + 1] = ('%s: %d'):format(bn, c); end
+                            imgui.SetTooltip(table.concat(t, '\n'));
+                        end
                         imgui.SetCursorPosX(88);
                         imgui.TextColored(DIM, 'from ' .. (nm.from[i] or '?'));
                     end
