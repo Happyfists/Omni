@@ -159,6 +159,22 @@ local function scan(force)
             end
         end
     end);
+    -- Organs kept at Vision (Port Jeuno): the Sea tab's own count from the server.
+    pcall(function ()
+        local so = package.loaded['omni_sea_organs'];
+        if so == nil then return; end
+        local wanted = {};
+        for _, nm in ipairs(NMS) do for _, p in ipairs(nm.pop or {}) do wanted[norm(p[1])] = p[1]:lower(); end end
+        for i, o in ipairs(so.list) do
+            local c = so.data.organVision[i] or 0;
+            local n = match_pop(o.name, wanted);
+            if n ~= nil and c > 0 then
+                found[n] = (found[n] or 0) + c;
+                at[n] = at[n] or {};
+                at[n]['Vision (Port Jeuno)'] = c;
+            end
+        end
+    end);
     held, where_held = found, at;
 end
 
@@ -195,7 +211,7 @@ jailers.render = function (host)
         table.sort(t);
         print('\30\68[omni Jailers]\30\01 ' .. (#t > 0 and ('found: ' .. table.concat(t, ', ')) or 'no Sea pop items found in any bag.'));
     end
-    if imgui.IsItemHovered() then imgui.SetTooltip('Look through every bag again (inventory, safes, storage, locker,\nsatchel, sack, case, wardrobes). It also checks by itself every 3 sec.'); end
+    if imgui.IsItemHovered() then imgui.SetTooltip('Look through every bag again (inventory, safes, storage, locker,\nsatchel, sack, case, wardrobes) plus organs kept at Vision.\nVision counts come from the Sea tab - open it once to load them.\nIt also checks by itself every 3 sec.'); end
     imgui.Spacing();
     wrap(DIM, 'Temperance, Fortitude, Faith -> 1st/2nd/3rd Virtue.  Ix\'aern -> Deeds.  Hope, Justice, Prudence -> 5th/4th/6th Virtue.  Love -> Suspended Virtue -> AV.');
     imgui.Spacing();

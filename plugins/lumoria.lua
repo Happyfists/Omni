@@ -1223,6 +1223,9 @@ end
 ------------------------------------------------------------
 -- Plugin interface
 ------------------------------------------------------------
+-- omni addition: lets the Jailers page count organs kept at Vision (Port Jeuno).
+package.loaded['omni_sea_organs'] = { list = ORGANS, data = data };
+
 return {
     name        = 'Lumoria',
     author      = 'Loxley',
