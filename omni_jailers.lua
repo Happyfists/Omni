@@ -199,7 +199,7 @@ jailers.render = function (host)
                         local want = (need == 3) and 1 or need;
                         local ok = have >= want;
                         if i == 1 then imgui.SameLine(70); else imgui.SetCursorPosX(70); end
-                        imgui.TextColored(ok and GREEN or RED, (ok and 'O ' or 'X ') .. p[1]);
+                        imgui.TextColored(ok and GREEN or RED, p[1]);
                         imgui.SameLine(0, 8);
                         imgui.TextColored(ok and GREEN or RED, ('%d/%d'):format(math.min(have, want), want) .. ((need == 3) and ' (up to 3)' or ''));
                         if have > want then imgui.SameLine(0, 6); imgui.TextColored(DIM, ('(%d held)'):format(have)); end
