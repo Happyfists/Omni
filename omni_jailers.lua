@@ -201,8 +201,7 @@ jailers.render = function (host)
                         if i == 1 then imgui.SameLine(70); else imgui.SetCursorPosX(70); end
                         imgui.TextColored(ok and GREEN or RED, p[1]);
                         imgui.SameLine(0, 8);
-                        imgui.TextColored(ok and GREEN or RED, ('%d/%d'):format(math.min(have, want), want) .. ((need == 3) and ' (up to 3)' or ''));
-                        if have > want then imgui.SameLine(0, 6); imgui.TextColored(DIM, ('(%d held)'):format(have)); end
+                        imgui.TextColored(ok and GREEN or RED, ('%d/%d'):format(have, want) .. ((need == 3) and ' (up to 3)' or ''));
                         if imgui.IsItemHovered() and where_held[p[1]:lower()] then
                             local t = {};
                             for bn, c in pairs(where_held[p[1]:lower()]) do t[#t + 1] = ('%s: %d'):format(bn, c); end
