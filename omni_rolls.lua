@@ -100,11 +100,18 @@ local function post()
 end
 
 -- Only the game's own /random line ("Dice roll! Name rolls 532!"), not someone typing it in chat.
+local function read_roll(raw)
+    local m = (raw or ''):gsub('[\30\31].', ''):gsub('\x7F.', ''):gsub('[%c]', ' ');
+    m = m:gsub('^%s*%[%d+:%d+:?%d*%]%s*', ''):gsub('^%s*%d+:%d+:?%d*%s+', '');   -- timestamp addons: "[16:53:38] "
+    local name, value = m:match('Dice roll!%s*(%a+) rolls (%d+)');
+    if name == nil then name, value = m:match('^%s*(%a+) rolls (%d+)[!.]?%s*$'); end
+    return name, value;
+end
 local function on_text(e)
     if st.locked then return; end
-    local m = (e.message_modified or e.message or ''):gsub('[\30\31].', ''):gsub('\x7F.', '');
-    local name, value = m:match('^%s*Dice roll!%s*(%a+) rolls (%d+)');
-    if name == nil then name, value = m:match('^%s*(%a+) rolls (%d+)[!.]?%s*$'); end
+    -- Only the game's own /random line ("Dice roll! Name rolls 532!"), with or without a timestamp in front.
+    local name, value = read_roll(e.message);
+    if name == nil then name, value = read_roll(e.message_modified); end
     if name == nil then return; end
     value = tonumber(value);
     if value == nil or value < 0 or value > 999 then return; end
