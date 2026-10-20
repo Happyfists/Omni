@@ -95,6 +95,23 @@ local BAGS = { [0] = 'Inventory', 'Mog Safe', 'Storage', 'Temporary', 'Mog Locke
 local where_held = {};   -- lowercase name -> { bag name = count }
 local ids = nil;         -- item id -> lowercase pop item name (looked up once)
 
+-- The game shortens some names ("Deed of Moder.", "H.Q. Phuabo Organ"), so compare loosely.
+local function norm(n)
+    n = n:lower():gsub('high%-quality ', 'h.q. '):gsub('hq ', 'h.q. ');
+    return n;
+end
+local function match_pop(game_name, wanted)
+    local g = norm(game_name);
+    if wanted[g] then return wanted[g]; end
+    if g:sub(-1) == '.' then
+        local stem = g:sub(1, -2);
+        for full_norm, key in pairs(wanted) do
+            if #stem >= 6 and full_norm:sub(1, #stem) == stem then return key; end
+        end
+    end
+    return nil;
+end
+
 local function scan(force)
     if not force and os.clock() - held_at < 3 then return; end
     held_at = os.clock();
@@ -114,8 +131,8 @@ local function scan(force)
                 end
             end
         end
-        local wanted = {};
-        for _, nm in ipairs(NMS) do for _, p in ipairs(nm.pop or {}) do wanted[p[1]:lower()] = true; end end
+        local wanted = {};   -- normalised full name -> our lowercase name
+        for _, nm in ipairs(NMS) do for _, p in ipairs(nm.pop or {}) do wanted[norm(p[1])] = p[1]:lower(); end end
         for bag = 0, 16 do
             -- Every slot, not just up to the bag's size (a bag that is not loaded can report 0).
             for slot = 0, 80 do
@@ -125,7 +142,11 @@ local function scan(force)
                     if n == nil then
                         local r = res:GetItemById(it.Id);
                         local nn = r and r.Name and r.Name[1];
-                        if nn ~= nil and wanted[nn:lower()] then n = nn:lower(); end
+                        if nn ~= nil then n = match_pop(nn, wanted); end
+                        if n == nil and r ~= nil and r.LogNameSingular ~= nil and r.LogNameSingular[1] ~= nil then
+                            n = match_pop(r.LogNameSingular[1], wanted);
+                        end
+                        if n ~= nil then ids[it.Id] = n; end
                     end
                     if n ~= nil then
                         local c = (it.Count ~= nil and it.Count > 0) and it.Count or 1;
