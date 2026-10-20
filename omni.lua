@@ -55,7 +55,7 @@
 
 addon.name    = 'omni';
 addon.author  = 'Happyfists';
-addon.version = '2.50';
+addon.version = '2.51';
 addon.desc    = 'All-in-one addon.';
 
 require('common');
@@ -1403,7 +1403,7 @@ for _, section in ipairs(trove.sections) do
         end;
     end
     if (section.label == 'Sea') then
-        -- Two tabs inside: Sea (Trove's Lumoria screen) and AV (the Absolute Virtue helper).
+        -- Three tabs inside: Sea (Trove's Lumoria screen), Jailers (omni_jailers.lua) and AV (the Absolute Virtue helper).
         -- Each is exactly as tall as what is in it.
         local tab = tabs[#tabs];
         tab.bg = 'bg_sea.png';   -- painted background (Crystal look)
@@ -1418,6 +1418,12 @@ for _, section in ipairs(trove.sections) do
                     if (type(h) == 'number' and h > 0) then
                         tab.height = math.max(160, math.min(900, math.floor(h)));
                     end
+                    imgui.EndTabItem();
+                end
+                if (imgui.BeginTabItem('Jailers##omni_seasub')) then
+                    local ok, jl = pcall(require, 'omni_jailers');
+                    if (ok) then jl.render(trove); else imgui.TextColored({ 1, 0.45, 0.45, 1 }, 'Jailers page could not load: ' .. tostring(jl)); end
+                    tab.height = math.max(160, math.min(900, math.floor(imgui.GetCursorPosY()) + 10));
                     imgui.EndTabItem();
                 end
                 if (imgui.BeginTabItem('AV##omni_seasub')) then
