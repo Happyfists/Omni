@@ -630,12 +630,6 @@ local function body(in_tab)
     local hint = 'type in English, then click Send - it goes out as pinyin';
     imgui.InputTextWithHint('##trw_in', hint, in_buf, 200);
     local entered = false;   -- only the Send button sends (Leon's choice); Enter does nothing here
-    -- While you type here the game must not get the keys (it would open its own chat line and
-    -- post the text itself).
-    tr.enter_hit = false;
-    if imgui.IsItemActive() then
-        tr.typing_at = os.clock();
-    end
     imgui.PopItemWidth();
     imgui.SameLine(0, 4);
     local clicked = imgui.Button('Send##trw_send', { -1, 0 });
@@ -694,30 +688,6 @@ local function window()
     if not open[1] then st.win = false; save(); end
     if save_at and os.clock() > save_at then save_at = nil; save(); end
 end
-
-local function typing_now() return tr.typing_at ~= nil and (os.clock() - tr.typing_at) < 0.25; end
--- While typing in the box: keep every key from the game, and catch Enter ourselves (the box may
--- never see it, because the key is held back), so Enter always sends.
-ashita.events.register('key', 'omni_translate_key', function (e)
-    if not typing_now() then return; end
-    e.blocked = true;
-    local up = false;
-    pcall(function () up = bit.band(e.lparam or 0, 0x80000000) ~= 0; end);
-    if (e.wparam == 13) and not up then tr.enter_hit = true; end          -- VK_RETURN
-end);
--- The game also reads the whole keyboard at once (DirectInput); while typing in the box, show it no keys.
-ashita.events.register('key_state', 'omni_translate_keystate', function (e)
-    if not typing_now() then return; end
-    pcall(function ()
-        local ptr = ffi.cast('uint8_t*', e.data_raw);
-        for i = 0, 255 do ptr[i] = 0; end
-    end);
-end);
-ashita.events.register('key_data', 'omni_translate_keydata', function (e)
-    if not typing_now() then return; end
-    e.blocked = true;
-    if (e.key == 0x1C or e.key == 0x9C) and e.down then tr.enter_hit = true; end   -- DIK_RETURN / numpad Enter
-end);
 
 ashita.events.register('d3d_present', 'omni_translate_window', function ()
     if st.win then window(); end
