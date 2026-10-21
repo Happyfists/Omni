@@ -10,6 +10,8 @@
       21h group: windows every 5 min from 21:00 after ToD, forced at 21:30 (7 windows)
       57h group: windows every 10 min from 57:00, forced at 58:00 (7 windows)
       81h group: windows every 10 min from 81:00, forced at 82:00 (7 windows)
+      Wyrms (Jormungand, Tiamat): not on that page - classic timing, a window every hour
+      from 72:00 to 96:00 (25 windows), no forced pop. Change GROUPS.wyrm if CatsEyeXI differs.
 
     Commands
       /pops                        show / hide the Happy Pops window
@@ -32,6 +34,8 @@ local GROUPS = {
     h21 = { first = 21 * 3600, step = 5 * 60,  count = 7 },
     h57 = { first = 57 * 3600, step = 10 * 60, count = 7 },
     h81 = { first = 81 * 3600, step = 10 * 60, count = 7 },
+    -- Wyrms: CatsEyeXI does not list them; classic timing = a chance every hour from 72h to 96h, no forced pop.
+    wyrm = { first = 72 * 3600, step = 60 * 60, count = 25, forced = false, label = '72h' },
 };
 local HNMS = {
     { 'Fafnir', 'h21' }, { 'Behemoth', 'h21' }, { 'Adamantoise', 'h21' }, { 'Argus', 'h21' },
@@ -39,6 +43,7 @@ local HNMS = {
     { 'Roc', 'h21' }, { 'Lord of Onzozo', 'h21' },
     { 'Khimaira', 'h57' }, { 'Cerberus', 'h57' }, { 'Hydra', 'h57' },
     { 'Medusa', 'h81' }, { 'Gurfurlur the Menacing', 'h81' }, { 'Gulool Ja Ja', 'h81' },
+    { 'Jormungand', 'wyrm' }, { 'Tiamat', 'wyrm' },
 };
 local GROUP_OF = {};
 for _, h in ipairs(HNMS) do GROUP_OF[h[1]] = h[2]; end
@@ -55,7 +60,7 @@ end
 ----------------------------------------------------------------------------------------------------
 -- Saved state (shared by all characters): config\addons\omni\pops.txt
 ----------------------------------------------------------------------------------------------------
-local st = { timers = {}, party = false, show = false };   -- timers[name] = { tod = os.time(), fired = {} }
+local st = { timers = {}, party = false, ls = true, warn = true, show = false };   -- timers[name] = { tod = os.time(), fired = {} }
 
 local function path() return ('%s\\config\\addons\\omni\\pops.txt'):format(AshitaCore:GetInstallPath()); end
 local function save()
@@ -63,6 +68,8 @@ local function save()
         local f = io.open(path(), 'w');
         if f == nil then return; end
         f:write('party ', st.party and 1 or 0, '\n');
+        f:write('ls ', st.ls and 1 or 0, '\n');
+        f:write('warn ', st.warn and 1 or 0, '\n');
         for name, t in pairs(st.timers) do f:write('tod ', t.tod, ' ', name, '\n'); end
         f:close();
     end);
@@ -73,6 +80,8 @@ local function load()
         if f == nil then return; end
         for line in f:lines() do
             local v = line:match('^party (%d)$'); if v then st.party = (v == '1'); end
+            local l = line:match('^ls (%d)$'); if l then st.ls = (l == '1'); end
+            local w = line:match('^warn (%d)$'); if w then st.warn = (w == '1'); end
             local tod, name = line:match('^tod (%d+) (.+)$');
             if tod and GROUP_OF[name] then st.timers[name] = { tod = tonumber(tod), fired = {}, loaded = true }; end
         end
@@ -156,22 +165,24 @@ local function check(name, t, now)
     for k = 1, g.count do
         local open_t = first + (k - 1) * g.step;
         local tag = ('%d/%d'):format(k, g.count);
-        local forced = (k == g.count);
+        local forced = (k == g.count) and g.forced ~= false;
         local events = {};
         for _, w in ipairs(WARN) do
             events[#events + 1] = { open_t + w[1], ('%s window %s %s'):format(name, tag, w[2]) .. (forced and ' (forced pop)' or ''), false, 'w' .. w[1] };
         end
         events[#events + 1] = { open_t, ('%s window %s OPEN!'):format(name, tag) .. (forced and ' Forced pop - it should be up now!' or ''), true, 'open' };
-        if not forced then
+        if k < g.count then
             events[#events + 1] = { open_t + 50, ('%s window %s closed - next window (%d/%d) in %s'):format(
-                name, tag, k + 1, g.count, span(open_t + g.step - (open_t + 50))), false, 'close' };
+                name, tag, k + 1, g.count, span(g.step - 50)), false, 'close' };
+        elseif not forced then
+            events[#events + 1] = { open_t + 50, ('%s last window (%s) closed - no pop. Check the camp.'):format(name, tag), false, 'close' };
         end
         for _, e in ipairs(events) do
             local key = k .. ':' .. e[4];
             if not t.fired[key] and now >= e[1] then
                 t.fired[key] = true;
                 -- Only announce it if it is fresh (not when loading an old timer or catching up).
-                if now - e[1] <= 5 and not t.loaded_skip then
+                if st.warn and now - e[1] <= 5 and not t.loaded_skip then
                     msg(e[2]);
                     sound(e[3]);
                     party(e[2], e[3]);
@@ -191,6 +202,15 @@ local function start(name, tod)
     local g = GROUPS[GROUP_OF[name]];
     msg(('%s ToD %s - first window %s (in %s), %d windows %d min apart.'):format(
         name, clock(tod), clock(tod + g.first), span(tod + g.first - os.time()), g.count, g.step / 60));
+    -- Tell the linkshell: "/l Fafnir ToD 13:03:12 - Repop at Thu 22 Oct 10:03:12 (7 windows, forced 10:33)"
+    if st.ls then
+        local first = tod + g.first;
+        local last = first + (g.count - 1) * g.step;
+        local tail = (g.forced == false) and ('until ' .. os.date('%a %d %b %H:%M', last)) or ('forced ' .. os.date('%H:%M', last));
+        local line = ('%s ToD %s - Repop at %s (%d windows, %s)'):format(
+            name, os.date('%H:%M:%S', tod), os.date('%a %d %b %H:%M:%S', first), g.count, tail);
+        pcall(function () AshitaCore:GetChatManager():QueueCommand(1, '/l ' .. line); end);
+    end
 end
 local function stop(name)
     st.timers[name] = nil;
@@ -280,6 +300,12 @@ ashita.events.register('command', 'omni_pops_cmd', function (e)
         if name and st.timers[name] then stop(name); else msg('No timer for that.'); end
     elseif c == 'list' then
         list((a[3] or ''):lower() == 'party' or (a[3] or ''):lower() == 'p');
+    elseif c == 'warn' or c == 'warnings' then
+        st.warn = not st.warn; save();
+        msg('Window warnings ' .. (st.warn and 'ON' or 'OFF') .. '.');
+    elseif c == 'ls' or c == 'linkshell' then
+        st.ls = not st.ls; save();
+        msg('Linkshell ToD posts ' .. (st.ls and 'ON' or 'OFF') .. '.');
     elseif c == 'party' then
         st.party = not st.party; save();
         msg('Party chat warnings ' .. (st.party and 'ON' or 'OFF') .. '.');
@@ -301,7 +327,7 @@ local W, H = 650, 200;
 local open = { false };
 
 local NAMES = {};
-for i, h in ipairs(HNMS) do NAMES[i] = h[1] .. '  (' .. ((h[2] == 'h21') and '21h' or (h[2] == 'h57') and '57h' or '81h') .. ')'; end
+for i, h in ipairs(HNMS) do NAMES[i] = h[1] .. '  (' .. (GROUPS[h[2]].label or h[2]:sub(2) .. 'h') .. ')'; end
 local NAMES_Z = table.concat(NAMES, '\0') .. '\0';
 
 local function hist_tip(name, t)
@@ -318,7 +344,7 @@ local function hist_tip(name, t)
     imgui.SetTooltip(table.concat(lines, '\n'));
 end
 
-local function group_label(g) return (g == 'h21') and '21h' or ((g == 'h57') and '57h' or '81h'); end
+local function group_label(g) return GROUPS[g].label or (g:sub(2) .. 'h'); end
 
 local function body()
     local now = os.time();
@@ -431,9 +457,17 @@ local function body()
     end
 
     imgui.Spacing();
+    local wv = { st.warn };
+    if imgui.Checkbox('Window warnings##pops_warn', wv) then st.warn = wv[1]; save(); end
+    if imgui.IsItemHovered() then imgui.SetTooltip('Warns you before every window: 2 min, 1 min, 30 sec, 10 sec,\nOPEN (with a sound), and when it closes. Same as /pops warn.'); end
+    imgui.SameLine(0, 16);
     local pv = { st.party };
     if imgui.Checkbox('Warn the party too##pops_party', pv) then st.party = pv[1]; save(); end
     if imgui.IsItemHovered() then imgui.SetTooltip('Posts every warning to party chat too\n(each OPEN with a <call14> sound). Same as /pops party.'); end
+    imgui.SameLine(0, 16);
+    local lv = { st.ls };
+    if imgui.Checkbox('Post ToD to linkshell##pops_ls', lv) then st.ls = lv[1]; save(); end
+    if imgui.IsItemHovered() then imgui.SetTooltip('When a ToD is recorded, posts it to /l:\n"Fafnir ToD 13:03:12 - Repop at Thu 22 Oct 10:03:12 (7 windows, forced 10:33)"\nSame as /pops ls.'); end
     imgui.SameLine(0, 16);
     imgui.TextColored(C.dim, ('%d active'):format(#active));
 end
