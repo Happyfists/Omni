@@ -55,7 +55,7 @@
 
 addon.name    = 'omni';
 addon.author  = 'Happyfists';
-addon.version = '2.63';
+addon.version = '2.64';
 addon.desc    = 'All-in-one addon.';
 
 require('common');
@@ -1768,6 +1768,9 @@ do
                 omni.av.set_float(av_on[1]);
             end
             if (imgui.IsItemHovered()) then imgui.SetTooltip('Happy Virtue: the floating Absolute Virtue window, 2-hour locks and timers.\nSame as /avh show and /avh hide.'); end
+            local twv = { omni.translate ~= nil and omni.translate.win_shown() };
+            if (imgui.Checkbox('Happy Translate (chat translations)##opt_trwin', twv) and omni.translate ~= nil) then omni.translate.set_win(twv[1]); end
+            if (imgui.IsItemHovered()) then imgui.SetTooltip('A window you can move and resize: translated lines, and a box to reply\n(in pinyin when Reply in Chinese is on). Same as /translate window.'); end
             if (omni.av ~= nil and omni.av.auto_open ~= nil) then
                 local ao = { omni.av.auto_open() };
                 imgui.SetCursorPosX(imgui.GetCursorPosX() + 22);

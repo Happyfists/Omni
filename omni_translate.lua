@@ -11,6 +11,7 @@
     about 5000 characters a day; repeated lines are remembered and not sent twice.
 
     Commands
+      /translate window          show / hide the Happy Translate window (move it, resize it)
       /translate                 on / off  (also /tr)
       /translate test <text>     translate some text (type Japanese with the game's IME)
       /translate status          how many lines translated today, and the limit
@@ -82,7 +83,8 @@ end
 ----------------------------------------------------------------------------------------------------
 -- Settings and files
 ----------------------------------------------------------------------------------------------------
-local st = { on = true, zh = true, reply = false, today = os.date('%Y-%m-%d'), chars = 0 };
+local st = { on = true, zh = true, reply = false, win = false, chat_out = true, x = 60, y = 220, w = 520, h = 300,
+             today = os.date('%Y-%m-%d'), chars = 0 };
 local function addon_dir()
     -- Ashita sets addon.path to omni's own folder (wherever it is installed).
     local p = (addon ~= nil and type(addon.path) == 'string' and addon.path ~= '') and addon.path
@@ -103,6 +105,7 @@ local function save()
         local f = io.open(cfg_path(), 'w');
         if f == nil then return; end
         f:write('on ', st.on and 1 or 0, '\n', 'zh ', st.zh and 1 or 0, '\n', 'reply ', st.reply and 1 or 0, '\n', 'day ', st.today, '\n', 'chars ', st.chars, '\n');
+        f:write('win ', st.win and 1 or 0, '\n', 'chat ', st.chat_out and 1 or 0, '\n', ('pos %d %d %d %d\n'):format(st.x, st.y, st.w, st.h));
         f:close();
     end);
 end
@@ -114,6 +117,10 @@ pcall(function ()
         local v = line:match('^on (%d)$'); if v then st.on = (v == '1'); end
         local z = line:match('^zh (%d)$'); if z then st.zh = (z == '1'); end
         local r = line:match('^reply (%d)$'); if r then st.reply = (r == '1'); end
+        local wv = line:match('^win (%d)$'); if wv then st.win = (wv == '1'); end
+        local cv = line:match('^chat (%d)$'); if cv then st.chat_out = (cv == '1'); end
+        local px, py, pw, ph = line:match('^pos (%-?%d+) (%-?%d+) (%d+) (%d+)$');
+        if px then st.x, st.y, st.w, st.h = tonumber(px), tonumber(py), tonumber(pw), tonumber(ph); end
         local d = line:match('^day (%S+)$'); if d then st.today = d; end
         local c = line:match('^chars (%d+)$'); if c then st.chars = tonumber(c); end
     end
@@ -226,9 +233,25 @@ local cache = {};        -- mode .. text -> result
 local next_id = 1;
 local session = tostring(os.time());
 
-local function show(prefix, english)
-    local sj = utf8_to_sjis(english) or english:gsub('[\128-\255]', '?');
-    msg(prefix .. sj);
+-- Everything translated, newest last, for the Happy Translate window.
+local log = {};
+local channel_of;   -- defined further down
+local function add_log(e)
+    e.time = os.date('%H:%M');
+    log[#log + 1] = e;
+    if #log > 200 then table.remove(log, 1); end
+    tr.scroll = true;
+end
+
+local function show(prefix, english, original)
+    local ch, who = nil, nil;
+    if channel_of then ch, who = channel_of(prefix); end
+    add_log({ who = (prefix or ''):gsub('%s+$', ''), text = english, orig = original, chan = ch, tell = who });
+    if ch then tr.last_chan, tr.last_tell = ch, who; end
+    if st.chat_out or not st.win then
+        local sj = utf8_to_sjis(english) or english:gsub('[\128-\255]', '?');
+        msg(prefix .. sj);
+    end
 end
 
 -- mode: 'ja' (Japanese -> English), 'py' (pinyin -> English), 'zh' (English -> Chinese)
@@ -299,10 +322,23 @@ ashita.events.register('d3d_present', 'omni_translate_poll', function ()
 end);
 
 -- "(Name) ", "Name : ", "<Name> ", "[1]<Name> ", ">>Name : " - the part of a chat line before the words.
+-- Which channel to answer on, from how the line starts.
+channel_of = function (pre)
+    pre = pre or '';
+    if pre:match('^%s*%b()') then return '/p'; end
+    if pre:match('^%s*%[2%]%b<>') then return '/l2'; end
+    if pre:match('^%s*%[1%]%b<>') or pre:match('^%s*%b<>') then return '/l'; end
+    local who = pre:match('^%s*([%w_]+)>>');
+    if who then return '/t', who; end
+    if pre:match('^%s*[%w_]+%s*:') then return '/s'; end
+    return nil;
+end
+
 local function split_speaker(s)
     local pre, rest = s:match('^(%s*%b()%s*)(.*)$');
     if pre == nil then pre, rest = s:match('^(%s*%[%d%]%b<>%s*)(.*)$'); end
     if pre == nil then pre, rest = s:match('^(%s*%b<>%s*)(.*)$'); end
+    if pre == nil then pre, rest = s:match('^(%s*[%w_]+>>%s*)(.*)$'); end
     if pre == nil then pre, rest = s:match('^(%s*>?>?[%w_]+%s*:%s*)(.*)$'); end
     if pre == nil then return '', s; end
     return pre, rest;
@@ -325,7 +361,7 @@ ashita.events.register('text_in', 'omni_translate_text', function (e)
         if st.zh then
             local pre, rest = split_speaker(s);
             if pre ~= '' and looks_pinyin(rest) then
-                job('py', rest, function (en) show(pre, en); end);
+                job('py', rest, function (en) show(pre, en, rest); end);
             end
         end
     end);
@@ -338,6 +374,30 @@ end);
 local CHANNELS = { ['/l'] = 0, ['/linkshell'] = 0, ['/l2'] = 0, ['/linkshell2'] = 0, ['/p'] = 0, ['/party'] = 0,
                    ['/s'] = 0, ['/say'] = 0, ['/sh'] = 0, ['/shout'] = 0, ['/t'] = 1, ['/tell'] = 1 };
 local passthrough = {};   -- exact commands omni itself sends, so they are not translated again
+
+-- Send `text` on channel `keep` ("/l", "/t Hush"): in pinyin when Reply in Chinese is on.
+local function send_text(keep, text, force_english)
+    local function send(out) passthrough[out] = true; AshitaCore:GetChatManager():QueueCommand(1, out); end
+    if text:sub(1, 1) == '=' or force_english then
+        send(keep .. ' ' .. (text:sub(1, 1) == '=' and text:sub(2) or text));
+        return;
+    end
+    local en = sjis_to_utf8(text) or text;
+    local function send_as_typed()
+        msg('sent in English instead.');
+        add_log({ who = 'you ' .. keep, text = text, mine = true });
+        send(keep .. ' ' .. text);
+    end
+    if not st.win or st.chat_out then msg('translating your message...'); end
+    job('zh', en, function (zh)
+        local py = to_pinyin(zh);
+        if py == '' then msg('could not turn that into pinyin.'); send_as_typed(); return; end
+        if #py > 110 then py = py:sub(1, 110); end
+        if not st.win or st.chat_out then msg(('you: "%s" -> %s'):format(text, py)); end
+        add_log({ who = 'you ' .. keep, text = text, orig = py, mine = true });
+        send(keep .. ' ' .. py);
+    end, send_as_typed);
+end
 
 local function reply(e)
     local cmdline = e.command;
@@ -354,32 +414,9 @@ local function reply(e)
     end
     local text = cmdline:sub(#keep + 2);
     if text == nil or text:match('^%s*$') then return false; end
-    if text:sub(1, 1) == '=' then
-        e.blocked = true;
-        local out = keep .. ' ' .. text:sub(2);
-        passthrough[out] = true;
-        AshitaCore:GetChatManager():QueueCommand(1, out);
-        return true;
-    end
-    if first_japanese(text) ~= nil or text:find('\253', 1, true) then return false; end   -- not plain English
+    if text:sub(1, 1) ~= '=' and (first_japanese(text) ~= nil or text:find('\253', 1, true)) then return false; end   -- not plain English
     e.blocked = true;
-    local en = sjis_to_utf8(text) or text;
-    local function send_as_typed()
-        local out = keep .. ' ' .. text;
-        passthrough[out] = true;
-        msg('sent in English instead.');
-        AshitaCore:GetChatManager():QueueCommand(1, out);
-    end
-    msg('translating your message...');
-    job('zh', en, function (zh)
-        local py = to_pinyin(zh);
-        if py == '' then msg('could not turn that into pinyin.'); send_as_typed(); return; end
-        if #py > 110 then py = py:sub(1, 110); end
-        local out = keep .. ' ' .. py;
-        passthrough[out] = true;
-        msg(('you: "%s" -> %s'):format(text, py));
-        AshitaCore:GetChatManager():QueueCommand(1, out);
-    end, send_as_typed);
+    send_text(keep, text);
     return true;
 end
 
@@ -400,6 +437,8 @@ ashita.events.register('command', 'omni_translate_cmd', function (e)
     elseif c == 'chinese' or c == 'zh' or c == 'pinyin' then
         st.zh = not st.zh; save();
         msg('Pinyin (Chinese) chat translation ' .. (st.zh and 'ON' or 'OFF') .. '.');
+    elseif c == 'window' or c == 'win' or c == 'w' then
+        st.win = not st.win; save();
     elseif c == 'reply' then
         st.reply = not st.reply; save();
         msg('Reply in Chinese ' .. (st.reply and 'ON - your /l /p /t /s /sh messages are sent as pinyin. Start a message with = to send it as typed.' or 'OFF'));
@@ -414,8 +453,124 @@ ashita.events.register('command', 'omni_translate_cmd', function (e)
             st.on and 'ON' or 'OFF', st.zh and 'ON' or 'OFF', st.reply and 'ON' or 'OFF',
             math.floor(st.chars / 3), DAILY, (function () local n = 0; for _ in pairs(pending) do n = n + 1; end return n; end)()));
     else
-        msg('/translate (Japanese on/off) | /translate chinese (pinyin on/off) | /translate reply (answer in pinyin) | /translate test <text> | /translate status');
+        msg('/translate window | /translate (Japanese on/off) | /translate chinese (pinyin on/off) | /translate reply (answer in pinyin) | /translate test <text> | /translate status');
     end
+end);
+
+----------------------------------------------------------------------------------------------------
+-- The Happy Translate window: move it by its title bar, resize it from the corner, the arrow
+-- folds it up. Where you leave it is remembered.
+----------------------------------------------------------------------------------------------------
+local imgui = require('imgui');
+local GOLD, DIM, TEXT, MINE = { 0.90, 0.78, 0.40, 1.0 }, { 0.60, 0.62, 0.68, 1.0 }, { 0.93, 0.93, 0.96, 1.0 }, { 0.55, 0.80, 1.00, 1.0 };
+local CHAN = { '/l', '/l2', '/p', '/s', '/sh', '/t' };
+local CHAN_Z = 'LS\0LS2\0Party\0Say\0Shout\0Tell\0';
+local chan_i, tell_buf, in_buf = { 0 }, { '' }, { '' };
+local function pick_chan(ch, who)
+    for i, c in ipairs(CHAN) do if c == ch then chan_i[1] = i - 1; end end
+    if ch == '/t' and who then tell_buf[1] = who; end
+end
+local save_at = nil;
+
+local function check(label, val, tip, set)
+    local v = { val };
+    if imgui.Checkbox(label, v) then set(v[1]); save(); end
+    if imgui.IsItemHovered() then imgui.SetTooltip(tip); end
+end
+
+local function window()
+    imgui.SetNextWindowPos({ st.x, st.y }, ImGuiCond_FirstUseEver);
+    imgui.SetNextWindowSize({ st.w, st.h }, ImGuiCond_FirstUseEver);
+    pcall(imgui.SetNextWindowSizeConstraints, { 340, 170 }, { 1600, 1100 });
+    local style = package.loaded['omni_style'];
+    local ns = style and style.begin() or nil;
+    local open = { true };
+    if imgui.Begin('Happy Translate###omni_translate_win', open, ImGuiWindowFlags_NoScrollbar) then
+        -- Switches
+        check('Japanese##trw_ja', st.on, 'Japanese chat lines get an English line.', function (v) st.on = v; end);
+        imgui.SameLine(0, 10);
+        check('Pinyin##trw_zh', st.zh, 'Chinese typed in English letters gets an English line.', function (v) st.zh = v; end);
+        imgui.SameLine(0, 10);
+        check('Reply in Chinese##trw_reply', st.reply, 'What you send (here or with /l /p /t /s /sh) goes out as pinyin.\nStart a message with = to send it as typed.', function (v) st.reply = v; end);
+        imgui.SameLine(0, 10);
+        check('Also in chat##trw_chat', st.chat_out, 'Show translations in the chat log too, not just here.', function (v) st.chat_out = v; end);
+
+        -- A new translated line: answer on its channel.
+        if tr.last_chan then pick_chan(tr.last_chan, tr.last_tell); tr.last_chan, tr.last_tell = nil, nil; end
+
+        -- The lines
+        imgui.BeginChild('##trw_log', { 0, -30 }, true);
+        if #log == 0 then
+            imgui.TextColored(DIM, 'Nothing translated yet. Japanese and pinyin chat lines show up here.');
+        end
+        for _, e in ipairs(log) do
+            imgui.TextColored(DIM, e.time);
+            imgui.SameLine(0, 6);
+            imgui.TextColored(e.mine and MINE or GOLD, e.who ~= '' and e.who or '?');
+            if e.chan and imgui.IsItemClicked() then pick_chan(e.chan, e.tell); end
+            if e.chan and imgui.IsItemHovered() then imgui.SetTooltip('Click to reply on ' .. e.chan .. (e.tell and (' ' .. e.tell) or '')); end
+            imgui.SameLine(0, 6);
+            imgui.PushTextWrapPos(0);
+            imgui.TextColored(TEXT, (e.text:gsub('%%', '%%%%')));
+            if e.orig ~= nil and not e.orig:find('[\128-\255]') then
+                imgui.TextColored(DIM, ((e.mine and 'sent: ' or '') .. e.orig):gsub('%%', '%%%%'));
+            end
+            imgui.PopTextWrapPos();
+        end
+        if tr.scroll then imgui.SetScrollHereY(1.0); tr.scroll = false; end
+        imgui.EndChild();
+
+        -- Reply box: channel, (name for a tell), message, Enter or Send.
+        imgui.PushItemWidth(66);
+        imgui.Combo('##trw_chan', chan_i, CHAN_Z);
+        imgui.PopItemWidth();
+        local keep = CHAN[chan_i[1] + 1];
+        if keep == '/t' then
+            imgui.SameLine(0, 4);
+            imgui.PushItemWidth(90);
+            imgui.InputTextWithHint('##trw_tell', 'name', tell_buf, 20);
+            imgui.PopItemWidth();
+            keep = '/t ' .. tell_buf[1];
+        end
+        imgui.SameLine(0, 4);
+        imgui.PushItemWidth(-54);
+        local hint = st.reply and 'type in English - sent as pinyin' or 'type your message';
+        local entered = imgui.InputTextWithHint('##trw_in', hint, in_buf, 200, ImGuiInputTextFlags_EnterReturnsTrue);
+        imgui.PopItemWidth();
+        imgui.SameLine(0, 4);
+        local clicked = imgui.Button('Send##trw_send', { -1, 0 });
+        if (entered or clicked) and not in_buf[1]:match('^%s*$') then
+            if keep == '/t ' then
+                msg('type a name for the tell first.');
+            else
+                send_text(keep, in_buf[1], not st.reply);
+                in_buf[1] = '';
+            end
+            imgui.SetKeyboardFocusHere(-1);
+        end
+
+        -- Remember where it is and how big.
+        pcall(function ()
+            local x, y = imgui.GetWindowPos();
+            local w, h = imgui.GetWindowSize();
+            if type(x) == 'table' then x, y = x[1], x[2]; end
+            if type(w) == 'table' then w, h = w[1], w[2]; end
+            if w == nil then w, h = imgui.GetWindowWidth(), imgui.GetWindowHeight(); end
+            x, y, w, h = math.floor(x), math.floor(y), math.floor(w), math.floor(h);
+            if x ~= st.x or y ~= st.y or w ~= st.w or h ~= st.h then
+                st.x, st.y, st.w, st.h = x, y, w, h;
+                save_at = os.clock() + 1;
+            end
+        end);
+    end
+    imgui.End();
+    if style then style.finish(ns); end
+    if not open[1] then st.win = false; save(); end
+    if save_at and os.clock() > save_at then save_at = nil; save(); end
+end
+
+ashita.events.register('d3d_present', 'omni_translate_window', function ()
+    if st.win then window(); end
 end);
 
 tr.enabled = function () return st.on; end
@@ -428,5 +583,7 @@ tr.zh_enabled = function () return st.zh; end
 tr.set_zh = function (on) st.zh = (on == true); save(); end
 tr.reply_enabled = function () return st.reply; end
 tr.set_reply = function (on) st.reply = (on == true); save(); end
+tr.win_shown = function () return st.win; end
+tr.set_win = function (on) st.win = (on == true); save(); end
 
 return tr;
