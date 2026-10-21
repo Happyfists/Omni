@@ -55,7 +55,7 @@
 
 addon.name    = 'omni';
 addon.author  = 'Happyfists';
-addon.version = '2.70';
+addon.version = '2.71';
 addon.desc    = 'All-in-one addon.';
 
 require('common');
@@ -2156,7 +2156,33 @@ local function popout_end(n)
     if (n.cols > 0) then imgui.PopStyleColor(n.cols); end
     if (n.vars > 0) then imgui.PopStyleVar(n.vars); end
 end
-package.loaded['omni_style'] = { begin = popout_begin, finish = popout_end, theme = theme };
+-- A small On / Off slider (the Happy Healer one): green pill with a white knob. Returns true if clicked.
+local function pill_switch(id, on, tip)
+    local x, y = imgui.GetCursorScreenPos();
+    local _, th = imgui.CalcTextSize('Ag');
+    local h = math.floor(th or 14);
+    local w = h * 2;
+    local bh = h + 6;                      -- same height as the tab buttons
+    y = y + math.floor((bh - h) / 2);
+    local clicked = imgui.InvisibleButton(id, { w, bh });
+    local dl = imgui.GetWindowDrawList();
+    dl:AddRectFilled({ x, y }, { x + w, y + h }, imgui.GetColorU32(on and { 0.24, 0.62, 0.30, 1.0 } or { 0.22, 0.23, 0.32, 1.0 }), h / 2);
+    local cx = on and (x + w - h / 2) or (x + h / 2);
+    dl:AddCircleFilled({ cx, y + h / 2 }, h / 2 - 2, imgui.GetColorU32({ 0.95, 0.95, 0.97, 1.0 }), 16);
+    if (tip ~= nil and imgui.IsItemHovered()) then imgui.SetTooltip(tip); end
+    return clicked;
+end
+omni.pill_switch = pill_switch;
+
+-- Happy Translate's On / Off switch, right after its tab.
+local function tr_switch()
+    local on = omni.translate.enabled();
+    if (pill_switch('##tr_switch', on, on and 'Happy Translate is on - click to turn it off.' or 'Happy Translate is off - click to turn it on.')) then
+        omni.translate.set(not on);
+    end
+end
+
+package.loaded['omni_style'] = { begin = popout_begin, finish = popout_end, theme = theme, switch = pill_switch };
 
 local function draw_panel()
     local s = omni.settings;
@@ -2251,6 +2277,11 @@ local function draw_panel()
                     end
                 end
                 imgui.PopStyleColor(cr and 4 or 1);
+                -- Happy Translate's On / Off switch sits right after its tab.
+                if (t.label == 'Happy Translate' and omni.translate ~= nil) then
+                    imgui.SameLine(0, 4);
+                    tr_switch();
+                end
             end
         end
         imgui.PopStyleVar(2);

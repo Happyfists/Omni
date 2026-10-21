@@ -551,16 +551,21 @@ end
 
 -- The page: switches, the translated lines, and the reply box. Used by the window and the tab.
 local function body(in_tab)
-    -- Only the Pinyin switch, and a button to pop the page out (or back in).
-    -- The one switch: reading and translating chat, on or off.
-    imgui.PushStyleColor(ImGuiCol_Button, st.master and { 0.20, 0.55, 0.28, 1.0 } or { 0.55, 0.20, 0.20, 1.0 });
-    imgui.PushStyleColor(ImGuiCol_ButtonHovered, st.master and { 0.26, 0.66, 0.34, 1.0 } or { 0.66, 0.26, 0.26, 1.0 });
-    if imgui.Button((st.master and 'Translate: ON' or 'Translate: OFF') .. (in_tab and '##trt_master' or '##trw_master'), { 120, 0 }) then
+    -- The one switch: reading and translating chat, on or off (the same slider as Happy Healer's).
+    local style = package.loaded['omni_style'];
+    local tip = 'Reads every chat channel and translates lines that are not English:\nJapanese, Chinese pinyin, Spanish, Portuguese, French, German.\nSame as /translate on and /translate off.';
+    local clicked;
+    if style ~= nil and style.switch ~= nil then
+        clicked = style.switch(in_tab and '##trt_master' or '##trw_master', st.master, tip);
+    else
+        clicked = imgui.Button((st.master and 'ON' or 'OFF') .. (in_tab and '##trt_master' or '##trw_master'));
+    end
+    if clicked then
         st.master = not st.master; save();
         msg('chat translation ' .. (st.master and 'ON' or 'OFF') .. '.');
     end
-    imgui.PopStyleColor(2);
-    if imgui.IsItemHovered() then imgui.SetTooltip('Reads every chat channel and translates lines that are not English:\nJapanese, Chinese pinyin, Spanish, Portuguese, French, German.\nSame as /translate on and /translate off.'); end
+    imgui.SameLine(0, 6);
+    imgui.TextColored(st.master and GOLD or DIM, st.master and 'Translate' or 'Translate (off)');
     imgui.SameLine(0, 16);
     if imgui.SmallButton((st.win and 'Close pop-out' or 'Pop out') .. (in_tab and '##trt_pop' or '##trw_pop')) then st.win = not st.win; save(); end
     if imgui.IsItemHovered() then imgui.SetTooltip('A window you can move and resize with the same lines and reply box.'); end
