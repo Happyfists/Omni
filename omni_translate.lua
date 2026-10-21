@@ -251,7 +251,7 @@ local function show(prefix, english, original)
     local ch, who = nil, nil;
     if channel_of then ch, who = channel_of(prefix); end
     add_log({ who = (prefix or ''):gsub('%s+$', ''), text = english, orig = original, chan = ch, tell = who });
-    if ch then tr.last_chan, tr.last_tell = ch, who; end
+    if ch then tr.last_chan, tr.last_tell = ch, who; tr.reply_chan = (ch == '/t' and who) and ('/t ' .. who) or ch; end
     if st.chat_out then
         local sj = utf8_to_sjis(english) or english:gsub('[\128-\255]', '?');
         msg(prefix .. sj);
@@ -431,6 +431,25 @@ ashita.events.register('command', 'omni_translate_cmd', function (e)
     local a = e.command:args();
     if #a == 0 then return; end
     local c0 = a[1]:lower();
+    -- /zl /zl2 /zp /zs /zsh text, /zt Name text, /zr text: always translated, sent as pinyin.
+    local ZCH = { ['/zl'] = '/l', ['/zl2'] = '/l2', ['/zp'] = '/p', ['/zs'] = '/s', ['/zsh'] = '/sh' };
+    if ZCH[c0] or c0 == '/zt' or c0 == '/zr' then
+        e.blocked = true;
+        local keep, text;
+        if ZCH[c0] then
+            keep, text = ZCH[c0], e.command:sub(#a[1] + 2);
+        elseif c0 == '/zt' then
+            if a[2] == nil then msg('/zt <name> <message>'); return; end
+            keep, text = '/t ' .. a[2], e.command:sub(#a[1] + #a[2] + 3);
+        else
+            local ch = tr.reply_chan or '/l';
+            keep, text = ch, e.command:sub(#a[1] + 2);
+        end
+        if text == nil or text:match('^%s*$') then msg(c0 .. ' <message>'); return; end
+        local ok, err = pcall(send_text, keep, text, false);
+        if not ok then msg('error: ' .. tostring(err)); end
+        return;
+    end
     if c0 ~= '/translate' and c0 ~= '/tr' then
         if st.reply then pcall(reply, e); end
         return;
@@ -532,8 +551,15 @@ local function body(in_tab)
     end
     imgui.SameLine(0, 4);
     imgui.PushItemWidth(-54);
-    local hint = 'type in English - sent as pinyin  (= in front: as typed,  / in front: a command)';
+    local hint = 'type in English, Enter = sent as pinyin   (or in chat: /zl /zp /zt name ...)';
     local entered = imgui.InputTextWithHint('##trw_in', hint, in_buf, 200, ImGuiInputTextFlags_EnterReturnsTrue);
+    -- While you type here the game must not get the keys (it would open its own chat line and
+    -- post the text itself). Enter is also checked directly in case the box did not report it.
+    if imgui.IsItemActive() then
+        tr.typing_at = os.clock();
+        local ok, hit = pcall(function () return imgui.IsKeyPressed(imgui.GetKeyIndex(ImGuiKey_Enter)); end);
+        if ok and hit then entered = true; end
+    end
     imgui.PopItemWidth();
     imgui.SameLine(0, 4);
     local clicked = imgui.Button('Send##trw_send', { -1, 0 });
@@ -592,6 +618,14 @@ local function window()
     if not open[1] then st.win = false; save(); end
     if save_at and os.clock() > save_at then save_at = nil; save(); end
 end
+
+local function typing_now() return tr.typing_at ~= nil and (os.clock() - tr.typing_at) < 0.25; end
+ashita.events.register('key', 'omni_translate_key', function (e)
+    if typing_now() then e.blocked = true; end
+end);
+ashita.events.register('key_data', 'omni_translate_keydata', function (e)
+    if typing_now() then e.blocked = true; end
+end);
 
 ashita.events.register('d3d_present', 'omni_translate_window', function ()
     if st.win then window(); end
