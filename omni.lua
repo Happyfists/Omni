@@ -55,7 +55,7 @@
 
 addon.name    = 'omni';
 addon.author  = 'Happyfists';
-addon.version = '2.62';
+addon.version = '2.63';
 addon.desc    = 'All-in-one addon.';
 
 require('common');
@@ -1780,6 +1780,12 @@ do
             local tv = { omni.translate ~= nil and omni.translate.enabled() };
             if (imgui.Checkbox('Happy Translate (Japanese to English)##opt_translate', tv) and omni.translate ~= nil) then omni.translate.set(tv[1]); end
             if (imgui.IsItemHovered()) then imgui.SetTooltip('Chat lines with Japanese get an English line underneath.\nOnly those lines are sent to the free MyMemory translator.\nSame as /translate.  /translate status shows today\'s use.'); end
+            local zv = { omni.translate ~= nil and omni.translate.zh_enabled() };
+            if (imgui.Checkbox('Translate pinyin (Chinese) to English##opt_tr_zh', zv) and omni.translate ~= nil) then omni.translate.set_zh(zv[1]); end
+            if (imgui.IsItemHovered()) then imgui.SetTooltip('Chinese typed in English letters ("dou tong guan le") gets an English line.\nSame as /translate chinese.'); end
+            local rv = { omni.translate ~= nil and omni.translate.reply_enabled() };
+            if (imgui.Checkbox('Reply in Chinese (pinyin)##opt_tr_reply', rv) and omni.translate ~= nil) then omni.translate.set_reply(rv[1]); end
+            if (imgui.IsItemHovered()) then imgui.SetTooltip('Your /l /l2 /p /t /s /sh messages are translated and sent as pinyin.\nStart a message with = to send it as typed (/l =lol).\nSame as /translate reply.'); end
             end
 
             if (section('AV helper listens')) then

@@ -1,7 +1,10 @@
 # omni_translate.ps1 - helper for omni's Happy Translate (omni_translate.lua).
-# Reads Japanese text (UTF-8) from -In, asks MyMemory for English, writes it (UTF-8) to -Out.
-# On failure writes "!<reason>" to -Out. Started hidden by omni; nothing else is sent anywhere.
-param([string]$In, [string]$Out)
+# Reads text (UTF-8) from -In, writes the result (UTF-8) to -Out. On failure writes "!<reason>".
+# Started hidden by omni; only the one chat line is sent.
+#   -Mode ja   Japanese -> English                     (MyMemory)
+#   -Mode py   pinyin -> Chinese characters -> English  (Google Input Tools, then MyMemory)
+#   -Mode zh   English -> Chinese characters            (MyMemory; omni turns them into pinyin)
+param([string]$In, [string]$Out, [string]$Mode = 'ja')
 
 $utf8 = New-Object System.Text.UTF8Encoding $false
 function Write-Result([string]$text) {
@@ -10,21 +13,46 @@ function Write-Result([string]$text) {
     Move-Item -LiteralPath $tmp -Destination $Out -Force
 }
 
+function MyMemory([string]$text, [string]$pair) {
+    # MyMemory takes at most 500 bytes.
+    while ($utf8.GetByteCount($text) -gt 490) { $text = $text.Substring(0, $text.Length - 1) }
+    $q = [Uri]::EscapeDataString($text)
+    $url = "https://api.mymemory.translated.net/get?q=$q&langpair=$([Uri]::EscapeDataString($pair))"
+    $r = Invoke-RestMethod -Uri $url -TimeoutSec 12 -UseBasicParsing
+    if ($r.responseStatus -and [int]$r.responseStatus -ne 200) { throw [string]$r.responseDetails }
+    $t = [string]$r.responseData.translatedText
+    if ([string]::IsNullOrWhiteSpace($t)) { throw ('no translation: ' + [string]$r.responseDetails) }
+    if ($t -match 'MYMEMORY WARNING|QUERY LENGTH LIMIT') { throw $t }
+    return [System.Net.WebUtility]::HtmlDecode($t)
+}
+
+function PinyinToHanzi([string]$text) {
+    # Each comma/full-stop separated piece is sent without spaces ("dou tong guan le" -> "doutongguanle").
+    $out = @()
+    foreach ($piece in ($text -split '[,.!?;:]+')) {
+        $p = ($piece -replace '[^A-Za-z]', '').ToLower()
+        if ($p.Length -eq 0) { continue }
+        $url = "https://inputtools.google.com/request?text=$p&itc=zh-t-i0-pinyin&num=1&cp=0&cs=1&ie=utf-8&oe=utf-8"
+        $r = Invoke-RestMethod -Uri $url -TimeoutSec 12 -UseBasicParsing
+        if ($r[0] -ne 'SUCCESS') { throw 'pinyin lookup failed' }
+        $out += [string]$r[1][0][1][0]
+    }
+    return ($out -join ', ')
+}
+
 try {
     [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
     $text = [System.IO.File]::ReadAllText($In, $utf8).Trim()
     if ($text.Length -eq 0) { Write-Result '!empty line'; exit }
-    # MyMemory takes at most 500 bytes; Japanese is 3 bytes a character in UTF-8.
-    while ($utf8.GetByteCount($text) -gt 490) { $text = $text.Substring(0, $text.Length - 1) }
-    $q = [Uri]::EscapeDataString($text)
-    $url = "https://api.mymemory.translated.net/get?q=$q&langpair=ja%7Cen"
-    $r = Invoke-RestMethod -Uri $url -TimeoutSec 12 -UseBasicParsing
-    if ($r.responseStatus -and [int]$r.responseStatus -ne 200) { Write-Result ('!' + [string]$r.responseDetails); exit }
-    $en = [string]$r.responseData.translatedText
-    if ([string]::IsNullOrWhiteSpace($en)) { Write-Result ('!' + [string]$r.responseDetails); exit }
-    if ($en -match 'MYMEMORY WARNING|QUERY LENGTH LIMIT') { Write-Result ('!' + $en); exit }
-    $en = [System.Net.WebUtility]::HtmlDecode($en)
-    Write-Result $en
+    switch ($Mode) {
+        'py' {
+            $hanzi = PinyinToHanzi $text
+            if ($hanzi.Length -eq 0) { Write-Result '!no pinyin found'; exit }
+            Write-Result (MyMemory $hanzi 'zh-CN|en')
+        }
+        'zh' { Write-Result (MyMemory $text 'en|zh-CN') }
+        default { Write-Result (MyMemory $text 'ja|en') }
+    }
 }
 catch {
     Write-Result ('!' + $_.Exception.Message)
