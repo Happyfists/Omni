@@ -4,6 +4,7 @@
 #   -Mode ja   Japanese -> English                     (MyMemory)
 #   -Mode py   pinyin -> Chinese characters -> English  (Google Input Tools, then MyMemory)
 #   -Mode zh   English -> Chinese characters            (MyMemory; omni turns them into pinyin)
+#   -Mode es / pt / fr / de   that language -> English  (MyMemory)
 param([string]$In, [string]$Out, [string]$Mode = 'ja')
 
 $utf8 = New-Object System.Text.UTF8Encoding $false
@@ -51,7 +52,11 @@ try {
             Write-Result (MyMemory $hanzi 'zh-CN|en')
         }
         'zh' { Write-Result (MyMemory $text 'en|zh-CN') }
-        default { Write-Result (MyMemory $text 'ja|en') }
+        default {
+            # ja, es, pt, fr, de ... -> English
+            if ($Mode -notmatch '^[a-z]{2}$') { $Mode = 'ja' }
+            Write-Result (MyMemory $text ($Mode + '|en'))
+        }
     }
 }
 catch {
