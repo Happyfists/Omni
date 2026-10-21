@@ -10,8 +10,8 @@
       21h group: windows every 5 min from 21:00 after ToD, forced at 21:30 (7 windows)
       57h group: windows every 10 min from 57:00, forced at 58:00 (7 windows)
       81h group: windows every 10 min from 81:00, forced at 82:00 (7 windows)
-      Wyrms (Jormungand, Tiamat): not on that page - classic timing, a window every hour
-      from 72:00 to 96:00 (25 windows), no forced pop. Change GROUPS.wyrm if CatsEyeXI differs.
+      Wyrms (Jormungand, Tiamat, Vrtra): not on that page. 7 windows 10 min apart (Leon),
+      first window assumed at 72:00, forced at 73:00. Change GROUPS.wyrm if CatsEyeXI differs.
 
     Commands
       /pops                        show / hide the Happy Pops window
@@ -34,8 +34,9 @@ local GROUPS = {
     h21 = { first = 21 * 3600, step = 5 * 60,  count = 7 },
     h57 = { first = 57 * 3600, step = 10 * 60, count = 7 },
     h81 = { first = 81 * 3600, step = 10 * 60, count = 7 },
-    -- Wyrms: CatsEyeXI does not list them; classic timing = a chance every hour from 72h to 96h, no forced pop.
-    wyrm = { first = 72 * 3600, step = 60 * 60, count = 25, forced = false, label = '72h' },
+    -- Wyrms (Leon, from playing): 7 windows 10 min apart like the others. First window assumed at 72h (classic
+    -- earliest wyrm pop) - change "first" here if CatsEyeXI uses another hour.
+    wyrm = { first = 72 * 3600, step = 10 * 60, count = 7, label = '72h' },
 };
 local HNMS = {
     { 'Fafnir', 'h21' }, { 'Behemoth', 'h21' }, { 'Adamantoise', 'h21' }, { 'Argus', 'h21' },
@@ -43,7 +44,7 @@ local HNMS = {
     { 'Roc', 'h21' }, { 'Lord of Onzozo', 'h21' },
     { 'Khimaira', 'h57' }, { 'Cerberus', 'h57' }, { 'Hydra', 'h57' },
     { 'Medusa', 'h81' }, { 'Gurfurlur the Menacing', 'h81' }, { 'Gulool Ja Ja', 'h81' },
-    { 'Jormungand', 'wyrm' }, { 'Tiamat', 'wyrm' },
+    { 'Jormungand', 'wyrm' }, { 'Tiamat', 'wyrm' }, { 'Vrtra', 'wyrm' },
 };
 local GROUP_OF = {};
 for _, h in ipairs(HNMS) do GROUP_OF[h[1]] = h[2]; end
