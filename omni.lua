@@ -55,7 +55,7 @@
 
 addon.name    = 'omni';
 addon.author  = 'Happyfists';
-addon.version = '2.61';
+addon.version = '2.62';
 addon.desc    = 'All-in-one addon.';
 
 require('common');
@@ -1649,6 +1649,12 @@ do
     if (ok) then omni.pops = mod; else print('[omni] Happy Pops could not load: ' .. tostring(mod)); end
 end
 
+-- Happy Translate: Japanese chat lines get an English line underneath (omni_translate.lua).
+do
+    local ok, mod = pcall(require, 'omni_translate');
+    if (ok) then omni.translate = mod; else print('[omni] Happy Translate could not load: ' .. tostring(mod)); end
+end
+
 -- Spell lines: targetlines-style lines with an animation per element (omni_fx.lua).
 do
     local ok, mod = pcall(require, 'omni_fx');
@@ -1768,6 +1774,12 @@ do
                 if (imgui.Checkbox('Open by itself when AV pops##opt_avauto', ao)) then omni.av.auto_open(ao[1]); end
                 if (imgui.IsItemHovered()) then imgui.SetTooltip('When Absolute Virtue pops, Happy Virtue opens and its fight timer starts.'); end
             end
+            end
+
+            if (section('Chat')) then
+            local tv = { omni.translate ~= nil and omni.translate.enabled() };
+            if (imgui.Checkbox('Happy Translate (Japanese to English)##opt_translate', tv) and omni.translate ~= nil) then omni.translate.set(tv[1]); end
+            if (imgui.IsItemHovered()) then imgui.SetTooltip('Chat lines with Japanese get an English line underneath.\nOnly those lines are sent to the free MyMemory translator.\nSame as /translate.  /translate status shows today\'s use.'); end
             end
 
             if (section('AV helper listens')) then
