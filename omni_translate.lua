@@ -232,6 +232,21 @@ local function expand_short(text)
     end));
 end
 
+-- Player names in a line ("Quixy zu wo"): a capitalised word that is not pinyin is a name.
+-- They are taken out before judging, and put in front of a built-in translation.
+local function split_names(text)
+    local names, kept = {}, {};
+    for w in text:gmatch('%S+') do
+        local word = w:gsub("[^%a']", '');
+        if word:match('^%u') and word ~= '' and not is_pinyin_word(word:lower()) then
+            names[#names + 1] = word;
+        else
+            kept[#kept + 1] = w;
+        end
+    end
+    return names, table.concat(kept, ' ');
+end
+
 local function looks_pinyin(text)
     if PY == nil then return false; end
     local words, good, eng = 0, 0, 0;
@@ -626,11 +641,17 @@ ashita.events.register('text_in', 'omni_translate_text', function (e)
         pcall(function () me = AshitaCore:GetMemoryManager():GetParty():GetMemberName(0) or ''; end);
         if me ~= '' and pre:find(me, 1, true) then return; end
         local rest_x = expand_short(rest);   -- "da sm de" -> "da shen me de"
-        if st.langs.zh and (looks_pinyin(rest_x) or game_phrase(rest_x) ~= nil) then
+        local names, core = split_names(rest_x);   -- "Quixy zu wo" -> Quixy + "zu wo"
+        if st.langs.zh and core ~= '' and (looks_pinyin(core) or game_phrase(core) ~= nil) then
             -- Common game phrases are answered from the phrase lists (instant, no allowance used).
-            local quick = game_phrase(rest_x);
-            if quick ~= nil then cache['py:' .. rest_x] = quick; end
-            one_line(e, pre, 'py', rest_x);
+            local quick = game_phrase(core);
+            if quick ~= nil then
+                if #names > 0 then quick = table.concat(names, ' ') .. ', ' .. quick; end
+                cache['py:' .. core .. '|' .. table.concat(names, ' ')] = quick;
+                one_line(e, pre, 'py', core .. '|' .. table.concat(names, ' '));
+            else
+                one_line(e, pre, 'py', core);
+            end
             return;
         end
         local lang = detect_lang(rest);
