@@ -485,7 +485,7 @@ local function body(in_tab)
     imgui.SameLine(0, 10);
     check('Pinyin##trw_zh', st.zh, 'Chinese typed in English letters gets an English line.', function (v) st.zh = v; end);
     imgui.SameLine(0, 10);
-    check('Reply in Chinese##trw_reply', st.reply, 'What you send (here or with /l /p /t /s /sh) goes out as pinyin.\nStart a message with = to send it as typed.', function (v) st.reply = v; end);
+    check('Translate my /l /p /t too##trw_reply', st.reply, 'The box below always translates.\nTick this to also translate what you type in normal chat\n(/l /l2 /p /t /s /sh) into pinyin. Start a message with = to send it as typed.', function (v) st.reply = v; end);
     imgui.SameLine(0, 10);
     check('Also in chat##trw_chat', st.chat_out, 'Show translations in the chat log too, not just here.', function (v) st.chat_out = v; end);
 
@@ -528,16 +528,22 @@ local function body(in_tab)
     end
     imgui.SameLine(0, 4);
     imgui.PushItemWidth(-54);
-    local hint = st.reply and 'type in English - sent as pinyin' or 'type your message';
+    local hint = 'type in English - sent as pinyin  (= in front: as typed,  / in front: a command)';
     local entered = imgui.InputTextWithHint('##trw_in', hint, in_buf, 200, ImGuiInputTextFlags_EnterReturnsTrue);
     imgui.PopItemWidth();
     imgui.SameLine(0, 4);
     local clicked = imgui.Button('Send##trw_send', { -1, 0 });
     if (entered or clicked) and not in_buf[1]:match('^%s*$') then
-        if keep == '/t ' then
+        local text = in_buf[1]:gsub('^%s+', '');
+        if text:sub(1, 1) == '/' then
+            -- A whole command (/l2 hi, /p hi): run it like the chat line would.
+            AshitaCore:GetChatManager():QueueCommand(1, text);
+            in_buf[1] = '';
+        elseif keep == '/t ' then
             msg('type a name for the tell first.');
         else
-            send_text(keep, in_buf[1], not st.reply);
+            -- The box always translates (that is what it is for); = in front sends it as typed.
+            send_text(keep, text, false);
             in_buf[1] = '';
         end
         imgui.SetKeyboardFocusHere(-1);
