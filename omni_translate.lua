@@ -264,6 +264,13 @@ local GAME_PY = {
     ['diao le'] = 'it dropped', ['shua'] = 'farm', ['da'] = 'fight', ['sha'] = 'kill', ['gei wo'] = 'give me',
     ['gei ni'] = 'for you', ['wo ye'] = 'me too', ['duo shao'] = 'how much', ['duo shao qian'] = 'how much money',
     ['jin bi'] = 'gil', ['shang xian'] = 'online', ['xia xian'] = 'logging off', ['gong hui'] = 'linkshell',
+    ['huo tian qi chu lai le'] = 'fire weather is up', ['chu lai le'] = 'is up', ['tian qi'] = 'weather',
+    ['huo tian qi'] = 'fire weather', ['shui tian qi'] = 'water weather', ['feng tian qi'] = 'wind weather',
+    ['lei tian qi'] = 'thunder weather', ['bing tian qi'] = 'ice weather', ['tu tian qi'] = 'earth weather',
+    ['guang tian qi'] = 'light weather', ['an tian qi'] = 'dark weather', ['xue tian qi'] = 'snow weather',
+    ['you mei ren yao lai de'] = 'anyone want to come?', ['you mei you ren'] = 'anyone?', ['you mei ren'] = 'anyone',
+    ['yao lai de'] = 'who wants to come', ['you ren ma'] = 'anyone?', ['shei yao'] = 'who wants it', ['shei lai'] = 'who is coming',
+    ['zao shang hao'] = 'good morning', ['da jia zao'] = 'morning all',
     ['mei xu jiu pao hui lai'] = "if you don't need it, just run back", ['mei xu'] = "don't need it",
     ['mei xu yao'] = "don't need it", ['bu xu yao'] = "don't need it", ['xu yao'] = 'need', ['pao hui lai'] = 'run back',
     ['pao'] = 'run', ['jiu'] = 'then', ['hui lai le'] = 'back now', ['bi zu'] = 'must have', ['wo men bi xu da ma'] = 'do we have to fight it?', ['bi xu da ma'] = 'do we have to fight it?', ['bi xu'] = 'must',
@@ -601,6 +608,10 @@ ashita.events.register('text_in', 'omni_translate_text', function (e)
         -- Player chat in English letters: pinyin, or Spanish / Portuguese / French / German.
         local pre, rest = split_speaker(s);
         if pre == '' then return; end
+        -- Your own lines are not translated back to you.
+        local me = '';
+        pcall(function () me = AshitaCore:GetMemoryManager():GetParty():GetMemberName(0) or ''; end);
+        if me ~= '' and pre:find(me, 1, true) then return; end
         local rest_x = expand_short(rest);   -- "da sm de" -> "da shen me de"
         if st.langs.zh and (looks_pinyin(rest_x) or game_phrase(rest_x) ~= nil) then
             -- Common game phrases are answered from the phrase lists (instant, no allowance used).
