@@ -55,7 +55,7 @@
 
 addon.name    = 'omni';
 addon.author  = 'Happyfists';
-addon.version = '2.64';
+addon.version = '2.65';
 addon.desc    = 'All-in-one addon.';
 
 require('common');
@@ -1427,6 +1427,26 @@ for _, section in ipairs(trove.sections) do
                     imgui.EndTabItem();
                 end
                 if (imgui.BeginTabItem('AV##omni_seasub')) then
+                    -- Happy Virtue pop-out and when the helper listens (moved here from Options).
+                    local av_on = { av.float_shown ~= nil and av.float_shown() };
+                    if (imgui.Checkbox('Happy Virtue pop-out##sea_avpop', av_on) and av.set_float ~= nil) then av.set_float(av_on[1]); end
+                    if (imgui.IsItemHovered()) then imgui.SetTooltip('The floating Absolute Virtue window: 2-hour locks and timers.\nSame as /av show and /av hide.'); end
+                    if (av.auto_open ~= nil) then
+                        imgui.SameLine(0, 14);
+                        local ao = { av.auto_open() };
+                        if (imgui.Checkbox('Open by itself when AV pops##sea_avauto', ao)) then av.auto_open(ao[1]); end
+                        if (imgui.IsItemHovered()) then imgui.SetTooltip('When Absolute Virtue pops, Happy Virtue opens and its fight timer starts.'); end
+                    end
+                    imgui.TextColored({ 0.62, 0.66, 0.80, 1.0 }, 'Listens:');
+                    for _, m in ipairs({ { 'zone', "In Al'Taieu" }, { 'always', 'Everywhere' }, { 'off', 'Off' } }) do
+                        imgui.SameLine(0, 10);
+                        if (imgui.RadioButton(m[2] .. '##sea_avmode', (omni.settings.av_mode or 'zone') == m[1])) then
+                            omni.settings.av_mode = m[1];
+                            pcall(av.set_mode, m[1]);
+                            settings.save('omni');
+                        end
+                    end
+                    imgui.Separator();
                     av.draw_tab(trove);
                     tab.height = math.max(160, math.min(900, math.floor(imgui.GetCursorPosY()) + 10));
                     imgui.EndTabItem();
@@ -1760,49 +1780,6 @@ do
 
             ------------------------------------------------------------------ right column
             imgui.TableNextColumn();
-            if (section('Pop-outs')) then
-            local pv = { s.aby_pop == true };
-            if (imgui.Checkbox('Happy Procs (Abyssea procs)##opt_abypop', pv)) then s.aby_pop = pv[1]; save(); end
-            local av_on = { omni.av ~= nil and omni.av.float_shown ~= nil and omni.av.float_shown() };
-            if (imgui.Checkbox('Happy Virtue (Absolute Virtue)##opt_avpop', av_on) and omni.av ~= nil and omni.av.set_float ~= nil) then
-                omni.av.set_float(av_on[1]);
-            end
-            if (imgui.IsItemHovered()) then imgui.SetTooltip('Happy Virtue: the floating Absolute Virtue window, 2-hour locks and timers.\nSame as /avh show and /avh hide.'); end
-            local twv = { omni.translate ~= nil and omni.translate.win_shown() };
-            if (imgui.Checkbox('Happy Translate (chat translations)##opt_trwin', twv) and omni.translate ~= nil) then omni.translate.set_win(twv[1]); end
-            if (imgui.IsItemHovered()) then imgui.SetTooltip('A window you can move and resize: translated lines, and a box to reply\n(in pinyin when Reply in Chinese is on). Same as /translate window.'); end
-            if (omni.av ~= nil and omni.av.auto_open ~= nil) then
-                local ao = { omni.av.auto_open() };
-                imgui.SetCursorPosX(imgui.GetCursorPosX() + 22);
-                if (imgui.Checkbox('Open by itself when AV pops##opt_avauto', ao)) then omni.av.auto_open(ao[1]); end
-                if (imgui.IsItemHovered()) then imgui.SetTooltip('When Absolute Virtue pops, Happy Virtue opens and its fight timer starts.'); end
-            end
-            end
-
-            if (section('Chat')) then
-            local tv = { omni.translate ~= nil and omni.translate.enabled() };
-            if (imgui.Checkbox('Happy Translate (Japanese to English)##opt_translate', tv) and omni.translate ~= nil) then omni.translate.set(tv[1]); end
-            if (imgui.IsItemHovered()) then imgui.SetTooltip('Chat lines with Japanese get an English line underneath.\nOnly those lines are sent to the free MyMemory translator.\nSame as /translate.  /translate status shows today\'s use.'); end
-            local zv = { omni.translate ~= nil and omni.translate.zh_enabled() };
-            if (imgui.Checkbox('Translate pinyin (Chinese) to English##opt_tr_zh', zv) and omni.translate ~= nil) then omni.translate.set_zh(zv[1]); end
-            if (imgui.IsItemHovered()) then imgui.SetTooltip('Chinese typed in English letters ("dou tong guan le") gets an English line.\nSame as /translate chinese.'); end
-            local rv = { omni.translate ~= nil and omni.translate.reply_enabled() };
-            if (imgui.Checkbox('Reply in Chinese (pinyin)##opt_tr_reply', rv) and omni.translate ~= nil) then omni.translate.set_reply(rv[1]); end
-            if (imgui.IsItemHovered()) then imgui.SetTooltip('Your /l /l2 /p /t /s /sh messages are translated and sent as pinyin.\nStart a message with = to send it as typed (/l =lol).\nSame as /translate reply.'); end
-            end
-
-            if (section('AV helper listens')) then
-            choices('opt_av', {
-                { 'zone', "In Al'Taieu", "AV is only ever in Al'Taieu, so this keeps it quiet everywhere else." },
-                { 'always', 'Everywhere' },
-                { 'off', 'Off' },
-            }, s.av_mode or 'zone', function (m)
-                s.av_mode = m;
-                if (omni.av ~= nil) then pcall(omni.av.set_mode, m); end
-                save();
-            end);
-            end
-
             if (section('Spell lines')) then
             toggle('Animations', 'fx_on', true, 'Lightning, fireballs, cures and more.');
             toggle('Only my party and alliance', 'fx_party', true);
@@ -1904,6 +1881,16 @@ if (omni.pops ~= nil) then
     tabs[#tabs + 1] = pops_tab;
 end
 
+-- Happy Translate: translated chat and a reply box (omni_translate.lua), as its own tab.
+if (omni.translate ~= nil and omni.translate.render ~= nil) then
+    local tr_tab = { label = 'Happy Translate', width = 640, height = 380 };
+    tr_tab.render = function ()
+        omni.translate.render();
+        tr_tab.height = math.max(160, math.min(900, math.floor(imgui.GetCursorPosY()) + 10));
+    end;
+    tabs[#tabs + 1] = tr_tab;
+end
+
 ----------------------------------------------------------------------------------------------------
 -- The drop-down panel (hangs under the bar, same width)
 ----------------------------------------------------------------------------------------------------
@@ -1931,7 +1918,7 @@ end
 
 -- Tab layout: two rows. Anything not named here goes on the second row, before TH.
 local TAB_ROWS = {
-    { 'Abyssea', 'Happy Pops', 'Quests', 'Multisend', 'Damage' },
+    { 'Abyssea', 'Happy Pops', 'Happy Translate', 'Quests', 'Multisend', 'Damage' },
     { 'Character', 'Ultimates', 'Currency', 'Dailies', 'Codex', 'Sky', 'Sea', 'Ventures', 'Sparks', 'Options', 'TH' },
 };
 local TAB_PAD, TAB_GAP = 8, 4;

@@ -248,7 +248,7 @@ local function show(prefix, english, original)
     if channel_of then ch, who = channel_of(prefix); end
     add_log({ who = (prefix or ''):gsub('%s+$', ''), text = english, orig = original, chan = ch, tell = who });
     if ch then tr.last_chan, tr.last_tell = ch, who; end
-    if st.chat_out or not st.win then
+    if st.chat_out then
         local sj = utf8_to_sjis(english) or english:gsub('[\128-\255]', '?');
         msg(prefix .. sj);
     end
@@ -388,12 +388,12 @@ local function send_text(keep, text, force_english)
         add_log({ who = 'you ' .. keep, text = text, mine = true });
         send(keep .. ' ' .. text);
     end
-    if not st.win or st.chat_out then msg('translating your message...'); end
+    if st.chat_out then msg('translating your message...'); end
     job('zh', en, function (zh)
         local py = to_pinyin(zh);
         if py == '' then msg('could not turn that into pinyin.'); send_as_typed(); return; end
         if #py > 110 then py = py:sub(1, 110); end
-        if not st.win or st.chat_out then msg(('you: "%s" -> %s'):format(text, py)); end
+        if st.chat_out then msg(('you: "%s" -> %s'):format(text, py)); end
         add_log({ who = 'you ' .. keep, text = text, orig = py, mine = true });
         send(keep .. ' ' .. py);
     end, send_as_typed);
@@ -478,6 +478,83 @@ local function check(label, val, tip, set)
     if imgui.IsItemHovered() then imgui.SetTooltip(tip); end
 end
 
+-- The page: switches, the translated lines, and the reply box. Used by the window and the tab.
+local function body(in_tab)
+    -- Switches
+    check('Japanese##trw_ja', st.on, 'Japanese chat lines get an English line.', function (v) st.on = v; end);
+    imgui.SameLine(0, 10);
+    check('Pinyin##trw_zh', st.zh, 'Chinese typed in English letters gets an English line.', function (v) st.zh = v; end);
+    imgui.SameLine(0, 10);
+    check('Reply in Chinese##trw_reply', st.reply, 'What you send (here or with /l /p /t /s /sh) goes out as pinyin.\nStart a message with = to send it as typed.', function (v) st.reply = v; end);
+    imgui.SameLine(0, 10);
+    check('Also in chat##trw_chat', st.chat_out, 'Show translations in the chat log too, not just here.', function (v) st.chat_out = v; end);
+
+    -- A new translated line: answer on its channel.
+    if tr.last_chan then pick_chan(tr.last_chan, tr.last_tell); tr.last_chan, tr.last_tell = nil, nil; end
+
+    -- The lines
+    imgui.BeginChild(in_tab and '##trt_log' or '##trw_log', { 0, in_tab and 260 or -30 }, true);
+    if #log == 0 then
+        imgui.TextColored(DIM, 'Nothing translated yet. Japanese and pinyin chat lines show up here.');
+    end
+    for _, e in ipairs(log) do
+        imgui.TextColored(DIM, e.time);
+        imgui.SameLine(0, 6);
+        imgui.TextColored(e.mine and MINE or GOLD, e.who ~= '' and e.who or '?');
+        if e.chan and imgui.IsItemClicked() then pick_chan(e.chan, e.tell); end
+        if e.chan and imgui.IsItemHovered() then imgui.SetTooltip('Click to reply on ' .. e.chan .. (e.tell and (' ' .. e.tell) or '')); end
+        imgui.SameLine(0, 6);
+        imgui.PushTextWrapPos(0);
+        imgui.TextColored(TEXT, (e.text:gsub('%%', '%%%%')));
+        if e.orig ~= nil and not e.orig:find('[\128-\255]') then
+            imgui.TextColored(DIM, ((e.mine and 'sent: ' or '') .. e.orig):gsub('%%', '%%%%'));
+        end
+        imgui.PopTextWrapPos();
+    end
+    if tr.scroll then imgui.SetScrollHereY(1.0); tr.scroll = false; end
+    imgui.EndChild();
+
+    -- Reply box: channel, (name for a tell), message, Enter or Send.
+    imgui.PushItemWidth(66);
+    imgui.Combo('##trw_chan', chan_i, CHAN_Z);
+    imgui.PopItemWidth();
+    local keep = CHAN[chan_i[1] + 1];
+    if keep == '/t' then
+        imgui.SameLine(0, 4);
+        imgui.PushItemWidth(90);
+        imgui.InputTextWithHint('##trw_tell', 'name', tell_buf, 20);
+        imgui.PopItemWidth();
+        keep = '/t ' .. tell_buf[1];
+    end
+    imgui.SameLine(0, 4);
+    imgui.PushItemWidth(-54);
+    local hint = st.reply and 'type in English - sent as pinyin' or 'type your message';
+    local entered = imgui.InputTextWithHint('##trw_in', hint, in_buf, 200, ImGuiInputTextFlags_EnterReturnsTrue);
+    imgui.PopItemWidth();
+    imgui.SameLine(0, 4);
+    local clicked = imgui.Button('Send##trw_send', { -1, 0 });
+    if (entered or clicked) and not in_buf[1]:match('^%s*$') then
+        if keep == '/t ' then
+            msg('type a name for the tell first.');
+        else
+            send_text(keep, in_buf[1], not st.reply);
+            in_buf[1] = '';
+        end
+        imgui.SetKeyboardFocusHere(-1);
+    end
+
+end
+tr.render = function ()
+    -- Pop-out window switch, then the same page as the window.
+    local wv = { st.win };
+    if imgui.Checkbox('Pop-out window##trt_win', wv) then st.win = wv[1]; save(); end
+    if imgui.IsItemHovered() then imgui.SetTooltip('A window you can move and resize with the same lines and reply box.\nSame as /translate window.'); end
+    imgui.SameLine(0, 16);
+    imgui.TextColored(DIM, ('Sent today: about %d of %d characters (free MyMemory limit)'):format(math.floor(st.chars / 3), DAILY));
+    imgui.Separator();
+    body(true);
+end
+
 local function window()
     imgui.SetNextWindowPos({ st.x, st.y }, ImGuiCond_FirstUseEver);
     imgui.SetNextWindowSize({ st.w, st.h }, ImGuiCond_FirstUseEver);
@@ -486,68 +563,7 @@ local function window()
     local ns = style and style.begin() or nil;
     local open = { true };
     if imgui.Begin('Happy Translate###omni_translate_win', open, ImGuiWindowFlags_NoScrollbar) then
-        -- Switches
-        check('Japanese##trw_ja', st.on, 'Japanese chat lines get an English line.', function (v) st.on = v; end);
-        imgui.SameLine(0, 10);
-        check('Pinyin##trw_zh', st.zh, 'Chinese typed in English letters gets an English line.', function (v) st.zh = v; end);
-        imgui.SameLine(0, 10);
-        check('Reply in Chinese##trw_reply', st.reply, 'What you send (here or with /l /p /t /s /sh) goes out as pinyin.\nStart a message with = to send it as typed.', function (v) st.reply = v; end);
-        imgui.SameLine(0, 10);
-        check('Also in chat##trw_chat', st.chat_out, 'Show translations in the chat log too, not just here.', function (v) st.chat_out = v; end);
-
-        -- A new translated line: answer on its channel.
-        if tr.last_chan then pick_chan(tr.last_chan, tr.last_tell); tr.last_chan, tr.last_tell = nil, nil; end
-
-        -- The lines
-        imgui.BeginChild('##trw_log', { 0, -30 }, true);
-        if #log == 0 then
-            imgui.TextColored(DIM, 'Nothing translated yet. Japanese and pinyin chat lines show up here.');
-        end
-        for _, e in ipairs(log) do
-            imgui.TextColored(DIM, e.time);
-            imgui.SameLine(0, 6);
-            imgui.TextColored(e.mine and MINE or GOLD, e.who ~= '' and e.who or '?');
-            if e.chan and imgui.IsItemClicked() then pick_chan(e.chan, e.tell); end
-            if e.chan and imgui.IsItemHovered() then imgui.SetTooltip('Click to reply on ' .. e.chan .. (e.tell and (' ' .. e.tell) or '')); end
-            imgui.SameLine(0, 6);
-            imgui.PushTextWrapPos(0);
-            imgui.TextColored(TEXT, (e.text:gsub('%%', '%%%%')));
-            if e.orig ~= nil and not e.orig:find('[\128-\255]') then
-                imgui.TextColored(DIM, ((e.mine and 'sent: ' or '') .. e.orig):gsub('%%', '%%%%'));
-            end
-            imgui.PopTextWrapPos();
-        end
-        if tr.scroll then imgui.SetScrollHereY(1.0); tr.scroll = false; end
-        imgui.EndChild();
-
-        -- Reply box: channel, (name for a tell), message, Enter or Send.
-        imgui.PushItemWidth(66);
-        imgui.Combo('##trw_chan', chan_i, CHAN_Z);
-        imgui.PopItemWidth();
-        local keep = CHAN[chan_i[1] + 1];
-        if keep == '/t' then
-            imgui.SameLine(0, 4);
-            imgui.PushItemWidth(90);
-            imgui.InputTextWithHint('##trw_tell', 'name', tell_buf, 20);
-            imgui.PopItemWidth();
-            keep = '/t ' .. tell_buf[1];
-        end
-        imgui.SameLine(0, 4);
-        imgui.PushItemWidth(-54);
-        local hint = st.reply and 'type in English - sent as pinyin' or 'type your message';
-        local entered = imgui.InputTextWithHint('##trw_in', hint, in_buf, 200, ImGuiInputTextFlags_EnterReturnsTrue);
-        imgui.PopItemWidth();
-        imgui.SameLine(0, 4);
-        local clicked = imgui.Button('Send##trw_send', { -1, 0 });
-        if (entered or clicked) and not in_buf[1]:match('^%s*$') then
-            if keep == '/t ' then
-                msg('type a name for the tell first.');
-            else
-                send_text(keep, in_buf[1], not st.reply);
-                in_buf[1] = '';
-            end
-            imgui.SetKeyboardFocusHere(-1);
-        end
+        body(false);
 
         -- Remember where it is and how big.
         pcall(function ()
