@@ -394,7 +394,8 @@ end
 --   [1]<Kennan> dou tong guan le rang gei mei tong guan de  >> Everyone has cleared it ...
 -- If the translation fails, the line is shown as it was.
 local function one_line(e, prefix, mode, text)
-    local line = (e.message_modified or e.message or ''):gsub('[\r\n\7]+$', '');
+    -- The raw line (no timestamp): your timestamp addon adds its own when the line is put back.
+    local line = (e.message or e.message_modified or ''):gsub('[\r\n\7]+$', '');
     local chat_mode = e.mode_modified or e.mode or 1;
     local function put(str)
         pcall(function () AshitaCore:GetChatManager():AddChatMessage(chat_mode, false, str); end);
