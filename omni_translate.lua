@@ -256,19 +256,25 @@ local function split_names(text)
     return names, table.concat(kept, ' ');
 end
 
+-- Game words Chinese players type in English inside a Chinese line; they do not count either way.
+local GAME_EN = {};
+for w in ('pop nm hnm boss ws tp mp hp lv exp xp gil ok pt ls ki item drop sky sea av ja job sub key keys'):gmatch('%S+') do GAME_EN[w] = true; end
+
 local function looks_pinyin(text)
     if PY == nil then return false; end
     local words, good, eng = 0, 0, 0;
     for w in words_only(text):gmatch('%a+') do
-        words = words + 1;
-        if is_pinyin_word(w) then good = good + 1; end
-        if ENGLISH[w] then eng = eng + 1; end
+        if not GAME_EN[w] then
+            words = words + 1;
+            if is_pinyin_word(w) then good = good + 1; end
+            if ENGLISH[w] then eng = eng + 1; end
+        end
     end
     if words == 0 then return false; end
     if words <= 2 then
         -- Short lines ("hao", "zu wo", "kuai lai"): every word one pinyin syllable, none of them English.
         if eng > 0 then return false; end
-        for w in words_only(text):gmatch('%a+') do if not SYL[w] then return false; end end
+        for w in words_only(text):gmatch('%a+') do if not SYL[w] and not GAME_EN[w] then return false; end end
         return true;
     end
     if good / words < 0.85 then return false; end
@@ -314,6 +320,7 @@ local GAME_PY = {
     ['bu yong de'] = 'no need', ['mei tong guan de'] = "haven't cleared it", ['tong guan le ma'] = 'cleared it?',
     ['zhe shi shen me'] = 'what is this', ['na shi shen me'] = 'what is that', ['zhe shi'] = 'this is', ['na shi'] = 'that is',
     ['zhe ge'] = 'this', ['na ge'] = 'that', ['shi shen me'] = 'what is it',
+    ['cai liao'] = 'materials', ['pop cai liao'] = 'pop items', ['wo hai you'] = 'I still have',
     ['tong guan'] = 'cleared it', ['tong guan le'] = 'cleared it', ['shen me'] = 'what', ['zen me'] = 'how',
     ['wei shen me'] = 'why', ['zen me ban'] = 'what do we do', ['zai da'] = 'fighting', ['da shen me'] = 'fighting what',
     ['wo'] = 'me', ['ni'] = 'you', ['ni men'] = 'you all', ['wo men'] = 'we', ['ta'] = 'them', ['ma'] = '?',
@@ -659,7 +666,16 @@ ashita.events.register('text_in', 'omni_translate_text', function (e)
                 cache['py:' .. core .. '|' .. table.concat(names, ' ')] = quick;
                 one_line(e, pre, 'py', core .. '|' .. table.concat(names, ' '));
             else
-                one_line(e, pre, 'py', core);
+                -- English words and numbers inside a Chinese line ("2 ge pop cai liao") are marked
+                -- |like this| so the helper keeps them as they are instead of reading them as pinyin.
+                local parts = {};
+                for w in core:gmatch('%S+') do
+                    local letters = w:lower():gsub('[^%a]', '');
+                    if letters ~= '' and is_pinyin_word(letters) and not GAME_EN[letters] then parts[#parts + 1] = w;
+                    elseif letters == '' and not w:match('%d') then parts[#parts + 1] = w;
+                    else parts[#parts + 1] = '|' .. w .. '|'; end
+                end
+                one_line(e, pre, 'py', table.concat(parts, ' '));
             end
             return;
         end

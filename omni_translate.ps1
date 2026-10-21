@@ -31,25 +31,30 @@ function MyMemory([string]$text, [string]$pair) {
 }
 
 function PinyinToHanzi([string]$text) {
-    # Each comma/full-stop separated piece is sent without spaces ("dou tong guan le" -> "doutongguanle").
+    # Parts marked |like this| (English words, numbers) are kept as they are. Every other run is
+    # pinyin: each comma/full-stop piece is sent without spaces ("dou tong guan le" -> "doutongguanle").
     $out = @()
-    foreach ($piece in ($text -split '[,.!?;:]+')) {
-        $p = ($piece -replace '[^A-Za-z]', '').ToLower()
-        if ($p.Length -eq 0) { continue }
-        $url = "https://inputtools.google.com/request?text=$p&itc=zh-t-i0-pinyin&num=1&cp=0&cs=1&ie=utf-8&oe=utf-8"
-        $r = Invoke-RestMethod -Uri $url -TimeoutSec 12 -UseBasicParsing
-        if ($r[0] -ne 'SUCCESS') { throw 'pinyin lookup failed' }
-        $h = [string]$r[1][0][1][0]
-        # A question ending in "ma" is the question word 吗, not 妈 (mum) - e.g. "da ma" -> 打吗 not 大妈.
-        if ($p.EndsWith('ma') -and ($h.EndsWith([string][char]0x5988))) {
-            $h = $h.Substring(0, $h.Length - 1) + [string][char]0x5417
-            if ($p.EndsWith('dama') -and $h.Length -ge 2 -and $h[$h.Length - 2] -eq [char]0x5927) {
-                $h = $h.Substring(0, $h.Length - 2) + [string][char]0x6253 + [string][char]0x5417
+    $segs = $text -split '\|'
+    for ($i = 0; $i -lt $segs.Count; $i++) {
+        if ($i % 2 -eq 1) { $out += $segs[$i].Trim(); continue }
+        foreach ($piece in ($segs[$i] -split '[,.!?;:]+')) {
+            $p = ($piece -replace '[^A-Za-z]', '').ToLower()
+            if ($p.Length -eq 0) { continue }
+            $url = "https://inputtools.google.com/request?text=$p&itc=zh-t-i0-pinyin&num=1&cp=0&cs=1&ie=utf-8&oe=utf-8"
+            $r = Invoke-RestMethod -Uri $url -TimeoutSec 12 -UseBasicParsing
+            if ($r[0] -ne 'SUCCESS') { throw 'pinyin lookup failed' }
+            $h = [string]$r[1][0][1][0]
+            # A question ending in "ma" is the question word (ma, U+5417), not "mum" (U+5988).
+            if ($p.EndsWith('ma') -and ($h.EndsWith([string][char]0x5988))) {
+                $h = $h.Substring(0, $h.Length - 1) + [string][char]0x5417
+                if ($p.EndsWith('dama') -and $h.Length -ge 2 -and $h[$h.Length - 2] -eq [char]0x5927) {
+                    $h = $h.Substring(0, $h.Length - 2) + [string][char]0x6253 + [string][char]0x5417
+                }
             }
+            $out += $h
         }
-        $out += $h
     }
-    return ($out -join ', ')
+    return ($out -join ' ').Trim()
 }
 
 try {
