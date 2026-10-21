@@ -87,7 +87,10 @@ end
 ----------------------------------------------------------------------------------------------------
 -- Settings and files
 ----------------------------------------------------------------------------------------------------
-local st = { master = true, on = true, zh = true, reply = false, win = false, chat_out = true, x = 60, y = 220, w = 520, h = 300,
+local st = { master = true, on = true, zh = true,
+             -- Which languages are translated; all off until you tick them.
+             langs = { zh = false, ja = false, fr = false, de = false, es = false, pt = false },
+             reply = false, win = false, chat_out = true, x = 60, y = 220, w = 520, h = 300,
              today = os.date('%Y-%m-%d'), chars = 0 };
 local function addon_dir()
     -- Ashita sets addon.path to omni's own folder (wherever it is installed).
@@ -110,6 +113,7 @@ local function save()
         if f == nil then return; end
         f:write('on ', st.on and 1 or 0, '\n', 'zh ', st.zh and 1 or 0, '\n', 'reply ', st.reply and 1 or 0, '\n', 'day ', st.today, '\n', 'chars ', st.chars, '\n');
         f:write('master ', st.master and 1 or 0, '\n');
+        for code, on in pairs(st.langs) do f:write('lang ', code, ' ', on and 1 or 0, '\n'); end
         f:write('win ', st.win and 1 or 0, '\n', 'chat ', st.chat_out and 1 or 0, '\n', ('pos %d %d %d %d\n'):format(st.x, st.y, st.w, st.h));
         f:close();
     end);
@@ -123,6 +127,7 @@ pcall(function ()
         local z = line:match('^zh (%d)$'); if z then st.zh = (z == '1'); end
         local r = line:match('^reply (%d)$'); if r then st.reply = (r == '1'); end
         local mv = line:match('^master (%d)$'); if mv then st.master = (mv == '1'); end
+        local lc, lv = line:match('^lang (%a+) (%d)$'); if lc and st.langs[lc] ~= nil then st.langs[lc] = (lv == '1'); end
         local wv = line:match('^win (%d)$'); if wv then st.win = (wv == '1'); end
         local cv = line:match('^chat (%d)$'); if cv then st.chat_out = (cv == '1'); end
         local px, py, pw, ph = line:match('^pos (%-?%d+) (%-?%d+) (%d+) (%d+)$');
@@ -333,9 +338,11 @@ local function detect_lang(text)
     if #words < 3 then return nil; end
     local best, best_n = nil, 0;
     for code, set in pairs(LANG_SET) do
+        if not st.langs[code] then goto next_lang; end
         local n = 0;
         for _, w in ipairs(words) do if set[w] then n = n + 1; end end
         if n > best_n then best, best_n = code, n; end
+        ::next_lang::
     end
     if best_n >= 2 and best_n > en * 1.5 then return best; end
     return nil;
@@ -561,6 +568,7 @@ ashita.events.register('text_in', 'omni_translate_text', function (e)
         -- Japanese (any line).
         local at = first_japanese(s);
         if at ~= nil then
+            if not st.langs.ja then return; end
             -- Keep the English part in front ("Name : ", "(Name) ") as it is; translate the rest.
             local prefix = s:sub(1, at - 1);
             if #prefix > 40 then prefix = ''; at = 1; end
@@ -571,7 +579,7 @@ ashita.events.register('text_in', 'omni_translate_text', function (e)
         local pre, rest = split_speaker(s);
         if pre == '' then return; end
         local rest_x = expand_short(rest);   -- "da sm de" -> "da shen me de"
-        if looks_pinyin(rest_x) then
+        if st.langs.zh and looks_pinyin(rest_x) then
             -- Common game phrases are answered from the phrase lists (instant, no allowance used).
             local quick = game_phrase(rest_x);
             if quick ~= nil then cache['py:' .. rest_x] = quick; end
@@ -673,9 +681,12 @@ ashita.events.register('command', 'omni_translate_cmd', function (e)
         if c == '' then st.master = not st.master; else st.master = (c == 'on'); end
         save();
         msg('chat translation ' .. (st.master and 'ON' or 'OFF') .. '.');
-    elseif c == 'chinese' or c == 'zh' or c == 'pinyin' then
-        st.zh = not st.zh; save();
-        msg('Pinyin (Chinese) chat translation ' .. (st.zh and 'ON' or 'OFF') .. '.');
+    elseif ({ chinese = 'zh', zh = 'zh', pinyin = 'zh', japanese = 'ja', ja = 'ja', french = 'fr', fr = 'fr',
+              german = 'de', de = 'de', spanish = 'es', es = 'es', portuguese = 'pt', pt = 'pt' })[c] then
+        local code = ({ chinese = 'zh', zh = 'zh', pinyin = 'zh', japanese = 'ja', ja = 'ja', french = 'fr', fr = 'fr',
+              german = 'de', de = 'de', spanish = 'es', es = 'es', portuguese = 'pt', pt = 'pt' })[c];
+        st.langs[code] = not st.langs[code]; save();
+        msg(a[2] .. ' ' .. (st.langs[code] and 'ON' or 'OFF') .. '.');
     elseif c == 'window' or c == 'win' or c == 'w' then
         st.win = not st.win; save();
     elseif c == 'reply' then
@@ -745,13 +756,25 @@ local function body(in_tab)
     if imgui.SmallButton((st.win and 'Close pop-out' or 'Pop out') .. (in_tab and '##trt_pop' or '##trw_pop')) then st.win = not st.win; save(); end
     if imgui.IsItemHovered() then imgui.SetTooltip('A window you can move and resize with the same lines and reply box.'); end
 
+    -- Which languages: all off until ticked.
+    local LANG_LABEL = { { 'zh', 'Chinese' }, { 'ja', 'Japanese' }, { 'fr', 'French' }, { 'de', 'German' }, { 'es', 'Spanish' }, { 'pt', 'Portuguese' } };
+    for i, l in ipairs(LANG_LABEL) do
+        if i > 1 then imgui.SameLine(0, 12); end
+        local v = { st.langs[l[1]] == true };
+        if imgui.Checkbox(l[2] .. (in_tab and '##trt_l_' or '##trw_l_') .. l[1], v) then st.langs[l[1]] = v[1]; save(); end
+        if imgui.IsItemHovered() then
+            imgui.SetTooltip(l[1] == 'zh' and 'Chinese typed in English letters (pinyin), e.g. "zu wo", "kuai lai".'
+                or (l[1] == 'ja' and 'Lines with Japanese characters.' or ('Lines written in ' .. l[2] .. '.')));
+        end
+    end
+
     -- A new translated line: answer on its channel.
     if tr.last_chan then pick_chan(tr.last_chan, tr.last_tell); tr.last_chan, tr.last_tell = nil, nil; end
 
     -- The lines
     imgui.BeginChild(in_tab and '##trt_log' or '##trw_log', { 0, in_tab and 260 or -52 }, true);
     if #log == 0 then
-        imgui.TextColored(DIM, st.master and 'Nothing translated yet. Lines in other languages from any chat show up here.' or 'Translation is OFF - press the switch to turn it on.');
+        imgui.TextColored(DIM, st.master and 'Nothing translated yet. Tick the languages you want above; those lines from any chat show up here.' or 'Translation is OFF - press the switch to turn it on.');
     end
     for _, e in ipairs(log) do
         imgui.TextColored(DIM, e.time);

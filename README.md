@@ -7,7 +7,7 @@ A small bar along the top of the screen (job, XP/LP, wallet, buffs, target with 
 ## Newest pages
 
 - **Happy Pops** - pick an HNM, type its time of death, and get 2 min / 1 min / 30 s / 10 s warnings and OPEN for every window (CatsEyeXI windows; 7 per HNM, the last one forced). Kills seen in chat start a timer by themselves; the ToD can be posted to your linkshell. `/pops`
-- **Happy Translate** - reads every chat channel; lines in Japanese, Chinese pinyin, Spanish, Portuguese, French or German come back as one line with the English on the end in pink. Reply in pinyin with `/zl` `/zp` `/zl2` `/zt Name` `/zr`. Common game phrases are built in, everything translated is remembered in a file, and you can add your own phrases (`/translate learn zu wo = invite me`), so the free translator is used as little as possible. Uses MyMemory (free, about 5000 characters a day) and Google Input Tools for pinyin; only non-English lines are ever sent.
+- **Happy Translate** - reads every chat channel; tick the languages you want (Chinese pinyin, Japanese, French, German, Spanish, Portuguese - all off until you tick them) and those lines come back as one line with the English on the end in pink. Reply in pinyin with `/zl` `/zp` `/zl2` `/zt Name` `/zr`. Common game phrases are built in, everything translated is remembered in a file, and you can add your own phrases (`/translate learn zu wo = invite me`), so the free translator is used as little as possible. Uses MyMemory (free, about 5000 characters a day) and Google Input Tools for pinyin; only non-English lines are ever sent.
 - **Sea > Jailers** - every Jailer, Ix'aern and Absolute Virtue: pop items with how many you hold (all bags plus Vision), where the ??? is, and the drops.
 
 ## Install

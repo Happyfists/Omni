@@ -178,8 +178,9 @@ with a drop-down panel of tabs underneath it for everything else.
       Post ToD to linkshell ("/l Fafnir ToD 13:40:00 - Repop at Thu 22 Oct 10:40:00 ...").
 
   HAPPY TRANSLATE (top row tab, On/Off slider next to it, /translate on|off)
-    * Reads every chat channel. Lines in Japanese, Chinese pinyin, Spanish, Portuguese, French or
-      German are held for a second and come back as ONE line in the same channel:
+    * Tick the languages you want: Chinese (pinyin), Japanese, French, German, Spanish, Portuguese.
+      All are OFF until you tick them (/translate chinese, /translate french ... also toggle them).
+    * Reads every chat channel. Lines in a ticked language are held for a second and come back as ONE line in the same channel:
           [1]<Kennan> kuai lai  >> come quickly          (the English part in pink)
       English lines are never touched or sent anywhere.
     * Reply in pinyin:  /zl text  /zl2 text  /zp text  /zs text  /zsh text  /zt Name text
