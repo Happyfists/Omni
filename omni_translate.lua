@@ -527,6 +527,34 @@ local function show(prefix, english, original, inline)
 end
 
 -- mode: 'ja' (Japanese -> English), 'py' (pinyin -> English), 'zh' (English -> Chinese)
+-- One helper (PowerShell) stays running and answers every line, instead of a new PowerShell for
+-- each line (starting PowerShell is what made the game hitch). It closes itself after 30 idle
+-- minutes, and when translation is turned off or omni is unloaded (a "stop" file).
+local worker_at, last_job = nil, 0;
+local function stop_worker()
+    pcall(function ()
+        local f = io.open(work_dir() .. 'stop', 'w');
+        if f then f:write('stop'); f:close(); end
+    end);
+    worker_at = nil;
+end
+local function ensure_worker()
+    -- Running, and used in the last 25 minutes (it gives up after 30 idle): nothing to do.
+    if worker_at ~= nil and os.time() - math.max(worker_at, last_job) < 1500 then return true; end
+    local ps1 = addon_dir() .. 'omni_translate.ps1';
+    local chk = io.open(ps1, 'r');
+    if chk == nil then msg('helper missing: ' .. ps1); return false; end
+    chk:close();
+    os.remove(work_dir() .. 'stop');
+    local dir = work_dir():gsub('\\$', '');   -- no trailing \ (it would swallow the closing quote)
+    local cmd = ('powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -WindowStyle Hidden -File "%s" -Serve "%s"'):format(ps1, dir);
+    if EMAIL ~= nil then cmd = cmd .. (' -Email "%s"'):format(EMAIL); end
+    local started, why = run_hidden(cmd);
+    if not started then msg('could not start the translate helper (PowerShell): ' .. tostring(why)); return false; end
+    worker_at = os.time();
+    return true;
+end
+
 local function job(mode, u, done, fail)
     fail = fail or function () end;
     if u == nil or u:match('^%s*$') then fail(); return false; end
@@ -539,21 +567,16 @@ local function job(mode, u, done, fail)
         return false;
     end
     ensure_dir();
+    if not ensure_worker() then fail(); return false; end
     local id = session .. '_' .. next_id;
     next_id = next_id + 1;
-    local base = work_dir() .. id;
-    local f = io.open(base .. '.in', 'wb');
-    if f == nil then msg('could not write ' .. base .. '.in'); fail(); return false; end
+    -- The helper picks up "<id>.<mode>.in" and writes "<id>.out".
+    local f = io.open(work_dir() .. id .. '.' .. mode .. '.in.tmp', 'wb');
+    if f == nil then msg('could not write to ' .. work_dir()); fail(); return false; end
     f:write(u);
     f:close();
-    local ps1 = addon_dir() .. 'omni_translate.ps1';
-    local chk = io.open(ps1, 'r');
-    if chk == nil then msg('helper missing: ' .. ps1); fail(); return false; end
-    chk:close();
-    local cmd = ('powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -WindowStyle Hidden -File "%s" -Mode %s -In "%s.in" -Out "%s.out"'):format(ps1, mode, base, base);
-    if EMAIL ~= nil then cmd = cmd .. (' -Email "%s"'):format(EMAIL); end
-    local started, why = run_hidden(cmd);
-    if not started then msg('could not start the translate helper (PowerShell): ' .. tostring(why)); fail(); return false; end
+    os.rename(work_dir() .. id .. '.' .. mode .. '.in.tmp', work_dir() .. id .. '.' .. mode .. '.in');
+    last_job = os.time();
     pending[id] = { done = done, fail = fail, t = os.clock(), key = key };
     st.chars = st.chars + #u;
     save();
@@ -577,7 +600,6 @@ ashita.events.register('d3d_present', 'omni_translate_poll', function ()
             f:close();
             pending[id] = nil;
             os.remove(out);
-            os.remove(work_dir() .. id .. '.in');
             res = res:gsub('^\239\187\191', ''):gsub('%s+$', '');
             if res:sub(1, 1) == '!' then
                 msg('translation failed: ' .. res:sub(2, 120));
@@ -590,7 +612,6 @@ ashita.events.register('d3d_present', 'omni_translate_poll', function ()
             end
         elseif os.clock() - p.t > 12 then   -- a held-back chat line should not wait long
             pending[id] = nil;
-            os.remove(work_dir() .. id .. '.in');
             msg('no answer from the translation service (timed out).');
             pcall(p.fail);
         end
@@ -815,6 +836,7 @@ ashita.events.register('command', 'omni_translate_cmd', function (e)
     local c = (a[2] or ''):lower();
     if c == '' or c == 'on' or c == 'off' then
         if c == '' then st.master = not st.master; else st.master = (c == 'on'); end
+        if not st.master then stop_worker(); end
         save();
         msg('chat translation ' .. (st.master and 'ON' or 'OFF') .. '.');
     elseif ({ chinese = 'zh', zh = 'zh', pinyin = 'zh', japanese = 'ja', ja = 'ja', french = 'fr', fr = 'fr',
@@ -898,6 +920,7 @@ local function body(in_tab)
     end
     if clicked then
         st.master = not st.master; save();
+        if not st.master then stop_worker(); end
         msg('chat translation ' .. (st.master and 'ON' or 'OFF') .. '.');
     end
     imgui.SameLine(0, 6);
@@ -1042,7 +1065,10 @@ ashita.events.register('d3d_present', 'omni_translate_window', function ()
 end);
 
 tr.enabled = function () return st.master; end
-tr.set = function (on) st.master = (on == true); save(); end
+tr.set = function (on) st.master = (on == true); save(); if not st.master then stop_worker(); end end
+
+-- omni unloaded or reloaded: close the helper too.
+ashita.events.register('unload', 'omni_translate_unload', function () stop_worker(); end);
 tr.first_japanese = first_japanese;
 tr.looks_pinyin = looks_pinyin;
 tr.game_phrase = game_phrase;

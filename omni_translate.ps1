@@ -6,7 +6,7 @@
 #   -Mode zh   English -> Chinese characters            (MyMemory; omni turns them into pinyin)
 #   -Mode es / pt / fr / de   that language -> English  (MyMemory)
 #   -Mode to_ja / to_fr / to_de / to_es / to_pt   English -> that language (your replies)
-param([string]$In, [string]$Out, [string]$Mode = 'ja', [string]$Email = '')
+param([string]$In, [string]$Out, [string]$Mode = 'ja', [string]$Email = '', [string]$Serve = '')
 
 $utf8 = New-Object System.Text.UTF8Encoding $false
 function Write-Result([string]$text) {
@@ -69,27 +69,65 @@ function PinyinToHanzi([string]$text) {
     return ($out -join ' ').Trim()
 }
 
-try {
-    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-    $text = [System.IO.File]::ReadAllText($In, $utf8).Trim()
-    if ($text.Length -eq 0) { Write-Result '!empty line'; exit }
-    switch ($Mode) {
+function Translate([string]$text, [string]$mode) {
+    switch ($mode) {
         'py' {
             $hanzi = PinyinToHanzi $text
-            if ($hanzi.Length -eq 0) { Write-Result '!no pinyin found'; exit }
-            Write-Result (MyMemory $hanzi 'zh-CN|en')
+            if ($hanzi.Length -eq 0) { throw 'no pinyin found' }
+            return (MyMemory $hanzi 'zh-CN|en')
         }
-        'zh' { Write-Result (MyMemory $text 'en|zh-CN') }
+        'zh' { return (MyMemory $text 'en|zh-CN') }
         { $_ -match '^to_[a-z]{2}$' } {
             # English -> the reply language you picked (to_ja, to_fr, to_de, to_es, to_pt)
-            Write-Result (MyMemory $text ('en|' + $Mode.Substring(3)))
+            return (MyMemory $text ('en|' + $mode.Substring(3)))
         }
         default {
             # ja, es, pt, fr, de ... -> English
-            if ($Mode -notmatch '^[a-z]{2}$') { $Mode = 'ja' }
-            Write-Result (MyMemory $text ($Mode + '|en'))
+            if ($mode -notmatch '^[a-z]{2}$') { $mode = 'ja' }
+            return (MyMemory $text ($mode + '|en'))
         }
     }
+}
+
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+
+if ($Serve -ne '') {
+    # Stay running and answer every <id>.<mode>.in file that appears in the folder (much lighter than
+    # starting PowerShell for every line). Stops when omni writes a "stop" file, or after 30 idle minutes.
+    $idle = 0
+    while ($true) {
+        $stop = Join-Path $Serve 'stop'
+        if (Test-Path -LiteralPath $stop) { Remove-Item -LiteralPath $stop -ErrorAction SilentlyContinue; break }
+        $files = @(Get-ChildItem -LiteralPath $Serve -Filter '*.in' -ErrorAction SilentlyContinue)
+        if ($files.Count -gt 0) {
+            $idle = 0
+            foreach ($f in $files) {
+                $work = $f.FullName + '.work'
+                try { Move-Item -LiteralPath $f.FullName -Destination $work -ErrorAction Stop } catch { continue }
+                $parts = $f.BaseName.Split('.')
+                $m = $parts[$parts.Count - 1]
+                $id = ($parts[0..($parts.Count - 2)] -join '.')
+                $script:Out = Join-Path $Serve ($id + '.out')
+                try {
+                    $text = [System.IO.File]::ReadAllText($work, $utf8).Trim()
+                    if ($text.Length -eq 0) { Write-Result '!empty line' } else { Write-Result (Translate $text $m) }
+                } catch { Write-Result ('!' + $_.Exception.Message) }
+                Remove-Item -LiteralPath $work -ErrorAction SilentlyContinue
+            }
+        } else {
+            Start-Sleep -Milliseconds 250
+            $idle += 250
+            if ($idle -ge 1800000) { break }
+        }
+    }
+    exit
+}
+
+# One line (older way): -In file -Out file -Mode mode
+try {
+    $text = [System.IO.File]::ReadAllText($In, $utf8).Trim()
+    if ($text.Length -eq 0) { Write-Result '!empty line'; exit }
+    Write-Result (Translate $text $Mode)
 }
 catch {
     Write-Result ('!' + $_.Exception.Message)
