@@ -43,6 +43,7 @@ pcall(ffi.cdef, [[
     int CreateProcessA(const char* app, char* cmd, void* pa, void* ta, int inherit, unsigned long flags, void* env, const char* dir, void* si, void* pi);
 ]]);
 pcall(ffi.cdef, [[ int CloseHandle(void* h); ]]);
+pcall(ffi.cdef, [[ unsigned long GetLastError(void); ]]);
 
 local function convert(text, from_cp, to_cp)
     local ok, out = pcall(function ()
@@ -64,20 +65,23 @@ local function utf8_to_sjis(s) return convert(s, 65001, 932); end
 local CREATE_NO_WINDOW = 0x08000000;
 local function run_hidden(cmdline)
     local ok, res = pcall(function ()
-        local si = ffi.new('omni_tr_STARTUPINFOA');
-        si.cb = ffi.sizeof(si);
-        local pi = ffi.new('omni_tr_PROCESS_INFORMATION');
+        -- One-element arrays, so Windows gets proper pointers to the structs.
+        local si = ffi.new('omni_tr_STARTUPINFOA[1]');
+        si[0].cb = ffi.sizeof('omni_tr_STARTUPINFOA');
+        local pi = ffi.new('omni_tr_PROCESS_INFORMATION[1]');
         local cmd = ffi.new('char[?]', #cmdline + 1);
         ffi.copy(cmd, cmdline);
         local r = ffi.C.CreateProcessA(nil, cmd, nil, nil, 0, CREATE_NO_WINDOW, nil, nil, si, pi);
         if r ~= 0 then
-            ffi.C.CloseHandle(pi.hThread);
-            ffi.C.CloseHandle(pi.hProcess);
+            ffi.C.CloseHandle(pi[0].hThread);
+            ffi.C.CloseHandle(pi[0].hProcess);
             return true;
         end
-        return false;
+        return 'Windows error ' .. tostring(ffi.C.GetLastError());
     end);
-    return ok and res;
+    if not ok then return false, tostring(res); end
+    if res ~= true then return false, res; end
+    return true;
 end
 
 ----------------------------------------------------------------------------------------------------
@@ -129,7 +133,7 @@ end);
 
 local DAILY = 5000;   -- MyMemory's free allowance (characters a day, no key)
 
-local function msg(t) print('\30\68[Happy Translate]\30\01 ' .. t); end
+local function msg(t) tr.status = t; print('\30\68[Happy Translate]\30\01 ' .. t); end
 
 ----------------------------------------------------------------------------------------------------
 -- Spotting Japanese and cleaning a chat line
@@ -279,7 +283,8 @@ local function job(mode, u, done, fail)
     if chk == nil then msg('helper missing: ' .. ps1); fail(); return false; end
     chk:close();
     local cmd = ('powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -WindowStyle Hidden -File "%s" -Mode %s -In "%s.in" -Out "%s.out"'):format(ps1, mode, base, base);
-    if not run_hidden(cmd) then msg('could not start the translate helper (PowerShell).'); fail(); return false; end
+    local started, why = run_hidden(cmd);
+    if not started then msg('could not start the translate helper (PowerShell): ' .. tostring(why)); fail(); return false; end
     pending[id] = { done = done, fail = fail, t = os.clock(), key = key };
     st.chars = st.chars + #u;
     save();
@@ -388,11 +393,13 @@ local function send_text(keep, text, force_english)
         add_log({ who = 'you ' .. keep, text = text, mine = true });
         send(keep .. ' ' .. text);
     end
+    tr.status = 'translating: ' .. text;
     if st.chat_out then msg('translating your message...'); end
     job('zh', en, function (zh)
         local py = to_pinyin(zh);
         if py == '' then msg('could not turn that into pinyin.'); send_as_typed(); return; end
         if #py > 110 then py = py:sub(1, 110); end
+        tr.status = ('sent: %s'):format(py);
         if st.chat_out then msg(('you: "%s" -> %s'):format(text, py)); end
         add_log({ who = 'you ' .. keep, text = text, orig = py, mine = true });
         send(keep .. ' ' .. py);
@@ -480,20 +487,17 @@ end
 
 -- The page: switches, the translated lines, and the reply box. Used by the window and the tab.
 local function body(in_tab)
-    -- Switches
-    check('Japanese##trw_ja', st.on, 'Japanese chat lines get an English line.', function (v) st.on = v; end);
-    imgui.SameLine(0, 10);
+    -- Only the Pinyin switch, and a button to pop the page out (or back in).
     check('Pinyin##trw_zh', st.zh, 'Chinese typed in English letters gets an English line.', function (v) st.zh = v; end);
-    imgui.SameLine(0, 10);
-    check('Translate my /l /p /t too##trw_reply', st.reply, 'The box below always translates.\nTick this to also translate what you type in normal chat\n(/l /l2 /p /t /s /sh) into pinyin. Start a message with = to send it as typed.', function (v) st.reply = v; end);
-    imgui.SameLine(0, 10);
-    check('Also in chat##trw_chat', st.chat_out, 'Show translations in the chat log too, not just here.', function (v) st.chat_out = v; end);
+    imgui.SameLine(0, 16);
+    if imgui.SmallButton((st.win and 'Close pop-out' or 'Pop out') .. (in_tab and '##trt_pop' or '##trw_pop')) then st.win = not st.win; save(); end
+    if imgui.IsItemHovered() then imgui.SetTooltip('A window you can move and resize with the same lines and reply box.'); end
 
     -- A new translated line: answer on its channel.
     if tr.last_chan then pick_chan(tr.last_chan, tr.last_tell); tr.last_chan, tr.last_tell = nil, nil; end
 
     -- The lines
-    imgui.BeginChild(in_tab and '##trt_log' or '##trw_log', { 0, in_tab and 260 or -30 }, true);
+    imgui.BeginChild(in_tab and '##trt_log' or '##trw_log', { 0, in_tab and 260 or -52 }, true);
     if #log == 0 then
         imgui.TextColored(DIM, 'Nothing translated yet. Japanese and pinyin chat lines show up here.');
     end
@@ -535,29 +539,27 @@ local function body(in_tab)
     local clicked = imgui.Button('Send##trw_send', { -1, 0 });
     if (entered or clicked) and not in_buf[1]:match('^%s*$') then
         local text = in_buf[1]:gsub('^%s+', '');
+        in_buf[1] = '';
+        local ok, err = pcall(function ()
         if text:sub(1, 1) == '/' then
             -- A whole command (/l2 hi, /p hi): run it like the chat line would.
             AshitaCore:GetChatManager():QueueCommand(1, text);
-            in_buf[1] = '';
         elseif keep == '/t ' then
             msg('type a name for the tell first.');
         else
             -- The box always translates (that is what it is for); = in front sends it as typed.
             send_text(keep, text, false);
-            in_buf[1] = '';
         end
+        end);
+        if not ok then msg('error: ' .. tostring(err)); end
         imgui.SetKeyboardFocusHere(-1);
+    end
+    if tr.status then
+        imgui.TextColored(DIM, (tr.status:gsub('%%', '%%%%')));
     end
 
 end
 tr.render = function ()
-    -- Pop-out window switch, then the same page as the window.
-    local wv = { st.win };
-    if imgui.Checkbox('Pop-out window##trt_win', wv) then st.win = wv[1]; save(); end
-    if imgui.IsItemHovered() then imgui.SetTooltip('A window you can move and resize with the same lines and reply box.\nSame as /translate window.'); end
-    imgui.SameLine(0, 16);
-    imgui.TextColored(DIM, ('Sent today: about %d of %d characters (free MyMemory limit)'):format(math.floor(st.chars / 3), DAILY));
-    imgui.Separator();
     body(true);
 end
 
