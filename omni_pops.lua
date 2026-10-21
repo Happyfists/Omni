@@ -297,12 +297,28 @@ local C = {
 };
 local pick = { 0 };
 local tod_buf = { '' };
-local W, H = 430, 200;
+local W, H = 650, 200;
 local open = { false };
 
 local NAMES = {};
 for i, h in ipairs(HNMS) do NAMES[i] = h[1] .. '  (' .. ((h[2] == 'h21') and '21h' or (h[2] == 'h57') and '57h' or '81h') .. ')'; end
 local NAMES_Z = table.concat(NAMES, '\0') .. '\0';
+
+local function hist_tip(name, t)
+    local lines = { name };
+    if t then lines[#lines + 1] = 'ToD ' .. os.date('%a %d %b %H:%M:%S', t.tod); end
+    if read_history ~= nil then
+        local h = read_history(name);
+        if #h > 0 then lines[#lines + 1] = 'Last ToDs:'; end
+        for i = #h, math.max(1, #h - 5), -1 do
+            lines[#lines + 1] = ('  %s  (%s)'):format(os.date('%a %d %b %H:%M:%S', h[i][1]), h[i][2] or '?');
+        end
+    end
+    lines[#lines + 1] = 'Click the name to pick it above.';
+    imgui.SetTooltip(table.concat(lines, '\n'));
+end
+
+local function group_label(g) return (g == 'h21') and '21h' or ((g == 'h57') and '57h' or '81h'); end
 
 local function body()
     local now = os.time();
@@ -311,11 +327,11 @@ local function body()
     local gold = (th and th.accent) or C.gold;
 
     -- Add a timer: pick the HNM, type the ToD (blank = now), Start.
-    imgui.PushItemWidth(170);
+    imgui.PushItemWidth(200);
     imgui.Combo('##pops_pick', pick, NAMES_Z);
     imgui.PopItemWidth();
     imgui.SameLine(0, 6);
-    imgui.PushItemWidth(92);
+    imgui.PushItemWidth(110);
     imgui.InputTextWithHint('##pops_tod', 'ToD 21:35', tod_buf, 16);
     imgui.PopItemWidth();
     if imgui.IsItemHovered() then imgui.SetTooltip('Time of death on your clock: 21:35 or 21:35:10.\nLeave it empty for "now". "2d 21:35" = two days ago.'); end
@@ -325,50 +341,101 @@ local function body()
         local tod = parse_tod(tod_buf[1]);
         if tod then start(name, tod); tod_buf[1] = ''; else msg('Could not read that time. Use 21:35, 21:35:10 or leave it empty for now.'); end
     end
-    imgui.Separator();
+    imgui.Spacing();
 
-    -- The timers, soonest first.
-    local names = {};
-    for name in pairs(st.timers) do names[#names + 1] = name; end
-    table.sort(names, function (a, b)
-        local sa, sb = status(a, st.timers[a], now), status(b, st.timers[b], now);
-        local ka = (sa.phase == 'open') and -1 or (sa.left or 1e9);
-        local kb = (sb.phase == 'open') and -1 or (sb.left or 1e9);
-        return ka < kb;
-    end);
-    if #names == 0 then
-        imgui.TextColored(C.dim, 'No timers. Pick an HNM, type its ToD, press Start.');
-        imgui.TextColored(C.dim, 'Kills seen in chat start a timer by themselves.');
+    -- Active timers first (soonest on top), then everything not being tracked.
+    local active, idle = {}, {};
+    for i, h in ipairs(HNMS) do
+        if st.timers[h[1]] then active[#active + 1] = h; else idle[#idle + 1] = h; end
     end
-    local name_w = 0;
-    for _, name in ipairs(names) do name_w = math.max(name_w, (imgui.CalcTextSize(name))); end
-    for _, name in ipairs(names) do
-        local t = st.timers[name];
-        local s = status(name, t, now);
-        local x0 = imgui.GetCursorPosX();
-        imgui.TextColored(gold, name);
-        imgui.SameLine(x0 + name_w + 14);
-        if s.phase == 'open' then
-            local blink = (math.floor(os.clock() * 2) % 2 == 0);
-            imgui.TextColored(blink and C.green or C.text, ('W%d/%d OPEN  %ds'):format(s.win, s.count, math.ceil(s.left)));
-        elseif s.phase == 'wait' then
-            local col = (s.left <= 30) and C.red or ((s.left <= 120) and C.orange or C.text);
-            imgui.TextColored(col, ('W%d/%d in %s'):format(s.win, s.count, span(s.left)));
-            if imgui.IsItemHovered() then imgui.SetTooltip(('Opens at %s. ToD %s.'):format(clock(s.next_open), clock(t.tod))); end
-        else
-            imgui.TextColored(C.green, 'Should be up (forced)');
+    local function key(h)
+        local s = status(h[1], st.timers[h[1]], now);
+        if s.phase == 'open' then return -1; end
+        if s.phase == 'done' then return -2; end
+        return s.left;
+    end
+    table.sort(active, function (a, b) return key(a) < key(b); end);
+
+    local flags = bit.bor(ImGuiTableFlags_RowBg, ImGuiTableFlags_BordersInnerH, ImGuiTableFlags_SizingFixedFit);
+    if imgui.BeginTable('##pops_table', 6, flags) then
+        imgui.TableSetupColumn('HNM', ImGuiTableColumnFlags_WidthFixed, 170);
+        imgui.TableSetupColumn('ToD', ImGuiTableColumnFlags_WidthFixed, 62);
+        imgui.TableSetupColumn('Window', ImGuiTableColumnFlags_WidthFixed, 52);
+        imgui.TableSetupColumn('Countdown', ImGuiTableColumnFlags_WidthFixed, 150);
+        imgui.TableSetupColumn('Opens', ImGuiTableColumnFlags_WidthFixed, 62);
+        imgui.TableSetupColumn('##act', ImGuiTableColumnFlags_WidthFixed, 74);
+        imgui.TableHeadersRow();
+
+        local function name_cell(h, col)
+            imgui.TableNextColumn();
+            imgui.TextColored(col, h[1]);
+            if imgui.IsItemClicked() then
+                for i, x in ipairs(HNMS) do if x[1] == h[1] then pick[1] = i - 1; end end
+            end
+            if imgui.IsItemHovered() then hist_tip(h[1], st.timers[h[1]]); end
+            imgui.SameLine(0, 4);
+            imgui.TextColored(C.dim, group_label(h[2]));
         end
-        imgui.SameLine(W - 92);
-        if imgui.SmallButton('Killed##pops_k_' .. name) then start(name, os.time()); end
-        if imgui.IsItemHovered() then imgui.SetTooltip('It died just now - start a new timer.'); end
-        imgui.SameLine(0, 4);
-        if imgui.SmallButton('X##pops_x_' .. name) then stop(name); end
-        if imgui.IsItemHovered() then imgui.SetTooltip('Stop tracking it.'); end
+
+        for _, h in ipairs(active) do
+            local name = h[1];
+            local t = st.timers[name];
+            local s = status(name, t, now);
+            imgui.TableNextRow();
+            name_cell(h, gold);
+            imgui.TableNextColumn();
+            imgui.TextColored(C.text, os.date('%H:%M', t.tod));
+            imgui.TableNextColumn();
+            imgui.TextColored(C.text, ('%d/%d'):format(s.win, s.count));
+            imgui.TableNextColumn();
+            if s.phase == 'open' then
+                local blink = (math.floor(os.clock() * 2) % 2 == 0);
+                imgui.TextColored(blink and C.green or C.text, ('OPEN  %ds'):format(math.ceil(s.left)));
+            elseif s.phase == 'wait' then
+                local col = (s.left <= 30) and C.red or ((s.left <= 120) and C.orange or C.text);
+                -- A bar that fills over the last hour before window 1 (or across the gap between windows).
+                local g = GROUPS[h[2]];
+                local span_total = (s.win == 1) and 3600 or g.step;
+                local frac = math.max(0, math.min(1, 1 - s.left / span_total));
+                imgui.PushStyleColor(ImGuiCol_PlotHistogram, { col[1], col[2], col[3], 0.55 });
+                imgui.ProgressBar(frac, { 140, 16 }, span(s.left));
+                imgui.PopStyleColor(1);
+            else
+                imgui.TextColored(C.green, 'Should be up');
+            end
+            imgui.TableNextColumn();
+            if s.phase == 'wait' then imgui.TextColored(C.dim, os.date('%H:%M', s.next_open));
+            elseif s.phase == 'open' then imgui.TextColored(C.green, 'now');
+            else imgui.TextColored(C.dim, '-'); end
+            imgui.TableNextColumn();
+            if imgui.SmallButton('Killed##pops_k_' .. name) then start(name, os.time(), 'button'); end
+            if imgui.IsItemHovered() then imgui.SetTooltip('It died just now - start a new timer.'); end
+            imgui.SameLine(0, 4);
+            if imgui.SmallButton('X##pops_x_' .. name) then stop(name); end
+            if imgui.IsItemHovered() then imgui.SetTooltip('Stop tracking it.'); end
+        end
+
+        for _, h in ipairs(idle) do
+            local name = h[1];
+            imgui.TableNextRow();
+            name_cell(h, C.dim);
+            imgui.TableNextColumn(); imgui.TextColored(C.dim, '-');
+            imgui.TableNextColumn(); imgui.TextColored(C.dim, '-');
+            imgui.TableNextColumn(); imgui.TextColored(C.dim, 'no timer');
+            imgui.TableNextColumn(); imgui.TextColored(C.dim, '-');
+            imgui.TableNextColumn();
+            if imgui.SmallButton('Killed##pops_k_' .. name) then start(name, os.time(), 'button'); end
+            if imgui.IsItemHovered() then imgui.SetTooltip('It died just now - start its timer from now.\nFor an older ToD, pick it above and type the time.'); end
+        end
+        imgui.EndTable();
     end
-    imgui.Separator();
+
+    imgui.Spacing();
     local pv = { st.party };
     if imgui.Checkbox('Warn the party too##pops_party', pv) then st.party = pv[1]; save(); end
     if imgui.IsItemHovered() then imgui.SetTooltip('Posts every warning to party chat too\n(each OPEN with a <call14> sound). Same as /pops party.'); end
+    imgui.SameLine(0, 16);
+    imgui.TextColored(C.dim, ('%d active'):format(#active));
 end
 
 ashita.events.register('d3d_present', 'omni_pops_window', function ()
