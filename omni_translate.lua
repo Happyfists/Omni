@@ -440,7 +440,10 @@ pcall(function ()
     if f == nil then return; end
     for raw in f:lines() do
         local k, v = raw:gsub('\r$', ''):match('^(.-)\t(.+)$');
-        if k and v then
+        -- Skip "translations" that are just the same words back (they were never translated).
+        local src = k and k:match('^[%w_]+:(.*)$');
+        local same = src and (src:lower():gsub('[%s%p]', '') == v:lower():gsub('[%s%p]', ''));
+        if k and v and not same then
             if cache[k] == nil then mem_count = mem_count + 1; end
             cache[k] = v;
         end
@@ -581,7 +584,8 @@ ashita.events.register('d3d_present', 'omni_translate_poll', function ()
                 pcall(p.fail);
             elseif res ~= '' then
                 cache[p.key] = res;
-                remember(p.key, res);
+                local src = p.key:match('^[%w_]+:(.*)$') or '';
+                if src:lower():gsub('[%s%p]', '') ~= res:lower():gsub('[%s%p]', '') then remember(p.key, res); end
                 pcall(p.done, res);
             end
         elseif os.clock() - p.t > 12 then   -- a held-back chat line should not wait long
@@ -732,6 +736,14 @@ local function send_text(keep, text, force_english)
     if st.chat_out then msg('translating your message...'); end
     local function done_with(out_text, shown)
         if out_text == nil or out_text:match('^%s*$') then send_as_typed(); return; end
+        -- Nothing was translated (the same words came back): say so instead of pretending.
+        local same = function (a, b) return a:lower():gsub('[%s%p]', '') == b:lower():gsub('[%s%p]', ''); end
+        if same(out_text, en) then
+            msg("couldn't translate that - sent in English.");
+            add_log({ who = 'you ' .. keep, text = text, mine = true });
+            send(keep .. ' ' .. text);
+            return;
+        end
         if #out_text > 110 then out_text = out_text:sub(1, 110); end
         tr.status = ('sent: %s'):format(shown or out_text);
         if st.chat_out then msg_pink(('you: "%s" -> %s'):format(text, shown or out_text)); end
@@ -739,7 +751,10 @@ local function send_text(keep, text, force_english)
         send(keep .. ' ' .. out_text);
     end
     if lang == 'zh' then
-        job('zh', en, function (zh) done_with(to_pinyin(zh)); end, send_as_typed);
+        job('zh', en, function (zh)
+            if not zh:find('[\228-\233]') then done_with(en); return; end   -- no Chinese characters came back
+            done_with(to_pinyin(zh));
+        end, send_as_typed);
     elseif lang == 'ja' then
         -- Japanese goes out in Japanese characters (the game shows kana and kanji).
         job('to_ja', en, function (ja) done_with(utf8_to_sjis(ja) or fold_ascii(ja), fold_ascii(ja) ~= '' and fold_ascii(ja) or '(Japanese)'); end, send_as_typed);

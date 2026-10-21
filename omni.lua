@@ -55,7 +55,7 @@
 
 addon.name    = 'omni';
 addon.author  = 'Happyfists';
-addon.version = '2.88';
+addon.version = '2.89';
 addon.desc    = 'All-in-one addon.';
 
 require('common');

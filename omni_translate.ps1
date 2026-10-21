@@ -25,6 +25,18 @@ function MyMemory([string]$text, [string]$pair) {
     $r = Invoke-RestMethod -Uri $url -TimeoutSec 12 -UseBasicParsing
     if ($r.responseStatus -and [int]$r.responseStatus -ne 200) { throw [string]$r.responseDetails }
     $t = [string]$r.responseData.translatedText
+    # Sometimes the best match is just the same words back (idioms, slang). Then take another match
+    # that really is translated - the machine translation if there is one.
+    if ($t.Trim().ToLower() -eq $text.Trim().ToLower() -and $r.matches) {
+        $pick = $null
+        foreach ($m in $r.matches) {
+            $mt = [string]$m.translation
+            if ($mt -and $mt.Trim().ToLower() -ne $text.Trim().ToLower()) {
+                if ($null -eq $pick -or ([string]$m.'created-by') -eq 'MT!') { $pick = $mt }
+            }
+        }
+        if ($pick) { $t = $pick }
+    }
     if ([string]::IsNullOrWhiteSpace($t)) { throw ('no translation: ' + [string]$r.responseDetails) }
     if ($t -match 'MYMEMORY WARNING|QUERY LENGTH LIMIT') { throw $t }
     return [System.Net.WebUtility]::HtmlDecode($t)
