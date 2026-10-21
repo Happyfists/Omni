@@ -1,5 +1,5 @@
 ==========================================================================================
-  OMNI  -  all-in-one addon for CatsEyeXI (Ashita v4)                 version 2.11 (full)
+  OMNI  -  all-in-one addon for CatsEyeXI (Ashita v4)                 version 2.77       
   by Happyfists
 ==========================================================================================
 
@@ -162,6 +162,43 @@ with a drop-down panel of tabs underneath it for everything else.
 
 
 ------------------------------------------------------------------------------------------
+ 3b. HAPPY POPS, HAPPY TRANSLATE, SEA > JAILERS
+------------------------------------------------------------------------------------------
+
+  HAPPY POPS (top row tab, /pops)
+    * Pick an HNM, type its time of death (21:35, 21:35:10, empty = now, "2d 21:35" = two days
+      ago) and press Start. Every HNM is listed; running timers are on top with a countdown bar.
+    * Each window: warnings at 2 min, 1 min, 30 sec and 10 sec, then OPEN, then "closed" 50 sec
+      later. Windows are counted 1/7 ... 7/7 (the last one is the forced pop).
+      21h HNMs: every 5 min from 21:00.  57h and 81h HNMs: every 10 min from 57:00 / 81:00.
+      Wyrms (Jormungand, Tiamat, Vrtra): 7 windows 10 min apart from 72:00 (not on the CatsEyeXI
+      page - change GROUPS.wyrm in omni_pops.lua if your server differs).
+    * A kill seen in chat ("... defeats Fafnir") starts a new timer by itself.
+    * Tick boxes: Window warnings, Warn the party too (<call14> on OPEN),
+      Post ToD to linkshell ("/l Fafnir ToD 13:40:00 - Repop at Thu 22 Oct 10:40:00 ...").
+
+  HAPPY TRANSLATE (top row tab, On/Off slider next to it, /translate on|off)
+    * Reads every chat channel. Lines in Japanese, Chinese pinyin, Spanish, Portuguese, French or
+      German are held for a second and come back as ONE line in the same channel:
+          [1]<Kennan> kuai lai  >> come quickly          (the English part in pink)
+      English lines are never touched or sent anywhere.
+    * Reply in pinyin:  /zl text  /zl2 text  /zp text  /zs text  /zsh text  /zt Name text
+      /zr text = reply on the channel of the last translated line. Or use the box on the tab and
+      click Send (press Escape afterwards if the game's own chat line picked up your typing).
+    * Built-in game phrases (zu wo = invite me, kuai lai = come quickly, hao = ok ...) and chat
+      shorthand (sm = shen me "what") are translated instantly.
+    * Everything translated is remembered in translate\memory.txt, so a line is never sent twice.
+      Your own phrases go in translate\phrases.txt, or:  /translate learn zu wo = invite me
+    * Uses MyMemory (free, about 5000 characters a day) and Google Input Tools (pinyin), through a
+      small hidden PowerShell helper (omni_translate.ps1). /translate status shows today's use.
+
+  SEA > JAILERS
+    * Temperance, Fortitude, Faith -> Ix'aern Deeds -> Hope, Justice, Prudence -> Love -> AV.
+    * Each one: where the ??? is, what to trade (held/needed, green when you have it - every bag
+      and organs kept at Vision), where the items drop, and the drops (CatsEyeXI extras in blue).
+
+
+------------------------------------------------------------------------------------------
  4. COMMANDS
 ------------------------------------------------------------------------------------------
 
@@ -172,6 +209,10 @@ with a drop-down panel of tabs underneath it for everything else.
     /ddr                 reset the damage meter
     /ddp [n]             post the top n damage dealers in party chat
     /avh help            AV helper commands
+    /pops                Happy Pops tab   (/pops add <hnm> [21:35], kill, del, list, history,
+                         warn, party, ls)
+    /translate           Happy Translate on/off  (status, learn, test, window)
+    /zl /zl2 /zp /zs /zsh /zt <name> /zr   send a message translated into pinyin
 
 
 ------------------------------------------------------------------------------------------
@@ -184,6 +225,8 @@ with a drop-down panel of tabs underneath it for everything else.
         vision_<Name>.txt      Vision storage counts
         rolls_<Name>.txt       Corsair rolls seen
         abypops_<Name>.lua     Abyssea key items
+        pops.txt               Happy Pops timers and switches
+        translate\             Happy Translate: settings.txt, memory.txt, phrases.txt
 
 
 ------------------------------------------------------------------------------------------
@@ -217,3 +260,7 @@ with a drop-down panel of tabs underneath it for everything else.
     * targetlines by Jyouya - the line idea, world-to-screen maths and bone lookup (spell lines)
     * Craftbook by Happys; recipes from the LandSandBoat database (GNU GPL v3)
     * Spell art (assets/fx/) and tab backgrounds made with Canva's AI image generator.
+    * HNM windows from bg-wiki "CatsEyeXI Content/HNMs"; Sea data from bg-wiki "CatsEyeXI
+      Content/Sea", the HorizonXI wiki and Allakhazam.
+    * Happy Translate: MyMemory (translated.net) and Google Input Tools; pinyin table made with
+      pypinyin (MIT licence).

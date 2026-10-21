@@ -2,7 +2,13 @@
 
 All-in-one Ashita v4 addon for CatsEyeXI, by Happyfists.
 
-A small bar along the top of the screen (job, XP/LP, wallet, buffs, target with TH and distance) and a drop-down panel of tabs: Abyssea procs and NM pops, Quests, Multisend, Damage, Character, Currency, Dailies, Codex, Sky, Sea, Ventures, Sparks, Options (with Happy Talks spoken alerts in 16 voice packs) and Treasure Hunter. It also draws spell animations on the field (fireballs, lightning, rocks, cures...) and party job pictures.
+A small bar along the top of the screen (job, XP/LP, wallet, buffs, target with TH and distance) and a drop-down panel of tabs: Abyssea procs and NM pops, **Happy Pops** (HNM time-of-death and window timers), **Happy Translate** (chat translation), Quests, Multisend, Damage, Character, Ultimates, Currency, Dailies, Codex, Sky, Sea (with the Jailers pop chain and the AV helper), Ventures, Sparks, Options (with Happy Talks spoken alerts and the Roll Tracker) and Treasure Hunter. It also draws spell animations on the field (fireballs, lightning, rocks, cures...) and party job pictures.
+
+## Newest pages
+
+- **Happy Pops** - pick an HNM, type its time of death, and get 2 min / 1 min / 30 s / 10 s warnings and OPEN for every window (CatsEyeXI windows; 7 per HNM, the last one forced). Kills seen in chat start a timer by themselves; the ToD can be posted to your linkshell. `/pops`
+- **Happy Translate** - reads every chat channel; lines in Japanese, Chinese pinyin, Spanish, Portuguese, French or German come back as one line with the English on the end in pink. Reply in pinyin with `/zl` `/zp` `/zl2` `/zt Name` `/zr`. Common game phrases are built in, everything translated is remembered in a file, and you can add your own phrases (`/translate learn zu wo = invite me`), so the free translator is used as little as possible. Uses MyMemory (free, about 5000 characters a day) and Google Input Tools for pinyin; only non-English lines are ever sent.
+- **Sea > Jailers** - every Jailer, Ix'aern and Absolute Virtue: pop items with how many you hold (all bags plus Vision), where the ??? is, and the drops.
 
 ## Install
 
@@ -17,4 +23,4 @@ See **README.txt** for everything it does, commands and settings.
 
 Happy Healer is no longer part of omni - it is its own addon.
 
-Built on work by others; licence files are in the folder. Points / Pointwatch (Shinzaku, Byrthnoth), Trove (Loxley), AVHelper (ClutchHawks), FFXI Journal (AndreYMods), HXUI job pictures (Tirem), Abyssea Tracker CatsEyeXI Edition (IntegReady), Abystagger (Laudout), easyTH (Arielfy), targetlines (Jyouya), chatmon (atom0s, GPL v3), Craftbook, LandSandBoat recipes (GPL v3). Spell art and backgrounds made with Canva's AI image generator; voices made with Kokoro TTS.
+Built on work by others; licence files are in the folder. Points / Pointwatch (Shinzaku, Byrthnoth), Trove (Loxley), AVHelper (ClutchHawks), FFXI Journal (AndreYMods), HXUI job pictures (Tirem), Abyssea Tracker CatsEyeXI Edition (IntegReady), Abystagger (Laudout), easyTH (Arielfy), targetlines (Jyouya), chatmon (atom0s, GPL v3), Craftbook, LandSandBoat recipes (GPL v3). Spell art and backgrounds made with Canva's AI image generator; voices made with Kokoro TTS. Pinyin table made with pypinyin (MIT).
