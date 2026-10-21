@@ -5,6 +5,7 @@
 #   -Mode py   pinyin -> Chinese characters -> English  (Google Input Tools, then MyMemory)
 #   -Mode zh   English -> Chinese characters            (MyMemory; omni turns them into pinyin)
 #   -Mode es / pt / fr / de   that language -> English  (MyMemory)
+#   -Mode to_ja / to_fr / to_de / to_es / to_pt   English -> that language (your replies)
 param([string]$In, [string]$Out, [string]$Mode = 'ja')
 
 $utf8 = New-Object System.Text.UTF8Encoding $false
@@ -60,6 +61,10 @@ try {
             Write-Result (MyMemory $hanzi 'zh-CN|en')
         }
         'zh' { Write-Result (MyMemory $text 'en|zh-CN') }
+        { $_ -match '^to_[a-z]{2}$' } {
+            # English -> the reply language you picked (to_ja, to_fr, to_de, to_es, to_pt)
+            Write-Result (MyMemory $text ('en|' + $Mode.Substring(3)))
+        }
         default {
             # ja, es, pt, fr, de ... -> English
             if ($Mode -notmatch '^[a-z]{2}$') { $Mode = 'ja' }

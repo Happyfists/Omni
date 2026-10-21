@@ -90,6 +90,7 @@ end
 local st = { master = true, on = true, zh = true,
              -- Which languages are translated; all off until you tick them.
              langs = { zh = false, ja = false, fr = false, de = false, es = false, pt = false },
+             reply_lang = 'zh',   -- what your replies are translated into
              reply = false, win = false, chat_out = true, x = 60, y = 220, w = 520, h = 300,
              today = os.date('%Y-%m-%d'), chars = 0 };
 local function addon_dir()
@@ -112,7 +113,7 @@ local function save()
         local f = io.open(cfg_path(), 'w');
         if f == nil then return; end
         f:write('on ', st.on and 1 or 0, '\n', 'zh ', st.zh and 1 or 0, '\n', 'reply ', st.reply and 1 or 0, '\n', 'day ', st.today, '\n', 'chars ', st.chars, '\n');
-        f:write('master ', st.master and 1 or 0, '\n');
+        f:write('master ', st.master and 1 or 0, '\n', 'rlang ', st.reply_lang, '\n');
         for code, on in pairs(st.langs) do f:write('lang ', code, ' ', on and 1 or 0, '\n'); end
         f:write('win ', st.win and 1 or 0, '\n', 'chat ', st.chat_out and 1 or 0, '\n', ('pos %d %d %d %d\n'):format(st.x, st.y, st.w, st.h));
         f:close();
@@ -127,6 +128,7 @@ pcall(function ()
         local z = line:match('^zh (%d)$'); if z then st.zh = (z == '1'); end
         local r = line:match('^reply (%d)$'); if r then st.reply = (r == '1'); end
         local mv = line:match('^master (%d)$'); if mv then st.master = (mv == '1'); end
+        local rl = line:match('^rlang (%a+)$'); if rl then st.reply_lang = rl; end
         local lc, lv = line:match('^lang (%a+) (%d)$'); if lc and st.langs[lc] ~= nil then st.langs[lc] = (lv == '1'); end
         local wv = line:match('^win (%d)$'); if wv then st.win = (wv == '1'); end
         local cv = line:match('^chat (%d)$'); if cv then st.chat_out = (cv == '1'); end
@@ -636,6 +638,26 @@ local CHANNELS = { ['/l'] = 0, ['/linkshell'] = 0, ['/l2'] = 0, ['/linkshell2'] 
 local passthrough = {};   -- exact commands omni itself sends, so they are not translated again
 
 -- Send `text` on channel `keep` ("/l", "/t Hush"): in pinyin when Reply in Chinese is on.
+-- French / German / Spanish / Portuguese letters the game cannot show, as plain letters.
+local FOLD = {
+    ['à']='a',['á']='a',['â']='a',['ã']='a',['ä']='a',['å']='a',['À']='A',['Á']='A',['Â']='A',['Ã']='A',['Ä']='A',
+    ['ç']='c',['Ç']='C',['è']='e',['é']='e',['ê']='e',['ë']='e',['È']='E',['É']='E',['Ê']='E',['Ë']='E',
+    ['ì']='i',['í']='i',['î']='i',['ï']='i',['Í']='I',['Î']='I',['ñ']='n',['Ñ']='N',
+    ['ò']='o',['ó']='o',['ô']='o',['õ']='o',['ö']='o',['Ó']='O',['Ô']='O',['Õ']='O',['Ö']='O',
+    ['ù']='u',['ú']='u',['û']='u',['ü']='u',['Ú']='U',['Û']='U',['Ü']='U',['ý']='y',['ÿ']='y',
+    ['ß']='ss',['œ']='oe',['æ']='ae',['«']='"',['»']='"',['‘']="'",['’']="'",['“']='"',['”']='"',['¿']='',['¡']='',
+};
+local function fold_ascii(u)
+    local out = {};
+    for ch in u:gmatch('[%z\1-\127\194-\244][\128-\191]*') do
+        if #ch == 1 then out[#out + 1] = ch; else out[#out + 1] = FOLD[ch] or ''; end
+    end
+    return table.concat(out);
+end
+
+local REPLY_LANGS = { { 'zh', 'Chinese (pinyin)' }, { 'ja', 'Japanese' }, { 'fr', 'French' }, { 'de', 'German' }, { 'es', 'Spanish' }, { 'pt', 'Portuguese' } };
+
+-- Send `text` on channel `keep` ("/l", "/t Hush"), translated into the chosen reply language.
 local function send_text(keep, text, force_english)
     local function send(out) passthrough[out] = true; AshitaCore:GetChatManager():QueueCommand(1, out); end
     if text:sub(1, 1) == '=' or force_english then
@@ -648,17 +670,25 @@ local function send_text(keep, text, force_english)
         add_log({ who = 'you ' .. keep, text = text, mine = true });
         send(keep .. ' ' .. text);
     end
+    local lang = st.reply_lang or 'zh';
     tr.status = 'translating: ' .. text;
     if st.chat_out then msg('translating your message...'); end
-    job('zh', en, function (zh)
-        local py = to_pinyin(zh);
-        if py == '' then msg('could not turn that into pinyin.'); send_as_typed(); return; end
-        if #py > 110 then py = py:sub(1, 110); end
-        tr.status = ('sent: %s'):format(py);
-        if st.chat_out then msg_pink(('you: "%s" -> %s'):format(text, py)); end
-        add_log({ who = 'you ' .. keep, text = text, orig = py, mine = true });
-        send(keep .. ' ' .. py);
-    end, send_as_typed);
+    local function done_with(out_text, shown)
+        if out_text == nil or out_text:match('^%s*$') then send_as_typed(); return; end
+        if #out_text > 110 then out_text = out_text:sub(1, 110); end
+        tr.status = ('sent: %s'):format(shown or out_text);
+        if st.chat_out then msg_pink(('you: "%s" -> %s'):format(text, shown or out_text)); end
+        add_log({ who = 'you ' .. keep, text = text, orig = shown or out_text, mine = true });
+        send(keep .. ' ' .. out_text);
+    end
+    if lang == 'zh' then
+        job('zh', en, function (zh) done_with(to_pinyin(zh)); end, send_as_typed);
+    elseif lang == 'ja' then
+        -- Japanese goes out in Japanese characters (the game shows kana and kanji).
+        job('to_ja', en, function (ja) done_with(utf8_to_sjis(ja) or fold_ascii(ja), fold_ascii(ja) ~= '' and fold_ascii(ja) or '(Japanese)'); end, send_as_typed);
+    else
+        job('to_' .. lang, en, function (t) done_with(fold_ascii(t)); end, send_as_typed);
+    end
 end
 
 local function reply(e)
@@ -792,8 +822,9 @@ local function body(in_tab)
 
     -- Which languages: all off until ticked.
     local LANG_LABEL = { { 'zh', 'Chinese' }, { 'ja', 'Japanese' }, { 'fr', 'French' }, { 'de', 'German' }, { 'es', 'Spanish' }, { 'pt', 'Portuguese' } };
+    imgui.TextColored(DIM, 'Read:');
     for i, l in ipairs(LANG_LABEL) do
-        if i > 1 then imgui.SameLine(0, 12); end
+        imgui.SameLine(0, i == 1 and 6 or 12);
         local v = { st.langs[l[1]] == true };
         if imgui.Checkbox(l[2] .. (in_tab and '##trt_l_' or '##trw_l_') .. l[1], v) then st.langs[l[1]] = v[1]; save(); end
         if imgui.IsItemHovered() then
@@ -801,6 +832,14 @@ local function body(in_tab)
                 or (l[1] == 'ja' and 'Lines with Japanese characters.' or ('Lines written in ' .. l[2] .. '.')));
         end
     end
+    imgui.SameLine(0, 12);
+    if imgui.SmallButton(in_tab and 'All##trt_all' or 'All##trw_all') then
+        local any_off = false;
+        for _, l in ipairs(LANG_LABEL) do if not st.langs[l[1]] then any_off = true; end end
+        for _, l in ipairs(LANG_LABEL) do st.langs[l[1]] = any_off; end
+        save();
+    end
+    if imgui.IsItemHovered() then imgui.SetTooltip('Tick them all (or untick them all).'); end
 
     -- A new translated line: answer on its channel.
     if tr.last_chan then pick_chan(tr.last_chan, tr.last_tell); tr.last_chan, tr.last_tell = nil, nil; end
@@ -827,7 +866,16 @@ local function body(in_tab)
     if tr.scroll then imgui.SetScrollHereY(1.0); tr.scroll = false; end
     imgui.EndChild();
 
-    -- Reply box: channel, (name for a tell), message, Enter or Send.
+    -- Reply box: reply language, channel, (name for a tell), message, Send.
+    local ri = { 0 };
+    for i, l in ipairs(REPLY_LANGS) do if l[1] == st.reply_lang then ri[1] = i - 1; end end
+    imgui.PushItemWidth(128);
+    if imgui.Combo(in_tab and '##trt_rlang' or '##trw_rlang', ri, 'Chinese (pinyin)\0Japanese\0French\0German\0Spanish\0Portuguese\0') then
+        st.reply_lang = REPLY_LANGS[ri[1] + 1][1]; save();
+    end
+    imgui.PopItemWidth();
+    if imgui.IsItemHovered() then imgui.SetTooltip('Reply in: what you type here (and with /zl /zp /zt ...) is translated into this.'); end
+    imgui.SameLine(0, 4);
     imgui.PushItemWidth(66);
     imgui.Combo('##trw_chan', chan_i, CHAN_Z);
     imgui.PopItemWidth();
@@ -841,7 +889,7 @@ local function body(in_tab)
     end
     imgui.SameLine(0, 4);
     imgui.PushItemWidth(-54);
-    local hint = 'type in English, then click Send - it goes out as pinyin';
+    local hint = 'type in English, then click Send - it goes out in the language on the left';
     imgui.InputTextWithHint('##trw_in', hint, in_buf, 200);
     local entered = false;   -- only the Send button sends (Leon's choice); Enter does nothing here
     imgui.PopItemWidth();
