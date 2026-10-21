@@ -287,12 +287,12 @@ local function add_log(e)
     tr.scroll = true;
 end
 
-local function show(prefix, english, original)
+local function show(prefix, english, original, inline)
     local ch, who = nil, nil;
     if channel_of then ch, who = channel_of(prefix); end
     add_log({ who = (prefix or ''):gsub('%s+$', ''), text = english, orig = original, chan = ch, tell = who });
     if ch then tr.last_chan, tr.last_tell = ch, who; tr.reply_chan = (ch == '/t' and who) and ('/t ' .. who) or ch; end
-    if st.chat_out then
+    if st.chat_out and not inline then
         local sj = utf8_to_sjis(english) or english:gsub('[\128-\255]', '?');
         msg_pink(prefix .. sj);
     end
@@ -357,7 +357,7 @@ ashita.events.register('d3d_present', 'omni_translate_poll', function ()
                 cache[p.key] = res;
                 pcall(p.done, res);
             end
-        elseif os.clock() - p.t > 25 then
+        elseif os.clock() - p.t > 12 then   -- a held-back chat line should not wait long
             pending[id] = nil;
             os.remove(work_dir() .. id .. '.in');
             msg('no answer from the translation service (timed out).');
@@ -389,6 +389,24 @@ local function split_speaker(s)
     return pre, rest;
 end
 
+-- The original chat line is held back for the second or two the translation takes, then shown
+-- again in its own channel with the English on the end, in pink:
+--   [1]<Kennan> dou tong guan le rang gei mei tong guan de  >> Everyone has cleared it ...
+-- If the translation fails, the line is shown as it was.
+local function one_line(e, prefix, mode, text)
+    local line = (e.message_modified or e.message or ''):gsub('[\r\n\7]+$', '');
+    local chat_mode = e.mode_modified or e.mode or 1;
+    local function put(str)
+        pcall(function () AshitaCore:GetChatManager():AddChatMessage(chat_mode, false, str); end);
+    end
+    e.blocked = true;
+    job(mode, text, function (en)
+        show(prefix, en, (mode ~= 'ja') and text or nil, true);
+        local sj = utf8_to_sjis(en) or en:gsub('[\128-\255]', '?');
+        put(line .. '  ' .. PINK_CHAT .. '>> ' .. sj .. '\30\01');
+    end, function () put(line); end);
+end
+
 ashita.events.register('text_in', 'omni_translate_text', function (e)
     if e.injected or not st.master then return; end
     pcall(function ()
@@ -399,19 +417,19 @@ ashita.events.register('text_in', 'omni_translate_text', function (e)
             -- Keep the English part in front ("Name : ", "(Name) ") as it is; translate the rest.
             local prefix = s:sub(1, at - 1);
             if #prefix > 40 then prefix = ''; at = 1; end
-            translate(prefix, s:sub(at));
+            one_line(e, prefix, 'ja', sjis_to_utf8(s:sub(at)));
             return;
         end
         -- Player chat in English letters: pinyin, or Spanish / Portuguese / French / German.
         local pre, rest = split_speaker(s);
         if pre == '' then return; end
         if looks_pinyin(rest) then
-            job('py', rest, function (en) show(pre, en, rest); end);
+            one_line(e, pre, 'py', rest);
             return;
         end
         local lang = detect_lang(rest);
         if lang ~= nil then
-            job(lang, rest, function (en) show(pre, en, rest); end);
+            one_line(e, pre, lang, rest);
         end
     end);
 end);
