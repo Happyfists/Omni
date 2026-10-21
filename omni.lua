@@ -55,7 +55,7 @@
 
 addon.name    = 'omni';
 addon.author  = 'Happyfists';
-addon.version = '2.60';
+addon.version = '2.61';
 addon.desc    = 'All-in-one addon.';
 
 require('common');
@@ -1762,9 +1762,6 @@ do
                 omni.av.set_float(av_on[1]);
             end
             if (imgui.IsItemHovered()) then imgui.SetTooltip('Happy Virtue: the floating Absolute Virtue window, 2-hour locks and timers.\nSame as /avh show and /avh hide.'); end
-            local pp = { omni.pops ~= nil and omni.pops.shown() };
-            if (imgui.Checkbox('Happy Pops (HNM timers)##opt_pops', pp) and omni.pops ~= nil) then omni.pops.set_shown(pp[1]); end
-            if (imgui.IsItemHovered()) then imgui.SetTooltip('Happy Pops: type an HNM time of death and it warns you before every window.\nSame as /pops.'); end
             if (omni.av ~= nil and omni.av.auto_open ~= nil) then
                 local ao = { omni.av.auto_open() };
                 imgui.SetCursorPosX(imgui.GetCursorPosX() + 22);
@@ -1875,6 +1872,17 @@ deeps_tab.render = function ()
 end;
 tabs[#tabs + 1] = deeps_tab;
 
+-- Happy Pops: HNM time of death and window timers (omni_pops.lua), as its own tab.
+if (omni.pops ~= nil) then
+    local pops_tab = { label = 'Happy Pops', width = 680, height = 460 };
+    pops_tab.render = function ()
+        omni.pops.render();
+        pops_tab.height = math.max(160, math.min(900, math.floor(imgui.GetCursorPosY()) + 10));
+    end;
+    omni.pops.open_panel = function () omni.expanded = true; omni.sel = 'Happy Pops'; end;
+    tabs[#tabs + 1] = pops_tab;
+end
+
 ----------------------------------------------------------------------------------------------------
 -- The drop-down panel (hangs under the bar, same width)
 ----------------------------------------------------------------------------------------------------
@@ -1902,7 +1910,7 @@ end
 
 -- Tab layout: two rows. Anything not named here goes on the second row, before TH.
 local TAB_ROWS = {
-    { 'Abyssea', 'Quests', 'Multisend', 'Damage' },
+    { 'Abyssea', 'Happy Pops', 'Quests', 'Multisend', 'Damage' },
     { 'Character', 'Ultimates', 'Currency', 'Dailies', 'Codex', 'Sky', 'Sea', 'Ventures', 'Sparks', 'Options', 'TH' },
 };
 local TAB_PAD, TAB_GAP = 8, 4;

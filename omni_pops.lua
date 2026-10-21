@@ -14,7 +14,7 @@
       first window assumed at 72:00, forced at 73:00. Change GROUPS.wyrm if CatsEyeXI differs.
 
     Commands
-      /pops                        show / hide the Happy Pops window
+      /pops                        open omni's panel on the Happy Pops tab
       /pops add <hnm> [time]       start a timer; time = ToD as 21:35 or 21:35:10 (local clock),
                                    "now" or left out = now. A time later than now means yesterday.
                                    For older ToDs: "2d 21:35" = two days ago at 21:35.
@@ -279,7 +279,7 @@ ashita.events.register('command', 'omni_pops_cmd', function (e)
     local c = (a[2] or ''):lower();
     local rest = table.concat(a, ' ', 3);
     if c == '' then
-        st.show = not st.show;
+        if pops.open_panel ~= nil then pops.open_panel(); end
     elseif c == 'add' or c == 'tod' then
         -- the name is everything up to the time; try the longest name first
         local words = {};
@@ -474,24 +474,13 @@ local function body()
     imgui.TextColored(C.dim, ('%d active'):format(#active));
 end
 
-ashita.events.register('d3d_present', 'omni_pops_window', function ()
-    if not st.show then return; end
-    open[1] = true;
-    imgui.SetNextWindowSize({ W, H }, ImGuiCond_Always);
-    local style = package.loaded['omni_style'];
-    local ns = style and style.begin() or nil;
-    local shown = imgui.Begin('Happy Pops###omni_pops', open, bit.bor(ImGuiWindowFlags_NoResize, ImGuiWindowFlags_NoScrollbar));
-    if shown then
-        body();
-        H = math.max(120, math.floor(imgui.GetCursorPosY()) + 8);
-    end
-    imgui.End();
-    if style then style.finish(ns); end
-    if not open[1] then st.show = false; end
-end);
+-- Shown as its own tab in omni's drop-down panel (omni.lua adds the "Happy Pops" tab).
+pops.render = function ()
+    body();
+end
+pops.height = function () return H; end
 
--- For omni's Options > Pop-outs tick box.
-pops.shown = function () return st.show == true; end
-pops.set_shown = function (on) st.show = (on == true); end
+-- omni sets this so /pops opens the panel on the Happy Pops tab.
+pops.open_panel = nil;
 
 return pops;
