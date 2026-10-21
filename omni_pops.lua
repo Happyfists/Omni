@@ -384,15 +384,23 @@ local function body()
     end
     table.sort(active, function (a, b) return key(a) < key(b); end);
 
-    local flags = bit.bor(ImGuiTableFlags_RowBg, ImGuiTableFlags_BordersInnerH, ImGuiTableFlags_SizingFixedFit);
-    if imgui.BeginTable('##pops_table', 7, flags) then
-        imgui.TableSetupColumn('HNM', ImGuiTableColumnFlags_WidthFixed, 170);
+    -- The table in omni's own colours: no striped rows; running timers get a soft tint of the theme's
+    -- accent colour, the header uses the theme's bar colour and the lines are the theme's thin lines.
+    local accent = gold;
+    local line = (th and th.line) or { 0.22, 0.22, 0.24, 1.0 };
+    local head = (th and th.bar) or { 0.10, 0.10, 0.11, 1.0 };
+    imgui.PushStyleColor(ImGuiCol_TableHeaderBg, { head[1], head[2], head[3], 0.95 });
+    imgui.PushStyleColor(ImGuiCol_TableBorderLight, { line[1], line[2], line[3], 0.55 });
+    imgui.PushStyleColor(ImGuiCol_TableBorderStrong, { accent[1], accent[2], accent[3], 0.45 });
+    imgui.PushStyleColor(ImGuiCol_TableRowBg, { 0, 0, 0, 0 });
+    imgui.PushStyleColor(ImGuiCol_TableRowBgAlt, { 0, 0, 0, 0 });
+    local flags = bit.bor(ImGuiTableFlags_BordersInnerH, ImGuiTableFlags_SizingFixedFit);
+    if imgui.BeginTable('##pops_table', 5, flags) then
+        imgui.TableSetupColumn('HNM', ImGuiTableColumnFlags_WidthFixed, 200);
         imgui.TableSetupColumn('ToD', ImGuiTableColumnFlags_WidthFixed, 62);
-        imgui.TableSetupColumn('Window', ImGuiTableColumnFlags_WidthFixed, 52);
         imgui.TableSetupColumn('Countdown', ImGuiTableColumnFlags_WidthFixed, 150);
-        imgui.TableSetupColumn('Opens', ImGuiTableColumnFlags_WidthFixed, 62);
-        imgui.TableSetupColumn('##act', ImGuiTableColumnFlags_WidthFixed, 74);
-        imgui.TableSetupColumn('Pop date', ImGuiTableColumnFlags_WidthFixed, 230);
+        imgui.TableSetupColumn('Pop date', ImGuiTableColumnFlags_WidthFixed, 300);
+        imgui.TableSetupColumn('##act', ImGuiTableColumnFlags_WidthFixed, 80);
         imgui.TableHeadersRow();
 
         local function name_cell(h, col)
@@ -410,70 +418,66 @@ local function body()
             local name = h[1];
             local t = st.timers[name];
             local s = status(name, t, now);
+            local g = GROUPS[h[2]];
+            local last = t.tod + g.first + (g.count - 1) * g.step;
             imgui.TableNextRow();
-            name_cell(h, gold);
+            pcall(imgui.TableSetBgColor, ImGuiTableBgTarget_RowBg0, imgui.GetColorU32({ accent[1], accent[2], accent[3], 0.10 }));
+            name_cell(h, accent);
             imgui.TableNextColumn();
             imgui.TextColored(C.text, os.date('%H:%M', t.tod));
-            imgui.TableNextColumn();
-            imgui.TextColored(C.text, ('%d/%d'):format(s.win, s.count));
             imgui.TableNextColumn();
             if s.phase == 'open' then
                 local blink = (math.floor(os.clock() * 2) % 2 == 0);
                 imgui.TextColored(blink and C.green or C.text, ('OPEN  %ds'):format(math.ceil(s.left)));
             elseif s.phase == 'wait' then
-                local col = (s.left <= 30) and C.red or ((s.left <= 120) and C.orange or C.text);
+                local col = (s.left <= 30) and C.red or ((s.left <= 120) and C.orange or accent);
                 -- A bar that fills over the last hour before window 1 (or across the gap between windows).
-                local g = GROUPS[h[2]];
                 local span_total = (s.win == 1) and 3600 or g.step;
                 local frac = math.max(0, math.min(1, 1 - s.left / span_total));
                 imgui.PushStyleColor(ImGuiCol_PlotHistogram, { col[1], col[2], col[3], 0.55 });
+                imgui.PushStyleColor(ImGuiCol_FrameBg, { line[1], line[2], line[3], 0.60 });
                 imgui.ProgressBar(frac, { 140, 16 }, span(s.left));
-                imgui.PopStyleColor(1);
+                imgui.PopStyleColor(2);
             else
                 imgui.TextColored(C.green, 'Should be up');
             end
+            if imgui.IsItemHovered() then imgui.SetTooltip(('Window %d of %d.'):format(s.win, s.count)); end
+            -- Pop date: the day and time of the next window, and of the last (forced) one.
             imgui.TableNextColumn();
-            if s.phase == 'wait' then imgui.TextColored(C.dim, os.date('%H:%M', s.next_open));
-            elseif s.phase == 'open' then imgui.TextColored(C.green, 'now');
-            else imgui.TextColored(C.dim, '-'); end
+            local tail = ((g.forced == false) and '(last %s)' or '(forced %s)'):format(os.date('%H:%M', last));
+            if s.phase == 'wait' then
+                imgui.TextColored(C.text, os.date('%a %d %b %H:%M', s.next_open));
+                imgui.SameLine(0, 6);
+                imgui.TextColored(C.dim, tail);
+            elseif s.phase == 'open' then
+                imgui.TextColored(C.green, 'open now');
+                imgui.SameLine(0, 6);
+                imgui.TextColored(C.dim, tail);
+            else
+                imgui.TextColored(C.green, 'should be up since ' .. os.date('%a %H:%M', last));
+            end
             imgui.TableNextColumn();
             if imgui.SmallButton('Killed##pops_k_' .. name) then start(name, os.time(), 'button'); end
             if imgui.IsItemHovered() then imgui.SetTooltip('It died just now - start a new timer.'); end
             imgui.SameLine(0, 4);
             if imgui.SmallButton('X##pops_x_' .. name) then stop(name); end
             if imgui.IsItemHovered() then imgui.SetTooltip('Stop tracking it.'); end
-            -- The day and time of the next window, and of the last (forced) one.
-            imgui.TableNextColumn();
-            local g = GROUPS[h[2]];
-            local last = t.tod + g.first + (g.count - 1) * g.step;
-            if s.phase == 'wait' then
-                imgui.TextColored(C.text, os.date('%a %d %b %H:%M', s.next_open));
-                imgui.SameLine(0, 6);
-                imgui.TextColored(C.dim, ((g.forced == false) and '(last %s)' or '(forced %s)'):format(os.date('%H:%M', last)));
-            elseif s.phase == 'open' then
-                imgui.TextColored(C.green, 'open now');
-                imgui.SameLine(0, 6);
-                imgui.TextColored(C.dim, ((g.forced == false) and '(last %s)' or '(forced %s)'):format(os.date('%H:%M', last)));
-            else
-                imgui.TextColored(C.green, 'should be up since ' .. os.date('%a %H:%M', last));
-            end
         end
 
         for _, h in ipairs(idle) do
             local name = h[1];
             imgui.TableNextRow();
-            name_cell(h, C.dim);
-            imgui.TableNextColumn(); imgui.TextColored(C.dim, '-');
+            name_cell(h, C.text);
             imgui.TableNextColumn(); imgui.TextColored(C.dim, '-');
             imgui.TableNextColumn(); imgui.TextColored(C.dim, 'no timer');
             imgui.TableNextColumn(); imgui.TextColored(C.dim, '-');
             imgui.TableNextColumn();
             if imgui.SmallButton('Killed##pops_k_' .. name) then start(name, os.time(), 'button'); end
             if imgui.IsItemHovered() then imgui.SetTooltip('It died just now - start its timer from now.\nFor an older ToD, pick it above and type the time.'); end
-            imgui.TableNextColumn(); imgui.TextColored(C.dim, '-');
         end
         imgui.EndTable();
     end
+    imgui.PopStyleColor(5);
 
     imgui.Spacing();
     local wv = { st.warn };
