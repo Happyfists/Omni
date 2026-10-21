@@ -236,13 +236,22 @@ end
 -- They are taken out before judging, and put in front of a built-in translation.
 local function split_names(text)
     local names, kept = {}, {};
+    local first = true;
     for w in text:gmatch('%S+') do
         local word = w:gsub("[^%a']", '');
-        if word:match('^%u') and word ~= '' and not is_pinyin_word(word:lower()) then
+        -- A name: the first word of the line, or any capitalised word, that is not pinyin.
+        local is_name = word ~= '' and not is_pinyin_word(word:lower()) and (first or word:match('^%u') ~= nil);
+        if word ~= '' then first = false; end
+        if is_name then
             names[#names + 1] = word;
         else
             kept[#kept + 1] = w;
         end
+    end
+    -- A lowercase first word only counts as a name if at least two words are left ("quixy zu wo");
+    -- otherwise "thanks hao" or "thx lai" would be taken as name + Chinese.
+    if #names > 0 and not names[1]:match('^%u') and #kept < 2 then
+        return {}, text;
     end
     return names, table.concat(kept, ' ');
 end
