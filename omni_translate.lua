@@ -136,6 +136,9 @@ end);
 local DAILY = 5000;   -- MyMemory's free allowance (characters a day, no key)
 
 local function msg(t) tr.status = t; print('\30\68[Happy Translate]\30\01 ' .. t); end
+-- Translations themselves are shown in pink (the game's Magenta chat colour).
+local PINK_CHAT = '\30\05';
+local function msg_pink(t) tr.status = t; print('\30\68[Happy Translate]\30\01 ' .. PINK_CHAT .. t .. '\30\01'); end
 
 ----------------------------------------------------------------------------------------------------
 -- Spotting Japanese and cleaning a chat line
@@ -291,7 +294,7 @@ local function show(prefix, english, original)
     if ch then tr.last_chan, tr.last_tell = ch, who; tr.reply_chan = (ch == '/t' and who) and ('/t ' .. who) or ch; end
     if st.chat_out then
         local sj = utf8_to_sjis(english) or english:gsub('[\128-\255]', '?');
-        msg(prefix .. sj);
+        msg_pink(prefix .. sj);
     end
 end
 
@@ -441,7 +444,7 @@ local function send_text(keep, text, force_english)
         if py == '' then msg('could not turn that into pinyin.'); send_as_typed(); return; end
         if #py > 110 then py = py:sub(1, 110); end
         tr.status = ('sent: %s'):format(py);
-        if st.chat_out then msg(('you: "%s" -> %s'):format(text, py)); end
+        if st.chat_out then msg_pink(('you: "%s" -> %s'):format(text, py)); end
         add_log({ who = 'you ' .. keep, text = text, orig = py, mine = true });
         send(keep .. ' ' .. py);
     end, send_as_typed);
@@ -530,6 +533,7 @@ end);
 ----------------------------------------------------------------------------------------------------
 local imgui = require('imgui');
 local GOLD, DIM, TEXT, MINE = { 0.90, 0.78, 0.40, 1.0 }, { 0.60, 0.62, 0.68, 1.0 }, { 0.93, 0.93, 0.96, 1.0 }, { 0.55, 0.80, 1.00, 1.0 };
+local PINK = { 1.00, 0.45, 0.85, 1.0 };
 local CHAN = { '/l', '/l2', '/p', '/s', '/sh', '/t' };
 local CHAN_Z = 'LS\0LS2\0Party\0Say\0Shout\0Tell\0';
 local chan_i, tell_buf, in_buf = { 0 }, { '' }, { '' };
@@ -577,9 +581,9 @@ local function body(in_tab)
         if e.chan and imgui.IsItemHovered() then imgui.SetTooltip('Click to reply on ' .. e.chan .. (e.tell and (' ' .. e.tell) or '')); end
         imgui.SameLine(0, 6);
         imgui.PushTextWrapPos(0);
-        imgui.TextColored(TEXT, (e.text:gsub('%%', '%%%%')));
+        imgui.TextColored(e.mine and TEXT or PINK, (e.text:gsub('%%', '%%%%')));
         if e.orig ~= nil and not e.orig:find('[\128-\255]') then
-            imgui.TextColored(DIM, ((e.mine and 'sent: ' or '') .. e.orig):gsub('%%', '%%%%'));
+            imgui.TextColored(e.mine and PINK or DIM, ((e.mine and 'sent: ' or '') .. e.orig):gsub('%%', '%%%%'));
         end
         imgui.PopTextWrapPos();
     end
