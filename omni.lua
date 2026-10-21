@@ -55,7 +55,7 @@
 
 addon.name    = 'omni';
 addon.author  = 'Happyfists';
-addon.version = '2.87';
+addon.version = '2.88';
 addon.desc    = 'All-in-one addon.';
 
 require('common');
@@ -622,6 +622,13 @@ do
     if (ok) then abyssea = mod; else print('[omni] Abyssea could not load: ' .. tostring(mod)); end
 end
 
+-- Dynamis on the bar: time left and the five time extensions (omni_dynamis.lua).
+local dynamis = nil;
+do
+    local ok, mod = pcall(require, 'omni_dynamis');
+    if (ok) then dynamis = mod; else print('[omni] Dynamis could not load: ' .. tostring(mod)); end
+end
+
 local function draw_bar(player, job)
     local s = omni.settings;
     local level = player:GetMainJobLevel();
@@ -703,6 +710,9 @@ local function draw_bar(player, job)
         -- In Abyssea the bar shows Visitant time and lights instead (omni_abyssea.lua).
         if (abyssea ~= nil and omni.settings.aby_bar ~= false and abyssea.inside()) then
             abyssea.draw_bar(s.colors);
+        elseif (dynamis ~= nil and omni.settings.dyna_bar ~= false and dynamis.inside()) then
+            -- In Dynamis: time left and which time extensions are done.
+            dynamis.draw_bar(s.colors);
         else
             draw_xp(player);
             draw_wallet();
@@ -1758,6 +1768,7 @@ do
 
             if (section('Bars')) then
             toggle('Abyssea time and lights', 'aby_bar', true, 'In Abyssea zones the bar shows Visitant time and lights instead of XP.');
+            toggle('Dynamis time and time extensions', 'dyna_bar', true, 'In Dynamis the bar shows the time left and which of the five\ntime extensions (granules of time) you have, instead of XP.');
             toggle('Sneak / Invisible buttons', 'stealth_bar', true, 'Magic, ninjutsu, Spectral Jig or oils and powders.');
             local hide = { not s.show_native };
             if (imgui.Checkbox("Hide the game's buff icons##opt_native", hide)) then
