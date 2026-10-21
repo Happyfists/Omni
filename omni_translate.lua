@@ -627,15 +627,14 @@ local function body(in_tab)
     end
     imgui.SameLine(0, 4);
     imgui.PushItemWidth(-54);
-    local hint = 'type in English, Enter = sent as pinyin   (or in chat: /zl /zp /zt name ...)';
-    local entered = imgui.InputTextWithHint('##trw_in', hint, in_buf, 200, ImGuiInputTextFlags_EnterReturnsTrue);
+    local hint = 'type in English, then click Send - it goes out as pinyin';
+    imgui.InputTextWithHint('##trw_in', hint, in_buf, 200);
+    local entered = false;   -- only the Send button sends (Leon's choice); Enter does nothing here
     -- While you type here the game must not get the keys (it would open its own chat line and
-    -- post the text itself). Enter is also checked directly in case the box did not report it.
-    if tr.enter_hit then entered = true; tr.enter_hit = false; end
+    -- post the text itself).
+    tr.enter_hit = false;
     if imgui.IsItemActive() then
         tr.typing_at = os.clock();
-        local ok, hit = pcall(function () return imgui.IsKeyPressed(imgui.GetKeyIndex(ImGuiKey_Enter)); end);
-        if ok and hit then entered = true; end
     end
     imgui.PopItemWidth();
     imgui.SameLine(0, 4);
@@ -705,6 +704,14 @@ ashita.events.register('key', 'omni_translate_key', function (e)
     local up = false;
     pcall(function () up = bit.band(e.lparam or 0, 0x80000000) ~= 0; end);
     if (e.wparam == 13) and not up then tr.enter_hit = true; end          -- VK_RETURN
+end);
+-- The game also reads the whole keyboard at once (DirectInput); while typing in the box, show it no keys.
+ashita.events.register('key_state', 'omni_translate_keystate', function (e)
+    if not typing_now() then return; end
+    pcall(function ()
+        local ptr = ffi.cast('uint8_t*', e.data_raw);
+        for i = 0, 255 do ptr[i] = 0; end
+    end);
 end);
 ashita.events.register('key_data', 'omni_translate_keydata', function (e)
     if not typing_now() then return; end
