@@ -141,6 +141,16 @@ pcall(function ()
 end);
 
 local DAILY = 5000;   -- MyMemory's free allowance (characters a day, no key)
+-- With an email address in translate\email.txt MyMemory allows 50000 a day. The address is read from
+-- that file only (never stored in the code) and is sent only to MyMemory, with each request.
+local EMAIL = nil;
+pcall(function ()
+    local f = io.open(work_dir() .. 'email.txt', 'r');
+    if f == nil then return; end
+    local e = (f:read('*l') or ''):gsub('%s+', '');
+    f:close();
+    if e:match('^[%w%._%+%-]+@[%w%.%-]+%.%a+$') then EMAIL = e; DAILY = 50000; end
+end);
 
 local function msg(t) tr.status = t; print('\30\68[Happy Translate]\30\01 ' .. t); end
 -- Translations themselves are shown in pink (the game's Magenta chat colour).
@@ -507,6 +517,7 @@ local function job(mode, u, done, fail)
     if chk == nil then msg('helper missing: ' .. ps1); fail(); return false; end
     chk:close();
     local cmd = ('powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -WindowStyle Hidden -File "%s" -Mode %s -In "%s.in" -Out "%s.out"'):format(ps1, mode, base, base);
+    if EMAIL ~= nil then cmd = cmd .. (' -Email "%s"'):format(EMAIL); end
     local started, why = run_hidden(cmd);
     if not started then msg('could not start the translate helper (PowerShell): ' .. tostring(why)); fail(); return false; end
     pending[id] = { done = done, fail = fail, t = os.clock(), key = key };
@@ -762,6 +773,20 @@ ashita.events.register('command', 'omni_translate_cmd', function (e)
         if first_japanese(text) then translate('test: ', text);
         elseif looks_pinyin(text) then job('py', text, function (en) show('test: ', en); end);
         else job('zh', text, function (zh) msg('test: ' .. to_pinyin(zh)); end); end
+    elseif c == 'email' then
+        local addr = (a[3] or ''):gsub('%s+', '');
+        if addr == 'off' or addr == 'none' then
+            os.remove(work_dir() .. 'email.txt'); EMAIL = nil; DAILY = 5000;
+            msg('email removed - free limit back to 5000 characters a day.');
+        elseif addr:match('^[%w%._%+%-]+@[%w%.%-]+%.%a+$') then
+            ensure_dir();
+            local f = io.open(work_dir() .. 'email.txt', 'w');
+            if f then f:write(addr, '\n'); f:close(); end
+            EMAIL = addr; DAILY = 50000;
+            msg('email set - free limit is now 50000 characters a day.');
+        else
+            msg('/translate email you@example.com   (or /translate email off)');
+        end
     elseif c == 'learn' then
         local rest = e.command:match('^%S+%s+%S+%s+(.*)$') or '';
         local k, v = rest:match('^(.-)%s*=%s*(.-)%s*$');

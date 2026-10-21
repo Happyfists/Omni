@@ -6,7 +6,7 @@
 #   -Mode zh   English -> Chinese characters            (MyMemory; omni turns them into pinyin)
 #   -Mode es / pt / fr / de   that language -> English  (MyMemory)
 #   -Mode to_ja / to_fr / to_de / to_es / to_pt   English -> that language (your replies)
-param([string]$In, [string]$Out, [string]$Mode = 'ja')
+param([string]$In, [string]$Out, [string]$Mode = 'ja', [string]$Email = '')
 
 $utf8 = New-Object System.Text.UTF8Encoding $false
 function Write-Result([string]$text) {
@@ -20,6 +20,8 @@ function MyMemory([string]$text, [string]$pair) {
     while ($utf8.GetByteCount($text) -gt 490) { $text = $text.Substring(0, $text.Length - 1) }
     $q = [Uri]::EscapeDataString($text)
     $url = "https://api.mymemory.translated.net/get?q=$q&langpair=$([Uri]::EscapeDataString($pair))"
+    # With an email address MyMemory allows 50000 characters a day instead of 5000.
+    if ($Email -ne '') { $url += '&de=' + [Uri]::EscapeDataString($Email) }
     $r = Invoke-RestMethod -Uri $url -TimeoutSec 12 -UseBasicParsing
     if ($r.responseStatus -and [int]$r.responseStatus -ne 200) { throw [string]$r.responseDetails }
     $t = [string]$r.responseData.translatedText
