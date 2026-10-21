@@ -79,7 +79,8 @@ local function load()
     pcall(function ()
         local f = io.open(path(), 'r');
         if f == nil then return; end
-        for line in f:lines() do
+        for raw in f:lines() do
+            local line = raw:gsub('[\r\n]+$', ''):gsub('%s+$', '');   -- Windows line ends
             local v = line:match('^party (%d)$'); if v then st.party = (v == '1'); end
             local l = line:match('^ls (%d)$'); if l then st.ls = (l == '1'); end
             local w = line:match('^warn (%d)$'); if w then st.warn = (w == '1'); end
