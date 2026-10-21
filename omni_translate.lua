@@ -190,24 +190,96 @@ local function is_pinyin_word(w)
     return okat[n] == true;
 end
 
--- Words that are pinyin AND everyday English: a line made only of these is treated as English.
+-- Everyday English words that can also be read as pinyin ("nice" = ni+ce, "sure" = su+re). Made from
+-- the 6000 most common English words, minus everyday Chinese ones (wo, ni, men, hao, de, le ...).
 local ENGLISH = {};
-for w in ('a an he me you man can ban pan fan long hang bang sang tan ran die pie ten men hen dang gang lang bo '
-       .. 'yo ha ma pa ping pong shi ok lol go so no'):gmatch('%S+') do ENGLISH[w] = true; end
+for w in ([[a abuse ace adam again age agenda ai aim aka alabama alan ali alice alien alike alone along alongside am america american an anger angle animation anime ann anna anne announce annoying anti anyone are area arena asia asian aside ate awake aware balance ban bang banner bare base beijing ben bike bin binding bite bone boom boxing buying ca cabin cage cake came camera cameron can canada canadian candidate canon care career case casino ceo chain champion chance change chase cheating cheese china chinese cia cinema citizen counting cousin cuba cure cute dam damage damn dan dance danger dare data database date dating dealing dean debate decade decide deciding decision deer defence defending defense delete demanding denver depending desire di dialogue die dining dinner disease du dude due duke e ease easier eaten eating editing edition education eliminate elite em emma emotion empire en ending engage ensure entire era eye fa face fake fame fan fashion fate fence footage forum foundation fun funding future ga gain gaining game gaming gang gate gen gene generate generation genre guarantee guidance guide gun ha haha ham hammer hang hate he heading healing heating hehe helen hence here heritage hmm hong house huge human hunting jim juan julia jumping june kate keen keeping ken kenya kong lake landing lane language late latin laying leading league lean lease lee leo license lie like line lion lisa loan location long longer loose lose luke m machine made magazine main maine maintain maintaining maintenance make male mama man manage manner maria marie marijuana marine mario mate mature maximum me mean meaning measure media medication medicine medium meeting mention menu mere mexican mi miami michigan mike mile min mine mini minimum mining minute mixing mm mo mobile mode mom moon moore more motion mountain mouse mum n name nasa nation nature nazi nba nice nigeria nine no non none nonsense noon nose note notice notion o obama ocean on once one online ontario open opinion orange pa pace page pain painting palace pan patience paying pen pension piano pie piece pile pin poem pole police politician population position pure putin queen quote ran range re reading realise realize reduce refuse regulation relate relating relation release remain remaining remote reputation residence resume retain rice ride riding rio rise route routine rude ruin rule ruling run runner running sa sake sale sam same santa saying se sea sean secure see seem seen semi senate sending sense sentence sequence shade shake shame share she shine side silence silver simon sin since singapore site situation size song sue suicide suite sum summer sun sunshine sure susan take taken tale taxi tea team teen teenage ten tension tie tier tim time timeline timing tune wa wage waiting wake wanna wanting woke woman women won wooden wore xi ya ye yea yo yoga you]]):gmatch('%S+') do ENGLISH[w] = true; end
+
+-- Take out what is not words: auto-translate phrases ({Ru'Aun Gardens}), map grids (I-5, K12),
+-- numbers and punctuation. What is left is what we judge.
+local function words_only(text)
+    text = text:gsub('%b{}', ' '):gsub('\239[\39\40]', ' ');
+    text = text:lower():gsub("%f[%w]%a%-?%d+%f[%W]", ' '):gsub('%d+', ' '):gsub("[^%a%s']", ' ');
+    return (text:gsub('%s+', ' '):gsub('^ ', ''):gsub(' $', ''));
+end
+
+-- Chat shorthand Chinese players type, written out before anything is checked or translated.
+local SHORT = {
+    sm = 'shen me', zm = 'zen me', wsm = 'wei shen me', zms = 'zen me shuo', sms = 'shen me shi', dd = 'deng deng',
+};
+local function expand_short(text)
+    return (text:gsub('%f[%w](%w+)%f[%W]', function (w)
+        local x = SHORT[w:lower()];
+        if x ~= nil then return x; end
+        return w;
+    end));
+end
 
 local function looks_pinyin(text)
     if PY == nil then return false; end
     local words, good, eng = 0, 0, 0;
-    for w in text:lower():gmatch('%a+') do
+    for w in words_only(text):gmatch('%a+') do
         words = words + 1;
         if is_pinyin_word(w) then good = good + 1; end
         if ENGLISH[w] then eng = eng + 1; end
     end
-    if words < 2 then return false; end
-    if words == 2 and eng > 0 then return false; end
+    if words == 0 then return false; end
+    if words <= 2 then
+        -- Short lines ("hao", "zu wo", "kuai lai"): every word one pinyin syllable, none of them English.
+        if eng > 0 then return false; end
+        for w in words_only(text):gmatch('%a+') do if not SYL[w] then return false; end end
+        return true;
+    end
     if good / words < 0.85 then return false; end
-    if eng >= words - 1 then return false; end
+    if eng * 2 >= words then return false; end   -- half or more everyday English: it is English
     return true;
+end
+
+-- Common game Chinese (pinyin, no tones) -> English. Used first: instant, and no daily allowance.
+local GAME_PY = {
+    ['zu wo'] = 'invite me', ['zu'] = 'invite', ['zu ren'] = 'looking for members', ['zu dui'] = 'form a party',
+    ['jia wo'] = 'add me', ['la wo'] = 'invite me', ['yao ren'] = 'need people', ['que ren'] = 'need people',
+    ['hai que'] = 'still need', ['ji ge ren'] = 'how many people', ['ji ge'] = 'how many',
+    ['lai'] = 'come', ['kuai lai'] = 'come quickly', ['jin lai'] = 'come in', ['guo lai'] = 'come over',
+    ['lai le'] = 'coming', ['wo lai le'] = "I'm coming", ['ma shang'] = 'right away', ['ma shang lai'] = 'coming right away',
+    ['deng'] = 'wait', ['deng wo'] = 'wait for me', ['deng yi xia'] = 'wait a moment', ['deng xia'] = 'wait a moment',
+    ['deng deng'] = 'wait', ['shao deng'] = 'wait a moment', ['zou'] = "let's go", ['zou ba'] = "let's go",
+    ['zou le'] = 'leaving', ['wo zou le'] = "I'm off", ['qu'] = 'go', ['hui lai'] = 'back', ['hui qu'] = 'go back',
+    ['dao le'] = 'arrived', ['zai na'] = 'where', ['zai nar'] = 'where', ['na li'] = 'where', ['zhe li'] = 'here',
+    ['hao'] = 'ok', ['hao de'] = 'okay', ['hao le'] = 'done', ['ke yi'] = 'sure', ['bu ke yi'] = "can't",
+    ['xing'] = 'ok', ['bu xing'] = 'no good', ['dui'] = 'right', ['bu dui'] = 'wrong', ['shi'] = 'yes',
+    ['shi de'] = 'yes', ['bu shi'] = 'no', ['mei you'] = "don't have", ['xie xie'] = 'thanks', ['xie xie ni'] = 'thank you',
+    ['xie le'] = 'thanks', ['duo xie'] = 'many thanks', ['bu ke qi'] = "you're welcome", ['bu yong xie'] = "you're welcome",
+    ['mei shi'] = 'no problem', ['mei wen ti'] = 'no problem', ['dui bu qi'] = 'sorry', ['bu hao yi si'] = 'sorry',
+    ['ni hao'] = 'hello', ['da jia hao'] = 'hello everyone', ['zai jian'] = 'bye', ['bai bai'] = 'bye bye',
+    ['wan an'] = 'good night', ['zao'] = 'morning', ['zao shang hao'] = 'good morning',
+    ['zhun bei'] = 'get ready', ['zhun bei hao le'] = 'ready', ['kai shi'] = 'start', ['kai'] = 'start',
+    ['jie shu'] = 'finished', ['wan le'] = 'done', ['si le'] = 'died', ['qi lai'] = 'get up', ['fu huo'] = 'raise',
+    ['jia xue'] = 'heal', ['bu xue'] = 'heal', ['chao feng'] = 'provoke', ['la guai'] = 'pull', ['guai'] = 'mob',
+    ['diao le'] = 'it dropped', ['shua'] = 'farm', ['da'] = 'fight', ['sha'] = 'kill', ['gei wo'] = 'give me',
+    ['gei ni'] = 'for you', ['wo ye'] = 'me too', ['duo shao'] = 'how much', ['duo shao qian'] = 'how much money',
+    ['jin bi'] = 'gil', ['shang xian'] = 'online', ['xia xian'] = 'logging off', ['gong hui'] = 'linkshell',
+    ['tong guan'] = 'cleared it', ['tong guan le'] = 'cleared it', ['shen me'] = 'what', ['zen me'] = 'how',
+    ['wei shen me'] = 'why', ['zen me ban'] = 'what do we do', ['zai da'] = 'fighting', ['da shen me'] = 'fighting what',
+    ['wo'] = 'me', ['ni'] = 'you', ['ni men'] = 'you all', ['wo men'] = 'we', ['ta'] = 'them', ['ma'] = '?',
+};
+
+-- Every word covered by the list (longest phrase first)? Then that is the translation.
+local function game_phrase(text)
+    local w = {};
+    for x in words_only(text):gmatch('%a+') do w[#w + 1] = x; end
+    if #w == 0 then return nil; end
+    local out, i = {}, 1;
+    while i <= #w do
+        local hit = nil;
+        for n = math.min(4, #w - i + 1), 1, -1 do
+            local ph = table.concat(w, ' ', i, i + n - 1);
+            if GAME_PY[ph] then hit = n; out[#out + 1] = GAME_PY[ph]; break; end
+        end
+        if hit == nil then return nil; end
+        i = i + hit;
+    end
+    return (table.concat(out, ', '):gsub(', %?', '?'));
 end
 
 -- One UTF-8 character at a time.
@@ -274,6 +346,79 @@ end
 ----------------------------------------------------------------------------------------------------
 local pending = {};      -- id -> { done = function(result), text, t, key }
 local cache = {};        -- mode .. text -> result
+
+----------------------------------------------------------------------------------------------------
+-- The database: everything translated is kept in config\addons\omni\translate\memory.txt, so the same
+-- line is never sent twice (not even after a reload). phrases.txt holds your own "pinyin = English"
+-- lines; they are used before anything is sent. /translate learn <pinyin> = <English> adds one.
+----------------------------------------------------------------------------------------------------
+local mem_count = 0;
+local function memory_path() return work_dir() .. 'memory.txt'; end
+local function phrases_path() return work_dir() .. 'phrases.txt'; end
+pcall(function ()
+    local f = io.open(memory_path(), 'rb');
+    if f == nil then return; end
+    for raw in f:lines() do
+        local k, v = raw:gsub('\r$', ''):match('^(.-)\t(.+)$');
+        if k and v then
+            if cache[k] == nil then mem_count = mem_count + 1; end
+            cache[k] = v;
+        end
+    end
+    f:close();
+end);
+local function remember(key, res)
+    mem_count = mem_count + 1;
+    pcall(function ()
+        ensure_dir();
+        local f = io.open(memory_path(), 'ab');
+        if f == nil then return; end
+        f:write((key:gsub('[\t\r\n]', ' ')), '\t', (res:gsub('[\t\r\n]', ' ')), '\n');
+        f:close();
+    end);
+end
+
+local PHRASES_HEADER = [[
+# Happy Translate - your own phrase list (pinyin = English). One per line, # for notes.
+# These are used straight away, before anything is sent to the translator, so they cost nothing.
+# Add more here, or in game: /translate learn zu wo = invite me
+]];
+local my_phrases = 0;
+local function load_phrases()
+    local f = io.open(phrases_path(), 'r');
+    if f == nil then
+        pcall(function ()
+            ensure_dir();
+            local w = io.open(phrases_path(), 'w');
+            if w ~= nil then w:write(PHRASES_HEADER); w:close(); end
+        end);
+        return;
+    end
+    for raw in f:lines() do
+        local line = raw:gsub('%s+$', '');
+        if not line:match('^%s*#') then
+            local k, v = line:match('^%s*(.-)%s*=%s*(.-)%s*$');
+            if k and v and k ~= '' and v ~= '' then
+                GAME_PY[words_only(k)] = v;
+                my_phrases = my_phrases + 1;
+            end
+        end
+    end
+    f:close();
+end
+pcall(load_phrases);
+local function learn(k, v)
+    k = words_only(k);
+    if k == '' or v == '' then return false; end
+    GAME_PY[k] = v;
+    my_phrases = my_phrases + 1;
+    pcall(function ()
+        ensure_dir();
+        local f = io.open(phrases_path(), 'a');
+        if f ~= nil then f:write(k, ' = ', v, '\n'); f:close(); end
+    end);
+    return true;
+end
 local next_id = 1;
 local session = tostring(os.time());
 
@@ -355,6 +500,7 @@ ashita.events.register('d3d_present', 'omni_translate_poll', function ()
                 pcall(p.fail);
             elseif res ~= '' then
                 cache[p.key] = res;
+                remember(p.key, res);
                 pcall(p.done, res);
             end
         elseif os.clock() - p.t > 12 then   -- a held-back chat line should not wait long
@@ -424,8 +570,12 @@ ashita.events.register('text_in', 'omni_translate_text', function (e)
         -- Player chat in English letters: pinyin, or Spanish / Portuguese / French / German.
         local pre, rest = split_speaker(s);
         if pre == '' then return; end
-        if looks_pinyin(rest) then
-            one_line(e, pre, 'py', rest);
+        local rest_x = expand_short(rest);   -- "da sm de" -> "da shen me de"
+        if looks_pinyin(rest_x) then
+            -- Common game phrases are answered from the phrase lists (instant, no allowance used).
+            local quick = game_phrase(rest_x);
+            if quick ~= nil then cache['py:' .. rest_x] = quick; end
+            one_line(e, pre, 'py', rest_x);
             return;
         end
         local lang = detect_lang(rest);
@@ -537,7 +687,13 @@ ashita.events.register('command', 'omni_translate_cmd', function (e)
         if first_japanese(text) then translate('test: ', text);
         elseif looks_pinyin(text) then job('py', text, function (en) show('test: ', en); end);
         else job('zh', text, function (zh) msg('test: ' .. to_pinyin(zh)); end); end
+    elseif c == 'learn' then
+        local rest = e.command:match('^%S+%s+%S+%s+(.*)$') or '';
+        local k, v = rest:match('^(.-)%s*=%s*(.-)%s*$');
+        if k and v and learn(k, v) then msg(('learned: %s = %s'):format(words_only(k), v));
+        else msg('/translate learn <pinyin> = <English>   e.g. /translate learn zu wo = invite me'); end
     elseif c == 'status' then
+        msg(('Remembered translations: %d. Your phrases: %d (translate\\phrases.txt).'):format(mem_count, my_phrases));
         msg(('Japanese %s, pinyin %s, reply in Chinese %s. Sent today: about %d of %d characters. Waiting for: %d.'):format(
             st.on and 'ON' or 'OFF', st.zh and 'ON' or 'OFF', st.reply and 'ON' or 'OFF',
             math.floor(st.chars / 3), DAILY, (function () local n = 0; for _ in pairs(pending) do n = n + 1; end return n; end)()));
@@ -698,6 +854,7 @@ tr.enabled = function () return st.master; end
 tr.set = function (on) st.master = (on == true); save(); end
 tr.first_japanese = first_japanese;
 tr.looks_pinyin = looks_pinyin;
+tr.game_phrase = game_phrase;
 tr.to_pinyin = to_pinyin;
 tr.split_speaker = split_speaker;
 tr.zh_enabled = function () return st.zh; end
