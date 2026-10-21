@@ -385,13 +385,14 @@ local function body()
     table.sort(active, function (a, b) return key(a) < key(b); end);
 
     local flags = bit.bor(ImGuiTableFlags_RowBg, ImGuiTableFlags_BordersInnerH, ImGuiTableFlags_SizingFixedFit);
-    if imgui.BeginTable('##pops_table', 6, flags) then
+    if imgui.BeginTable('##pops_table', 7, flags) then
         imgui.TableSetupColumn('HNM', ImGuiTableColumnFlags_WidthFixed, 170);
         imgui.TableSetupColumn('ToD', ImGuiTableColumnFlags_WidthFixed, 62);
         imgui.TableSetupColumn('Window', ImGuiTableColumnFlags_WidthFixed, 52);
         imgui.TableSetupColumn('Countdown', ImGuiTableColumnFlags_WidthFixed, 150);
         imgui.TableSetupColumn('Opens', ImGuiTableColumnFlags_WidthFixed, 62);
         imgui.TableSetupColumn('##act', ImGuiTableColumnFlags_WidthFixed, 74);
+        imgui.TableSetupColumn('Pop date', ImGuiTableColumnFlags_WidthFixed, 230);
         imgui.TableHeadersRow();
 
         local function name_cell(h, col)
@@ -441,6 +442,21 @@ local function body()
             imgui.SameLine(0, 4);
             if imgui.SmallButton('X##pops_x_' .. name) then stop(name); end
             if imgui.IsItemHovered() then imgui.SetTooltip('Stop tracking it.'); end
+            -- The day and time of the next window, and of the last (forced) one.
+            imgui.TableNextColumn();
+            local g = GROUPS[h[2]];
+            local last = t.tod + g.first + (g.count - 1) * g.step;
+            if s.phase == 'wait' then
+                imgui.TextColored(C.text, os.date('%a %d %b %H:%M', s.next_open));
+                imgui.SameLine(0, 6);
+                imgui.TextColored(C.dim, ((g.forced == false) and '(last %s)' or '(forced %s)'):format(os.date('%H:%M', last)));
+            elseif s.phase == 'open' then
+                imgui.TextColored(C.green, 'open now');
+                imgui.SameLine(0, 6);
+                imgui.TextColored(C.dim, ((g.forced == false) and '(last %s)' or '(forced %s)'):format(os.date('%H:%M', last)));
+            else
+                imgui.TextColored(C.green, 'should be up since ' .. os.date('%a %H:%M', last));
+            end
         end
 
         for _, h in ipairs(idle) do
@@ -454,6 +470,7 @@ local function body()
             imgui.TableNextColumn();
             if imgui.SmallButton('Killed##pops_k_' .. name) then start(name, os.time(), 'button'); end
             if imgui.IsItemHovered() then imgui.SetTooltip('It died just now - start its timer from now.\nFor an older ToD, pick it above and type the time.'); end
+            imgui.TableNextColumn(); imgui.TextColored(C.dim, '-');
         end
         imgui.EndTable();
     end

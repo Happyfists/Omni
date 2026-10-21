@@ -55,7 +55,7 @@
 
 addon.name    = 'omni';
 addon.author  = 'Happyfists';
-addon.version = '2.86';
+addon.version = '2.87';
 addon.desc    = 'All-in-one addon.';
 
 require('common');
@@ -1872,7 +1872,7 @@ tabs[#tabs + 1] = deeps_tab;
 
 -- Happy Pops: HNM time of death and window timers (omni_pops.lua), as its own tab.
 if (omni.pops ~= nil) then
-    local pops_tab = { label = 'Happy Pops', width = 680, height = 460 };
+    local pops_tab = { label = 'Happy Pops', width = 920, height = 460 };
     pops_tab.render = function ()
         omni.pops.render();
         pops_tab.height = math.max(160, math.min(900, math.floor(imgui.GetCursorPosY()) + 10));
