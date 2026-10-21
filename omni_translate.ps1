@@ -36,7 +36,15 @@ function PinyinToHanzi([string]$text) {
         $url = "https://inputtools.google.com/request?text=$p&itc=zh-t-i0-pinyin&num=1&cp=0&cs=1&ie=utf-8&oe=utf-8"
         $r = Invoke-RestMethod -Uri $url -TimeoutSec 12 -UseBasicParsing
         if ($r[0] -ne 'SUCCESS') { throw 'pinyin lookup failed' }
-        $out += [string]$r[1][0][1][0]
+        $h = [string]$r[1][0][1][0]
+        # A question ending in "ma" is the question word 吗, not 妈 (mum) - e.g. "da ma" -> 打吗 not 大妈.
+        if ($p.EndsWith('ma') -and ($h.EndsWith([string][char]0x5988))) {
+            $h = $h.Substring(0, $h.Length - 1) + [string][char]0x5417
+            if ($p.EndsWith('dama') -and $h.Length -ge 2 -and $h[$h.Length - 2] -eq [char]0x5927) {
+                $h = $h.Substring(0, $h.Length - 2) + [string][char]0x6253 + [string][char]0x5417
+            }
+        }
+        $out += $h
     }
     return ($out -join ', ')
 }

@@ -264,10 +264,31 @@ local GAME_PY = {
     ['diao le'] = 'it dropped', ['shua'] = 'farm', ['da'] = 'fight', ['sha'] = 'kill', ['gei wo'] = 'give me',
     ['gei ni'] = 'for you', ['wo ye'] = 'me too', ['duo shao'] = 'how much', ['duo shao qian'] = 'how much money',
     ['jin bi'] = 'gil', ['shang xian'] = 'online', ['xia xian'] = 'logging off', ['gong hui'] = 'linkshell',
+    ['mei xu jiu pao hui lai'] = "if you don't need it, just run back", ['mei xu'] = "don't need it",
+    ['mei xu yao'] = "don't need it", ['bu xu yao'] = "don't need it", ['xu yao'] = 'need', ['pao hui lai'] = 'run back',
+    ['pao'] = 'run', ['jiu'] = 'then', ['hui lai le'] = 'back now', ['bi zu'] = 'must have', ['wo men bi xu da ma'] = 'do we have to fight it?', ['bi xu da ma'] = 'do we have to fight it?', ['bi xu'] = 'must',
+    ['yao da ma'] = 'are we fighting it?', ['da bu da'] = 'fight or not?', ['da ma'] = 'fight it?', ['bu yong'] = 'no need',
+    ['bu yong de'] = 'no need', ['mei tong guan de'] = "haven't cleared it", ['tong guan le ma'] = 'cleared it?',
+    ['zhe shi shen me'] = 'what is this', ['na shi shen me'] = 'what is that', ['zhe shi'] = 'this is', ['na shi'] = 'that is',
+    ['zhe ge'] = 'this', ['na ge'] = 'that', ['shi shen me'] = 'what is it',
     ['tong guan'] = 'cleared it', ['tong guan le'] = 'cleared it', ['shen me'] = 'what', ['zen me'] = 'how',
     ['wei shen me'] = 'why', ['zen me ban'] = 'what do we do', ['zai da'] = 'fighting', ['da shen me'] = 'fighting what',
     ['wo'] = 'me', ['ni'] = 'you', ['ni men'] = 'you all', ['wo men'] = 'we', ['ta'] = 'them', ['ma'] = '?',
 };
+
+-- Game names Chinese players use (pinyin of the Chinese name -> the English name).
+local GAME_NAMES = {
+    ['qilin'] = 'Kirin', ['qinlin'] = 'Kirin', ['qi lin'] = 'Kirin', ['qin lin'] = 'Kirin',
+    ['xuanwu'] = 'Genbu', ['xuan wu'] = 'Genbu', ['qinglong'] = 'Seiryu', ['qing long'] = 'Seiryu',
+    ['baihu'] = 'Byakko', ['bai hu'] = 'Byakko', ['zhuque'] = 'Suzaku', ['zhu que'] = 'Suzaku',
+    ['fafuna'] = 'Fafnir', ['fa fu na'] = 'Fafnir', ['jing tun'] = 'Behemoth', ['bei xi mo si'] = 'Behemoth',
+    ['jue dui mei de'] = 'Absolute Virtue',
+};
+for k, v in pairs(GAME_NAMES) do
+    GAME_PY[k] = v;
+    GAME_PY['da ' .. k] = 'fighting ' .. v;          -- "da qilin" = fighting Kirin
+    GAME_PY['qu da ' .. k] = 'going to fight ' .. v;
+end
 
 -- Every word covered by the list (longest phrase first)? Then that is the translation.
 local function game_phrase(text)
@@ -277,14 +298,16 @@ local function game_phrase(text)
     local out, i = {}, 1;
     while i <= #w do
         local hit = nil;
-        for n = math.min(4, #w - i + 1), 1, -1 do
+        for n = math.min(7, #w - i + 1), 1, -1 do
             local ph = table.concat(w, ' ', i, i + n - 1);
             if GAME_PY[ph] then hit = n; out[#out + 1] = GAME_PY[ph]; break; end
         end
         if hit == nil then return nil; end
         i = i + hit;
     end
-    return (table.concat(out, ', '):gsub(', %?', '?'));
+    local r = table.concat(out, ', '):gsub(', %?', '?');
+    if text:find('?', 1, true) and r:sub(-1) ~= '?' then r = r .. '?'; end
+    return r;
 end
 
 -- One UTF-8 character at a time.
@@ -579,7 +602,7 @@ ashita.events.register('text_in', 'omni_translate_text', function (e)
         local pre, rest = split_speaker(s);
         if pre == '' then return; end
         local rest_x = expand_short(rest);   -- "da sm de" -> "da shen me de"
-        if st.langs.zh and looks_pinyin(rest_x) then
+        if st.langs.zh and (looks_pinyin(rest_x) or game_phrase(rest_x) ~= nil) then
             -- Common game phrases are answered from the phrase lists (instant, no allowance used).
             local quick = game_phrase(rest_x);
             if quick ~= nil then cache['py:' .. rest_x] = quick; end
