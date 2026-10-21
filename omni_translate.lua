@@ -631,6 +631,7 @@ local function body(in_tab)
     local entered = imgui.InputTextWithHint('##trw_in', hint, in_buf, 200, ImGuiInputTextFlags_EnterReturnsTrue);
     -- While you type here the game must not get the keys (it would open its own chat line and
     -- post the text itself). Enter is also checked directly in case the box did not report it.
+    if tr.enter_hit then entered = true; tr.enter_hit = false; end
     if imgui.IsItemActive() then
         tr.typing_at = os.clock();
         local ok, hit = pcall(function () return imgui.IsKeyPressed(imgui.GetKeyIndex(ImGuiKey_Enter)); end);
@@ -696,11 +697,19 @@ local function window()
 end
 
 local function typing_now() return tr.typing_at ~= nil and (os.clock() - tr.typing_at) < 0.25; end
+-- While typing in the box: keep every key from the game, and catch Enter ourselves (the box may
+-- never see it, because the key is held back), so Enter always sends.
 ashita.events.register('key', 'omni_translate_key', function (e)
-    if typing_now() then e.blocked = true; end
+    if not typing_now() then return; end
+    e.blocked = true;
+    local up = false;
+    pcall(function () up = bit.band(e.lparam or 0, 0x80000000) ~= 0; end);
+    if (e.wparam == 13) and not up then tr.enter_hit = true; end          -- VK_RETURN
 end);
 ashita.events.register('key_data', 'omni_translate_keydata', function (e)
-    if typing_now() then e.blocked = true; end
+    if not typing_now() then return; end
+    e.blocked = true;
+    if (e.key == 0x1C or e.key == 0x9C) and e.down then tr.enter_hit = true; end   -- DIK_RETURN / numpad Enter
 end);
 
 ashita.events.register('d3d_present', 'omni_translate_window', function ()
