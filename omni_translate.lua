@@ -253,16 +253,23 @@ end
 
 -- Player names in a line ("Quixy zu wo"): a capitalised word that is not pinyin is a name.
 -- They are taken out before judging, and put in front of a built-in translation.
+-- Every player name seen talking in chat is kept in translate\names.txt (lowercase -> as written).
+-- Any of those names inside a line is taken out before translating and put back in front.
+local KNOWN_NAMES = {};
+local quick_inline;   -- set further down
+
 local function split_names(text)
     local names, kept = {}, {};
     local first = true;
     for w in text:gmatch('%S+') do
         local word = w:gsub("[^%a']", '');
-        -- A name: the first word of the line, or any capitalised word, that is not pinyin.
-        local is_name = word ~= '' and not is_pinyin_word(word:lower()) and (first or word:match('^%u') ~= nil);
+        local known = KNOWN_NAMES[word:lower()];
+        -- A name: one from the names list, or the first word of the line / any capitalised word
+        -- that is not pinyin.
+        local is_name = word ~= '' and (known ~= nil or (not is_pinyin_word(word:lower()) and (first or word:match('^%u') ~= nil)));
         if word ~= '' then first = false; end
         if is_name then
-            names[#names + 1] = word;
+            names[#names + 1] = known or word;
         else
             kept[#kept + 1] = w;
         end
@@ -323,6 +330,9 @@ local GAME_PY = {
     ['wo tui le'] = "I'm leaving the party", ['tui le'] = 'left (the party)',
     ['ti wo'] = 'kick me', ['ti le'] = 'kicked', ['jie san'] = 'disband the party',
     ['san le'] = 'party disbanded', ['dui zhang'] = 'party leader', ['gei wo dui zhang'] = 'give me party leader',
+    ['hai shui mei zu'] = "anyone still not in the party?", ['shui mei zu'] = "who isn't in the party?",
+    ['hai you shui'] = 'anyone else?', ['shui hai mei zu'] = "anyone still not in the party?", ['mei zu'] = 'not in the party',
+    ['rang'] = 'let', ['zu ta'] = 'invite them', ['zu ni'] = 'invite you', ['wo zu'] = "I'll invite",
     ['yi bian wan qu'] = 'go play somewhere else (get lost)', ['yi bian qu'] = 'go away', ['yi bian wan'] = 'go play somewhere else',
     ['gun'] = 'get lost', ['gun kai'] = 'get lost', ['zu wo'] = 'invite me', ['zu'] = 'invite', ['zu ren'] = 'looking for members', ['zu dui'] = 'form a party',
     ['jia wo'] = 'add me', ['la wo'] = 'invite me', ['yao ren'] = 'need people', ['que ren'] = 'need people',
@@ -395,7 +405,7 @@ local function game_phrase(text)
         if hit == nil then return nil; end
         i = i + hit;
     end
-    local r = table.concat(out, ', '):gsub(', %?', '?');
+    local r = table.concat(out, ', '):gsub(', %?', '?'):gsub('%?, ', '? ');
     if text:find('?', 1, true) and r:sub(-1) ~= '?' then r = r .. '?'; end
     return r;
 end
@@ -540,6 +550,63 @@ local function learn(k, v)
         local f = io.open(phrases_path(), 'a');
         if f ~= nil then f:write(k, ' = ', v, '\n'); f:close(); end
     end);
+    return true;
+end
+
+-- The names list (translate\names.txt): one name per line. Filled by itself from everyone who talks
+-- in chat; /translate name <Name> adds one, /translate unname <Name> takes one out.
+local function names_path() return work_dir() .. 'names.txt'; end
+local name_count = 0;
+local NAMES_HEADER = '# Happy Translate - player names (one per line). Names in this list are never translated.\n';
+pcall(function ()
+    local f = io.open(names_path(), 'r');
+    if f == nil then return; end
+    for raw in f:lines() do
+        local n = raw:gsub('%s+', '');
+        if n ~= '' and not n:match('^#') and KNOWN_NAMES[n:lower()] == nil then
+            KNOWN_NAMES[n:lower()] = n; name_count = name_count + 1;
+        end
+    end
+    f:close();
+end);
+local function write_names()
+    pcall(function ()
+        ensure_dir();
+        local list = {};
+        for _, n in pairs(KNOWN_NAMES) do list[#list + 1] = n; end
+        table.sort(list, function (a, b) return a:lower() < b:lower(); end);
+        local f = io.open(names_path(), 'w');
+        if f == nil then return; end
+        f:write(NAMES_HEADER);
+        for _, n in ipairs(list) do f:write(n, '\n'); end
+        f:close();
+    end);
+end
+-- auto = seen talking in chat. Then a name that is also a short everyday Chinese word ("Hao", "Lai",
+-- "Women") is not added by itself, so it never stops those words being translated.
+local function add_name(n, auto)
+    n = (n or ''):gsub('[^%w_]', '');
+    if #n < 2 or KNOWN_NAMES[n:lower()] ~= nil then return false; end
+    if auto then
+        local l = n:lower();
+        if SYL[l] or JOINED_WORDS[l] or GAME_PY[l] or GAME_EN[l] then return false; end
+    end
+    KNOWN_NAMES[n:lower()] = n; name_count = name_count + 1;
+    pcall(function ()
+        ensure_dir();
+        local new = io.open(names_path(), 'r') == nil;
+        local f = io.open(names_path(), 'a');
+        if f == nil then return; end
+        if new then f:write(NAMES_HEADER); end
+        f:write(n, '\n'); f:close();
+    end);
+    return true;
+end
+local function remove_name(n)
+    n = (n or ''):gsub('[^%w_]', ''):lower();
+    if KNOWN_NAMES[n] == nil then return false; end
+    KNOWN_NAMES[n] = nil; name_count = name_count - 1;
+    write_names();
     return true;
 end
 local next_id = 1;
@@ -700,6 +767,57 @@ local function one_line(e, prefix, mode, text)
     end, function () put(line); end);
 end
 
+-- Names inside a line keep their place: "qiutian zu wujing" = "Qiutian, invite Wujing".
+-- A name is one from the names list, a capitalised word that is not pinyin, the joined-up first word
+-- (see split_names), or a joined-up word straight after invite/kick/wait for/give ("zu wujing").
+local AFTER_NAME = { zu = true, la = true, ti = true, jia = true, deng = true, gei = true, zhao = true };
+quick_inline = function (text)
+    local words = {};
+    for w in text:gmatch('%S+') do words[#words + 1] = w; end
+    if #words < 2 then return nil; end
+    local lead, core1 = split_names(words[1] .. ' ' .. table.concat(words, ' ', 2));
+    local function letters(w) return (w:gsub('[^%a]', '')); end
+    -- Leading names: as split_names found them, but only those at the start of the line.
+    local i, lead_out = 1, {};
+    while i <= #words and #lead_out < #lead and letters(words[i]) ~= '' do
+        local l = letters(words[i]);
+        local hit = false;
+        for _, n in ipairs(lead) do if n:lower() == l:lower() then hit = true; lead_out[#lead_out + 1] = n; break; end end
+        if not hit then break; end
+        i = i + 1;
+    end
+    local out, run, inline = {}, {}, 0;
+    local function flush()
+        if #run == 0 then return true; end
+        local t = game_phrase(table.concat(run, ' '));
+        if t == nil then return false; end
+        out[#out + 1] = t; run = {};
+        return true;
+    end
+    local prev = nil;
+    for j = i, #words do
+        local w = words[j];
+        local l = letters(w):lower();
+        local known = KNOWN_NAMES[l];
+        local is_name = known ~= nil
+            or (l ~= '' and w:match('^%u') and not is_pinyin_word(l))
+            or (prev ~= nil and AFTER_NAME[prev] and not SYL[l] and not JOINED_WORDS[l] and syllables(l) >= 2);
+        if is_name and l ~= '' then
+            if not flush() then return nil; end
+            out[#out + 1] = known or (l:sub(1, 1):upper() .. l:sub(2));
+            inline = inline + 1;
+        else
+            run[#run + 1] = w;
+        end
+        prev = l;
+    end
+    if inline == 0 or not flush() or #out == 0 then return nil; end
+    local res = table.concat(out, ' ');
+    if #lead_out > 0 then res = table.concat(lead_out, ' ') .. ', ' .. res;
+    else res = res:sub(1, 1):upper() .. res:sub(2); end
+    return res;
+end
+
 ashita.events.register('text_in', 'omni_translate_text', function (e)
     if e.injected or not st.master then return; end
     pcall(function ()
@@ -721,19 +839,26 @@ ashita.events.register('text_in', 'omni_translate_text', function (e)
         local me = '';
         pcall(function () me = AshitaCore:GetMemoryManager():GetParty():GetMemberName(0) or ''; end);
         if me ~= '' and pre:find(me, 1, true) then return; end
+        -- Remember who is talking ("[1]<Huli>", "(Huli)", "Huli : ") for the names list.
+        local who = pre:gsub('%[%d%]', ''):match('(%a[%w_]+)');
+        if who then add_name(who, true); end
         local rest_x = expand_short(rest);   -- "da sm de" -> "da shen me de"
         local names, core = split_names(rest_x);   -- "Quixy zu wo" -> Quixy + "zu wo"
         if st.langs.zh and core ~= '' and (looks_pinyin(core) or game_phrase(core) ~= nil) then
             -- Common game phrases are answered from the phrase lists (instant, no allowance used).
-            local quick = game_phrase(core);
+            local quick = quick_inline(rest_x);   -- "qiutian zu wujing" -> "Qiutian, invite Wujing"
+            if quick == nil then
+                quick = game_phrase(core);
+                if quick ~= nil and #names > 0 then quick = table.concat(names, ' ') .. ', ' .. quick; end
+            end
             if quick ~= nil then
-                if #names > 0 then quick = table.concat(names, ' ') .. ', ' .. quick; end
                 cache['py:' .. core .. '|' .. table.concat(names, ' ')] = quick;
                 one_line(e, pre, 'py', core .. '|' .. table.concat(names, ' '));
             else
                 -- English words and numbers inside a Chinese line ("2 ge pop cai liao") are marked
                 -- |like this| so the helper keeps them as they are instead of reading them as pinyin.
                 local parts = {};
+                for _, n in ipairs(names) do parts[#parts + 1] = '|' .. n .. '|'; end
                 for w in core:gmatch('%S+') do
                     local letters = w:lower():gsub('[^%a]', '');
                     if letters ~= '' and is_pinyin_word(letters) and not GAME_EN[letters] then parts[#parts + 1] = w;
@@ -915,13 +1040,27 @@ ashita.events.register('command', 'omni_translate_cmd', function (e)
         local k, v = rest:match('^(.-)%s*=%s*(.-)%s*$');
         if k and v and learn(k, v) then msg(('learned: %s = %s'):format(words_only(k), v));
         else msg('/translate learn <pinyin> = <English>   e.g. /translate learn zu wo = invite me'); end
+    elseif c == 'name' then
+        local n = a[3] or '';
+        if n == '' then msg('/translate name <Name>   (adds a player name so it is never translated)');
+        elseif add_name(n, false) then msg('name added: ' .. n .. '  (' .. name_count .. ' names)');
+        else msg(n .. ' is already in the names list.'); end
+    elseif c == 'unname' then
+        local n = a[3] or '';
+        if remove_name(n) then msg('name taken out: ' .. n .. '  (' .. name_count .. ' names)');
+        else msg('/translate unname <Name>   (' .. (n ~= '' and (n .. ' is not in the list') or 'takes a name out of the list') .. ')'); end
+    elseif c == 'names' then
+        local list = {};
+        for _, n in pairs(KNOWN_NAMES) do list[#list + 1] = n; end
+        table.sort(list, function (x, y) return x:lower() < y:lower(); end);
+        msg(('%d names (translate\\names.txt): %s'):format(#list, table.concat(list, ', ', 1, math.min(#list, 60)) .. (#list > 60 and ' ...' or '')));
     elseif c == 'status' then
-        msg(('Remembered translations: %d. Your phrases: %d (translate\\phrases.txt).'):format(mem_count, my_phrases));
+        msg(('Remembered translations: %d. Your phrases: %d (translate\\phrases.txt). Names: %d (translate\\names.txt).'):format(mem_count, my_phrases, name_count));
         msg(('Japanese %s, pinyin %s, reply in Chinese %s. Sent today: about %d of %d characters. Waiting for: %d.'):format(
             st.on and 'ON' or 'OFF', st.zh and 'ON' or 'OFF', st.reply and 'ON' or 'OFF',
             math.floor(st.chars / 3), DAILY, (function () local n = 0; for _ in pairs(pending) do n = n + 1; end return n; end)()));
     else
-        msg('/translate window | /translate (Japanese on/off) | /translate chinese (pinyin on/off) | /translate reply (answer in pinyin) | /translate test <text> | /translate status');
+        msg('/translate window | /translate (Japanese on/off) | /translate chinese (pinyin on/off) | /translate reply (answer in pinyin) | /translate test <text> | /translate status | /translate names | /translate name <Name> | /translate unname <Name>');
     end
 end);
 
@@ -1113,6 +1252,8 @@ tr.first_japanese = first_japanese;
 tr.looks_pinyin = looks_pinyin;
 tr.game_phrase = game_phrase;
 tr.split_names = split_names;
+tr.add_name = add_name;
+tr.quick_inline = function (t) return quick_inline(t); end
 tr.to_pinyin = to_pinyin;
 tr.split_speaker = split_speaker;
 tr.zh_enabled = function () return st.zh; end
