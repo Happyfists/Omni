@@ -774,6 +774,22 @@ end
 -- again in its own channel with the English on the end, in pink:
 --   [1]<Kennan> dou tong guan le rang gei mei tong guan de  >> Everyone has cleared it ...
 -- If the translation fails, the line is shown as it was.
+-- The day log: every line translated and every reply you send, one file a day in
+-- config\addons\omni\translate\log_YYYY-MM-DD.txt. Send the files to Claude to check a batch at once.
+local function file_log(kind, where, original, result, extra)
+    if st.keep_log == false then return; end
+    pcall(function ()
+        ensure_dir();
+        local f = io.open(work_dir() .. 'log_' .. os.date('%Y-%m-%d') .. '.txt', 'a');
+        if f == nil then return; end
+        local function tidy(x) return ((x or ''):gsub('[\30\31].', ''):gsub('\127.', ''):gsub('[\r\n\t]', ' ')); end
+        f:write(os.date('%H:%M:%S'), '  ', kind, '  ', tidy(where), '  ', tidy(original), '   >>   ', tidy(result));
+        if extra and extra ~= '' then f:write('   [', tidy(extra), ']'); end
+        f:write('\n');
+        f:close();
+    end);
+end
+
 local function one_line(e, prefix, mode, text)
     -- The raw line (no timestamp): your timestamp addon adds its own when the line is put back.
     local line = (e.message or e.message_modified or ''):gsub('[\r\n\7]+$', '');
@@ -786,7 +802,12 @@ local function one_line(e, prefix, mode, text)
         show(prefix, en, (mode ~= 'ja') and text or nil, true);
         local sj = utf8_to_sjis(en) or en:gsub('[\128-\255]', '?');
         put(line .. '  ' .. PINK_CHAT .. '>> ' .. sj .. '\30\01');
-    end, function () put(line); end);
+        local orig = sjis_to_utf8(line) or line;
+        file_log('IN ', '', orig, en, (mode ~= 'ja') and ('sent as: ' .. text) or 'ja');
+    end, function ()
+        put(line);
+        file_log('IN ', '', sjis_to_utf8(line) or line, '(no translation)', mode);
+    end);
 end
 
 -- Names inside a line keep their place: "qiutian zu wujing" = "Qiutian, invite Wujing".
@@ -952,6 +973,7 @@ local function send_text(keep, text, force_english)
     local en = sjis_to_utf8(text) or text;
     local function send_as_typed()
         msg('sent in English instead.');
+        file_log('OUT', keep, text, '(sent in English - translator failed)', lang);
         add_log({ who = 'you ' .. keep, text = text, mine = true });
         send(keep .. ' ' .. text);
     end
@@ -964,6 +986,7 @@ local function send_text(keep, text, force_english)
         local same = function (a, b) return a:lower():gsub('[%s%p]', '') == b:lower():gsub('[%s%p]', ''); end
         if same(out_text, en) then
             msg("couldn't translate that - sent in English.");
+            file_log('OUT', keep, text, '(sent in English - not translated)', lang);
             add_log({ who = 'you ' .. keep, text = text, mine = true });
             send(keep .. ' ' .. text);
             return;
@@ -972,6 +995,7 @@ local function send_text(keep, text, force_english)
         tr.status = ('sent: %s'):format(shown or out_text);
         if st.chat_out then msg_pink(('you: "%s" -> %s'):format(text, shown or out_text)); end
         add_log({ who = 'you ' .. keep, text = text, orig = shown or out_text, mine = true });
+        file_log('OUT', keep, text, shown or out_text, lang);
         send(keep .. ' ' .. out_text);
     end
     if lang == 'zh' then
@@ -1087,6 +1111,10 @@ ashita.events.register('command', 'omni_translate_cmd', function (e)
         local n = a[3] or '';
         if remove_name(n) then msg('name taken out: ' .. n .. '  (' .. name_count .. ' names)');
         else msg('/translate unname <Name>   (' .. (n ~= '' and (n .. ' is not in the list') or 'takes a name out of the list') .. ')'); end
+    elseif c == 'log' then
+        if a[3] == 'off' then st.keep_log = false; msg('day log OFF.');
+        elseif a[3] == 'on' then st.keep_log = true; msg('day log ON.');
+        else msg(('day log %s - today: %slog_%s.txt   (/translate log on|off)'):format(st.keep_log == false and 'OFF' or 'ON', work_dir(), os.date('%Y-%m-%d'))); end
     elseif c == 'names' then
         local list = {};
         for _, n in pairs(KNOWN_NAMES) do list[#list + 1] = n; end
@@ -1291,6 +1319,7 @@ tr.looks_pinyin = looks_pinyin;
 tr.game_phrase = game_phrase;
 tr.split_names = split_names;
 tr.add_name = add_name;
+tr.file_log = file_log;
 tr.quick_inline = function (t) return quick_inline(t); end
 tr.to_pinyin = to_pinyin;
 tr.split_speaker = split_speaker;
