@@ -240,11 +240,18 @@ local function words_only(text)
 end
 
 -- Chat shorthand Chinese players type, written out before anything is checked or translated.
+-- Game names Chinese players use, swapped for the English name before a line goes to the
+-- translator so it can't turn them into something else ("bai men" = white gate = Whitegate).
+local GLOSSARY = {
+    ['bai men'] = 'Whitegate', ['jue dui mei de'] = 'Absolute Virtue',
+};
+
 local SHORT = {
     sm = 'shen me', zm = 'zen me', wsm = 'wei shen me', zms = 'zen me shuo', sms = 'shen me shi', dd = 'deng deng',
 };
 local function expand_short(text)
     return (text:gsub('%f[%w](%w+)%f[%W]', function (w)
+        if w == 'l' then return 'le'; end   -- "zuo l ma" = zuo le ma (only a small l)
         local x = SHORT[w:lower()];
         if x ~= nil then return x; end
         return w;
@@ -332,6 +339,10 @@ local GAME_PY = {
     ['wo tui le'] = "I'm leaving the party", ['tui le'] = 'left (the party)',
     ['ti wo'] = 'kick me', ['ti le'] = 'kicked', ['jie san'] = 'disband the party',
     ['san le'] = 'party disbanded', ['dui zhang'] = 'party leader', ['gei wo dui zhang'] = 'give me party leader',
+    ['ren wu'] = 'missions', ['bai men ren wu'] = 'Whitegate missions', ['bai men'] = 'Whitegate',
+    ['zuo le'] = 'done', ['zuo le ma'] = 'done it?', ['zuo wan le'] = 'finished', ['ka zhu le'] = "I'm stuck",
+    ['ka le'] = 'stuck', ['zuo dao'] = 'got up to', ['bang wo'] = 'help me', ['bang mang'] = 'help',
+    ['ni bai men ren wu zuo le ma'] = 'have you done the Whitegate missions?',
     ['bao le'] = 'it dropped', ['bao yi fu le'] = 'body piece dropped', ['bao ku zi le'] = 'legs dropped',
     ['bao xie zi le'] = 'feet dropped', ['bao shou tao le'] = 'hands dropped', ['bao tou le'] = 'head dropped',
     ['yi fu'] = 'body (armour)', ['ku zi'] = 'legs', ['xie zi'] = 'feet', ['shou tao'] = 'hands', ['tou kui'] = 'head',
@@ -401,6 +412,8 @@ end
 
 -- Every word covered by the list (longest phrase first)? Then that is the translation.
 local function game_phrase(text)
+    -- Lines with numbers ("zuo dao 18 ka zhu le") go to the translator, so the number is kept.
+    if text:find('%d') then return nil; end
     local w = {};
     for x in words_only(text):gmatch('%a+') do w[#w + 1] = x; end
     if #w == 0 then return nil; end
@@ -869,7 +882,18 @@ ashita.events.register('text_in', 'omni_translate_text', function (e)
                 local parts = {};
                 for _, n in ipairs(names) do parts[#parts + 1] = '|' .. n .. '|'; end
                 local prev = '';
-                for w in core:gmatch('%S+') do
+                local cw = {};
+                for w in core:gmatch('%S+') do cw[#cw + 1] = w; end
+                local k = 1;
+                while k <= #cw do
+                    -- Game names from the glossary go over as English.
+                    local hit = nil;
+                    for n = math.min(4, #cw - k + 1), 2, -1 do
+                        local ph = words_only(table.concat(cw, ' ', k, k + n - 1));
+                        if GLOSSARY[ph] then hit = n; parts[#parts + 1] = '|' .. GLOSSARY[ph] .. '|'; break; end
+                    end
+                    if hit then k = k + hit; prev = ''; else
+                    local w = cw[k]; k = k + 1;
                     local letters = w:lower():gsub('[^%a]', '');
                     -- A game word that is Chinese after certain words: "ji lv" / "gai lv" = chance (not "level").
                     local zh_here = GAME_EN[letters] and ZH_AFTER[letters] and ZH_AFTER[letters][prev];
@@ -877,6 +901,7 @@ ashita.events.register('text_in', 'omni_translate_text', function (e)
                     if letters ~= '' and is_pinyin_word(letters) and (zh_here or not GAME_EN[letters]) then parts[#parts + 1] = w;
                     elseif letters == '' and not w:match('%d') then parts[#parts + 1] = w;
                     else parts[#parts + 1] = '|' .. w .. '|'; end
+                    end
                 end
                 one_line(e, pre, 'py', table.concat(parts, ' '));
             end
