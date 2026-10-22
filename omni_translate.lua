@@ -964,6 +964,40 @@ end
 local REPLY_LANGS = { { 'zh', 'Chinese (pinyin)' }, { 'ja', 'Japanese' }, { 'fr', 'French' }, { 'de', 'German' }, { 'es', 'Spanish' }, { 'pt', 'Portuguese' } };
 
 -- Send `text` on channel `keep` ("/l", "/t Hush"), translated into the chosen reply language.
+-- Game words stay in English in your replies, the way Chinese and Japanese players type them
+-- ("pop", "NM", "AV" ...). Each one is swapped for a number the translator leaves alone, then put back.
+local KEEP_EN = {
+    pop = 'pop', pops = 'pop', nm = 'NM', nms = 'NM', hnm = 'HNM', hnms = 'HNM', av = 'AV', ws = 'WS',
+    tp = 'TP', mp = 'MP', hp = 'HP', ki = 'KI', kis = 'KI', gil = 'gil', ls = 'LS', exp = 'exp', xp = 'exp',
+    ja = 'JA', sp = 'SP', lv = 'lv', lvl = 'lv', pt = 'PT', ah = 'AH',
+};
+local function protect_words(text)
+    local map, n = {}, 0;
+    local out = text:gsub('%f[%w](%w+)%f[%W]', function (w)
+        local keepw = KEEP_EN[w:lower()];
+        if keepw == nil then return w; end
+        n = n + 1;
+        local tag = tostring(7300 + n);
+        map[#map + 1] = { tag = tag, word = keepw };
+        return tag;
+    end);
+    return out, map;
+end
+local function restore_words(text, map)
+    if text == nil or #map == 0 then return text; end
+    -- Full-width digits (Japanese) back to plain ones first.
+    text = text:gsub('\239\188([\144-\153])', function (c) return string.char(c:byte() - 144 + 48); end);
+    local missing = {};
+    for _, m in ipairs(map) do
+        local found = false;
+        text = text:gsub(m.tag, function () found = true; return ' ' .. m.word .. ' '; end);
+        if not found then missing[#missing + 1] = m.word; end
+    end
+    text = text:gsub('  +', ' '):gsub(' ([,%.%?!])', '%1'):gsub('^ ', ''):gsub(' $', '');
+    if #missing > 0 then text = text .. ' (' .. table.concat(missing, ' ') .. ')'; end
+    return text;
+end
+
 local function send_text(keep, text, force_english)
     local function send(out) passthrough[out] = true; AshitaCore:GetChatManager():QueueCommand(1, out); end
     if text:sub(1, 1) == '=' or force_english then
@@ -998,16 +1032,20 @@ local function send_text(keep, text, force_english)
         file_log('OUT', keep, text, shown or out_text, lang);
         send(keep .. ' ' .. out_text);
     end
+    local en_p, words = protect_words(en);
     if lang == 'zh' then
-        job('zh', en, function (zh)
+        job('zh', en_p, function (zh)
             if not zh:find('[\228-\233]') then done_with(en); return; end   -- no Chinese characters came back
-            done_with(to_pinyin(zh));
+            done_with(restore_words(to_pinyin(zh), words));
         end, send_as_typed);
     elseif lang == 'ja' then
         -- Japanese goes out in Japanese characters (the game shows kana and kanji).
-        job('to_ja', en, function (ja) done_with(utf8_to_sjis(ja) or fold_ascii(ja), fold_ascii(ja) ~= '' and fold_ascii(ja) or '(Japanese)'); end, send_as_typed);
+        job('to_ja', en_p, function (ja)
+            ja = restore_words(ja, words);
+            done_with(utf8_to_sjis(ja) or fold_ascii(ja), fold_ascii(ja) ~= '' and fold_ascii(ja) or '(Japanese)');
+        end, send_as_typed);
     else
-        job('to_' .. lang, en, function (t) done_with(fold_ascii(t)); end, send_as_typed);
+        job('to_' .. lang, en_p, function (t) done_with(fold_ascii(restore_words(t, words))); end, send_as_typed);
     end
 end
 
@@ -1320,6 +1358,8 @@ tr.game_phrase = game_phrase;
 tr.split_names = split_names;
 tr.add_name = add_name;
 tr.file_log = file_log;
+tr.protect_words = protect_words;
+tr.restore_words = restore_words;
 tr.quick_inline = function (t) return quick_inline(t); end
 tr.to_pinyin = to_pinyin;
 tr.split_speaker = split_speaker;
