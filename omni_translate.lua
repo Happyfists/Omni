@@ -207,6 +207,25 @@ local function is_pinyin_word(w)
     return okat[n] == true;
 end
 
+-- Everyday words Chinese players often type joined up; never taken as a name.
+local JOINED_WORDS = {};
+for w in ('women nimen tamen xiexie haode haoba haole pengyou zhege nage zheli nali nage shenme zenme weishenme keyi meiyou xianzai yiqi dajia laoban laoda dage meimei jiejie gege didi duibuqi meishi meiwenti mashang dengdeng deng yixia yihui jintian mingtian zuotian wanshang zaoshang zhidao bushi buyao buhao zaijian nihao laile zoule zouba kuaidian xiaxian shangxian'):gmatch('%S+') do JOINED_WORDS[w] = true; end
+
+-- Fewest pinyin syllables a word can be split into ("dapangtou" = 3, "zu" = 1; 0 = not pinyin).
+local function syllables(w)
+    local n = #w;
+    local best = { [0] = 0 };
+    for i = 1, n do
+        for len = 1, 6 do
+            local j = i - len;
+            if j >= 0 and best[j] and SYL[w:sub(j + 1, i)] and (best[i] == nil or best[j] + 1 < best[i]) then
+                best[i] = best[j] + 1;
+            end
+        end
+    end
+    return best[n] or 0;
+end
+
 -- Everyday English words that can also be read as pinyin ("nice" = ni+ce, "sure" = su+re). Made from
 -- the 6000 most common English words, minus everyday Chinese ones (wo, ni, men, hao, de, le ...).
 local ENGLISH = {};
@@ -253,6 +272,22 @@ local function split_names(text)
     if #names > 0 and not names[1]:match('^%u') and #kept < 2 then
         return {}, text;
     end
+    -- A nickname made of pinyin written as one word, in front of spaced-out Chinese:
+    -- "dapangtou tui zu" = Dapangtou + "tui zu" (Chinese players space every syllable, names are joined).
+    if #names == 0 and #kept >= 3 then
+        local w1 = kept[1]:gsub("[^%a]", ''):lower();
+        local rest_single = true;
+        for i = 2, #kept do
+            local w = kept[i]:gsub("[^%a]", ''):lower();
+            if w ~= '' and not SYL[w] then rest_single = false; break; end
+        end
+        local n = syllables(w1);
+        if rest_single and not ENGLISH[w1] and not JOINED_WORDS[w1] and (n >= 3 or (n == 2 and #kept >= 4)) then
+            local nm = w1:sub(1, 1):upper() .. w1:sub(2);
+            table.remove(kept, 1);
+            return { nm }, table.concat(kept, ' ');
+        end
+    end
     return names, table.concat(kept, ' ');
 end
 
@@ -284,7 +319,12 @@ end
 
 -- Common game Chinese (pinyin, no tones) -> English. Used first: instant, and no daily allowance.
 local GAME_PY = {
-    ['zu wo'] = 'invite me', ['zu'] = 'invite', ['zu ren'] = 'looking for members', ['zu dui'] = 'form a party',
+    ['tui zu'] = 'leave the party', ['tui dui'] = 'leave the party', ['wo tui zu'] = "I'm leaving the party",
+    ['wo tui le'] = "I'm leaving the party", ['tui le'] = 'left (the party)',
+    ['ti wo'] = 'kick me', ['ti le'] = 'kicked', ['jie san'] = 'disband the party',
+    ['san le'] = 'party disbanded', ['dui zhang'] = 'party leader', ['gei wo dui zhang'] = 'give me party leader',
+    ['yi bian wan qu'] = 'go play somewhere else (get lost)', ['yi bian qu'] = 'go away', ['yi bian wan'] = 'go play somewhere else',
+    ['gun'] = 'get lost', ['gun kai'] = 'get lost', ['zu wo'] = 'invite me', ['zu'] = 'invite', ['zu ren'] = 'looking for members', ['zu dui'] = 'form a party',
     ['jia wo'] = 'add me', ['la wo'] = 'invite me', ['yao ren'] = 'need people', ['que ren'] = 'need people',
     ['hai que'] = 'still need', ['ji ge ren'] = 'how many people', ['ji ge'] = 'how many',
     ['lai'] = 'come', ['kuai lai'] = 'come quickly', ['jin lai'] = 'come in', ['guo lai'] = 'come over',
@@ -1072,6 +1112,7 @@ ashita.events.register('unload', 'omni_translate_unload', function () stop_worke
 tr.first_japanese = first_japanese;
 tr.looks_pinyin = looks_pinyin;
 tr.game_phrase = game_phrase;
+tr.split_names = split_names;
 tr.to_pinyin = to_pinyin;
 tr.split_speaker = split_speaker;
 tr.zh_enabled = function () return st.zh; end
