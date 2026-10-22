@@ -300,6 +300,8 @@ end
 
 -- Game words Chinese players type in English inside a Chinese line; they do not count either way.
 local GAME_EN = {};
+-- ...unless they follow one of these words, then they are Chinese: ji lv / gai lv = chance.
+local ZH_AFTER = { lv = { ji = true, gai = true, xiao = true, bi = true } };
 for w in ('pop nm hnm boss ws tp mp hp lv exp xp gil ok pt ls ki item drop sky sea av ja job sub key keys'):gmatch('%S+') do GAME_EN[w] = true; end
 
 local function looks_pinyin(text)
@@ -330,6 +332,7 @@ local GAME_PY = {
     ['wo tui le'] = "I'm leaving the party", ['tui le'] = 'left (the party)',
     ['ti wo'] = 'kick me', ['ti le'] = 'kicked', ['jie san'] = 'disband the party',
     ['san le'] = 'party disbanded', ['dui zhang'] = 'party leader', ['gei wo dui zhang'] = 'give me party leader',
+    ['ji lv ting da'] = 'the chance is pretty good', ['ji lv di'] = 'low chance', ['ji lv gao'] = 'high chance',
     ['hai shui mei zu'] = "anyone still not in the party?", ['shui mei zu'] = "who isn't in the party?",
     ['hai you shui'] = 'anyone else?', ['shui hai mei zu'] = "anyone still not in the party?", ['mei zu'] = 'not in the party',
     ['rang'] = 'let', ['zu ta'] = 'invite them', ['zu ni'] = 'invite you', ['wo zu'] = "I'll invite",
@@ -859,9 +862,13 @@ ashita.events.register('text_in', 'omni_translate_text', function (e)
                 -- |like this| so the helper keeps them as they are instead of reading them as pinyin.
                 local parts = {};
                 for _, n in ipairs(names) do parts[#parts + 1] = '|' .. n .. '|'; end
+                local prev = '';
                 for w in core:gmatch('%S+') do
                     local letters = w:lower():gsub('[^%a]', '');
-                    if letters ~= '' and is_pinyin_word(letters) and not GAME_EN[letters] then parts[#parts + 1] = w;
+                    -- A game word that is Chinese after certain words: "ji lv" / "gai lv" = chance (not "level").
+                    local zh_here = GAME_EN[letters] and ZH_AFTER[letters] and ZH_AFTER[letters][prev];
+                    prev = letters;
+                    if letters ~= '' and is_pinyin_word(letters) and (zh_here or not GAME_EN[letters]) then parts[#parts + 1] = w;
                     elseif letters == '' and not w:match('%d') then parts[#parts + 1] = w;
                     else parts[#parts + 1] = '|' .. w .. '|'; end
                 end
