@@ -78,6 +78,7 @@ local default_settings = T{
         party_call          = 14,      -- omni addition: <callN> sound on the party messages (0 = none)
         party_call_set      = false,   -- omni: (old) the move from <call14> to <call3>
         party_call_14       = false,   -- omni: the one-time move back to <call14> is done
+        auto_counter        = false,   -- use your own 2-hour to lock AV's
         -- These point at stock Windows sound files so alerts work out of the box.
         -- Replace with your own .wav paths (e.g. C:\FFXI\config\addons\avhelper\alert.wav) if you like.
         sound_trigger       = 'C:\\Windows\\Media\\Windows Notify System Generic.wav',
@@ -540,6 +541,7 @@ local function check_spawn()
             if (n ~= nil and n:lower() == name and ent:GetHPPercent(i) > 0
                 and bit.band(ent:GetRenderFlags0(i), 0x200) == 0x200) then
                 found, hpp = true, ent:GetHPPercent(i);
+                avh.av_index = i;
                 break;
             end
         end
@@ -658,6 +660,50 @@ local function locked_count()
     return n;
 end
 
+-- When AV uses the 2-hour that matches your job, use yours straight
+-- away to lock it - if the box is ticked, you are within 14 yalms of AV and your 2-hour is ready.
+local AUTO_RANGE = 14;
+local function av_distance()
+    local d = nil;
+    pcall(function ()
+        local ent = AshitaCore:GetMemoryManager():GetEntity();
+        local name = (avh.settings.general.mob_name or 'Absolute Virtue'):lower();
+        local i = avh.av_index;
+        if (i == nil or (ent:GetName(i) or ''):lower() ~= name) then
+            i = nil;
+            for j = 1, 0x3FF do
+                local n = ent:GetName(j);
+                if (n ~= nil and n:lower() == name and ent:GetHPPercent(j) > 0) then i = j; break; end
+            end
+            avh.av_index = i;
+        end
+        if (i ~= nil) then d = math.sqrt(ent:GetDistance(i)); end   -- GetDistance is squared yalms
+    end);
+    return d;
+end
+local function two_hour_ready()
+    local ready = true;
+    pcall(function ()
+        local r = AshitaCore:GetMemoryManager():GetRecast();
+        for i = 0, 31 do
+            if (r:GetAbilityTimerId(i) == 0) then ready = (r:GetAbilityTimer(i) or 0) == 0; break; end
+        end
+    end);
+    return ready;
+end
+local function try_auto_counter(name)
+    if (not avh.settings.general.auto_counter) then return; end
+    if (name ~= get_my_job_ability()) then return; end
+    local d = av_distance();
+    if (d == nil) then print_msg(('Auto 2-hour: AV not found, %s not used.'):fmt(name)); return; end
+    if (d > AUTO_RANGE) then print_msg(('Auto 2-hour: %.1f yalms from AV (need %d or less), %s not used.'):fmt(d, AUTO_RANGE, name)); return; end
+    if (not two_hour_ready()) then print_msg(('Auto 2-hour: %s is not ready yet.'):fmt(name)); return; end
+    if (test_mode ~= nil) then print_msg(('[test] would use %s now (%.1f yalms from AV).'):fmt(name, d)); return; end
+    local target = (name == 'Eagle Eye Shot') and '<t>' or '<me>';
+    print_msg(('Auto 2-hour: using %s to lock it (%.1f yalms).'):fmt(name, d));
+    pcall(function () AshitaCore:GetChatManager():QueueCommand(1, ('/ja "%s" %s'):fmt(name, target)); end);
+end
+
 -- omni: AV's 2-hours are always 90 seconds apart (Leon, tested in game) - locking does not
 -- change that. What drifts is where the countdown starts, so every real 2-hour re-syncs the
 -- countdown to that moment (next = then + 90s). The time of the FIRST 2-hour after the pop is
@@ -768,6 +814,7 @@ local function handle_av_use(name)
     else
         play_sound(avh.settings.general.sound_trigger);
     end
+    try_auto_counter(name);
     if (test_mode == nil) then pcall(sync_2h_timer); end
 end
 
@@ -1493,6 +1540,12 @@ return {
             avh.settings.general.party_warning = warn[1];
             settings.save('omni_av');
         end
+        local ac = { avh.settings.general.auto_counter == true };
+        if (imgui.Checkbox('Auto-use my 2-hour to lock it (within 14 yalms)##avh_auto', ac)) then
+            avh.settings.general.auto_counter = ac[1];
+            settings.save('omni_av');
+        end
+        if (imgui.IsItemHovered()) then imgui.SetTooltip('When AV uses the 2-hour that matches your job, omni uses yours straight away -\nonly if you are within 14 yalms of AV and your 2-hour is ready.'); end
         -- Call sound on both party messages: everyone in the party hears it.
         local cn = tonumber(avh.settings.general.party_call) or 0;
         local con = { cn > 0 };

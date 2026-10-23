@@ -147,7 +147,8 @@ with a drop-down panel of tabs underneath it for everything else.
   CODEX         Odious Codex with pictures; which you have and how many in your bags.
   SKY           Sky / Sky 2.0 / Pops: pop items, god drops, Kirin checklist.
   SEA           Sea armour, and the AV (Absolute Virtue) helper: fight timer, 2-hour clock,
-                party call-outs.
+                party call-outs, and an optional "use my 2-hour to lock it" tick box
+                (uses yours by itself within 14 yalms; off by default).
   VENTURES      !ventures areas, HELM, fishing, and VNM armour.
   SPARKS        Sparks shop (buy N / buy all) and Sell It.
   OPTIONS       AV helper (Only in Al'Taieu / Everywhere / Off), Look (Crystal & Gold, Black & Gold or
@@ -173,7 +174,11 @@ with a drop-down panel of tabs underneath it for everything else.
       21h HNMs: every 5 min from 21:00.  57h and 81h HNMs: every 10 min from 57:00 / 81:00.
       Wyrms (Jormungand, Tiamat, Vrtra): 7 windows 10 min apart from 72:00 (not on the CatsEyeXI
       page - change GROUPS.wyrm in omni_pops.lua if your server differs).
-    * A kill seen in chat ("... defeats Fafnir") starts a new timer by itself.
+    * A kill seen in chat ("... defeats Fafnir"), or an HNM seen dying near you (0% HP), starts a
+      new timer by itself - only in that HNM's own zone, so same-named monsters elsewhere
+      (Nyzul Isle floor bosses, Einherjar...) don't count.
+    * Every ToD is saved in config\addons\omni\tods\<HNM>.txt; /pops history <hnm> shows the
+      last ones, and after a reload any timer still running comes back from there.
     * Tick boxes: Window warnings, Warn the party too (<call14> on OPEN),
       Post ToD to linkshell ("/l Fafnir ToD 13:40:00 - Repop at Thu 22 Oct 10:40:00 ...").
 
@@ -227,6 +232,7 @@ with a drop-down panel of tabs underneath it for everything else.
         rolls_<Name>.txt       Corsair rolls seen
         abypops_<Name>.lua     Abyssea key items
         pops.txt               Happy Pops timers and switches
+        tods\                  Happy Pops: every ToD, one file per HNM
         translate\             Happy Translate: settings.txt, memory.txt, phrases.txt
 
 

@@ -21,6 +21,10 @@
       /pops kill <hnm>             it died now - new timer
       /pops del <hnm>              stop tracking it
       /pops list                   all timers in your chat (/pops list party = in party chat)
+      /pops history <hnm>          the last 10 saved ToDs (config\addons\omni\tods\<HNM>.txt)
+
+    Every ToD is saved to the tods folder, and an HNM seen dying near you
+    (0% HP, or gone at low HP) saves its ToD and starts the timer by itself.
 ]]
 
 local imgui = require('imgui');
@@ -92,7 +96,7 @@ end
 ----------------------------------------------------------------------------------------------------
 -- Saved state (shared by all characters): config\addons\omni\pops.txt
 ----------------------------------------------------------------------------------------------------
-local st = { timers = {}, party = false, ls = true, warn = true, show = false };   -- timers[name] = { tod = os.time(), fired = {} }
+local st = { timers = {}, removed = {}, party = false, ls = true, warn = true, show = false };   -- removed[name] = ToD you pressed X on   -- timers[name] = { tod = os.time(), fired = {} }
 
 local function path() return ('%s\\config\\addons\\omni\\pops.txt'):format(AshitaCore:GetInstallPath()); end
 local function save()
@@ -103,6 +107,7 @@ local function save()
         f:write('ls ', st.ls and 1 or 0, '\n');
         f:write('warn ', st.warn and 1 or 0, '\n');
         for name, t in pairs(st.timers) do f:write('tod ', t.tod, ' ', name, '\n'); end
+        for name, tod in pairs(st.removed) do f:write('removed ', tod, ' ', name, '\n'); end
         f:close();
     end);
 end
@@ -115,6 +120,8 @@ local function load()
             local v = line:match('^party (%d)$'); if v then st.party = (v == '1'); end
             local l = line:match('^ls (%d)$'); if l then st.ls = (l == '1'); end
             local w = line:match('^warn (%d)$'); if w then st.warn = (w == '1'); end
+            local rt, rn = line:match('^removed (%d+) (.+)$');
+            if rt then st.removed[rn] = tonumber(rt); end
             local tod, name = line:match('^tod (%d+) (.+)$');
             if tod and GROUP_OF[name] then st.timers[name] = { tod = tonumber(tod), fired = {}, loaded = true }; end
         end
@@ -229,9 +236,75 @@ end
 ----------------------------------------------------------------------------------------------------
 -- Starting / stopping timers
 ----------------------------------------------------------------------------------------------------
-local function start(name, tod)
+----------------------------------------------------------------------------------------------------
+-- ToD history: config\addons\omni\tods\<HNM>.txt, one line per kill.
+----------------------------------------------------------------------------------------------------
+local function tod_dir() return ('%s\\config\\addons\\omni\\tods\\'):format(AshitaCore:GetInstallPath()); end
+local function tod_file(name) return tod_dir() .. name:gsub('[^%w ]', ''):gsub(' ', '_') .. '.txt'; end
+local history = {};    -- history[name] = { {tod, how}, ... } newest last
+local function read_history(name)
+    if history[name] then return history[name]; end
+    local h = {};
+    pcall(function ()
+        local f = io.open(tod_file(name), 'r');
+        if f == nil then return; end
+        for raw in f:lines() do
+            local line = raw:gsub('%s+$', '');
+            local t, how = line:match('^(%d+)%s+%S+%s+%S+%s+(%S+)');
+            if t then h[#h + 1] = { tonumber(t), how }; end
+        end
+        f:close();
+    end);
+    history[name] = h;
+    return h;
+end
+
+-- After a reload: any HNM whose last saved ToD (tods folder) is still in or before its windows
+-- gets its timer back, even if pops.txt lost it. Ones you removed with X stay removed.
+local function restore_from_tods()
+    local n = 0;
+    for _, hh in ipairs(HNMS) do
+        local name = hh[1];
+        if st.timers[name] == nil then
+            local h = read_history(name);
+            local last = h[#h];
+            if last ~= nil and st.removed[name] ~= last[1] then
+                local g = GROUPS[hh[2]];
+                local ends = last[1] + g.first + (g.count - 1) * g.step + 3600;   -- keep it up to 1h after the last window
+                if os.time() < ends then
+                    st.timers[name] = { tod = last[1], fired = {}, loaded = true };
+                    n = n + 1;
+                end
+            end
+        end
+    end
+    return n;
+end
+local function log_tod(name, tod, how)
+    pcall(function ()
+        local d = tod_dir();
+        if not (ashita.fs and ashita.fs.exists and ashita.fs.exists(d)) then
+            pcall(function () ashita.fs.create_directory(d); end);
+            pcall(function () ashita.fs.create_dir(d); end);
+        end
+        local f = io.open(tod_file(name), 'a');
+        if f == nil then return; end
+        f:write(('%d  %s  %s\n'):format(tod, os.date('%Y-%m-%d %H:%M:%S', tod), how));
+        f:close();
+    end);
+    history[name] = nil;    -- re-read from the file next time
+end
+
+pcall(function ()
+    local n = restore_from_tods();
+    if n > 0 then save(); print(('\30\68[Happy Pops]\30\01 %d timer%s brought back from the tods folder.'):format(n, n == 1 and '' or 's')); end
+end);
+
+local function start(name, tod, how)
     st.timers[name] = { tod = tod, fired = {} };
+    st.removed[name] = nil;
     save();
+    log_tod(name, tod, how or 'typed');
     local g = GROUPS[GROUP_OF[name]];
     msg(('%s ToD %s - first window %s (in %s), %d windows %d min apart.'):format(
         name, clock(tod), clock(tod + g.first), span(tod + g.first - os.time()), g.count, g.step / 60));
@@ -245,7 +318,16 @@ local function start(name, tod)
         pcall(function () AshitaCore:GetChatManager():QueueCommand(1, '/l ' .. line); end);
     end
 end
+-- An automatic ToD (chat or seen dying nearby). Ignored if we already have one from the last 10 min.
+local function auto_kill(name, how)
+    if not in_hnm_zone(name) then return; end   -- same name, wrong zone (e.g. a Nyzul Isle floor boss)
+    local t = st.timers[name];
+    if t ~= nil and os.time() - t.tod <= 600 then return; end
+    start(name, os.time(), how);
+    msg(name .. ' died - ToD saved and new timer started.');
+end
 local function stop(name)
+    if st.timers[name] then st.removed[name] = st.timers[name].tod; end
     st.timers[name] = nil;
     save();
     msg(name .. ' timer removed.');
@@ -263,15 +345,39 @@ ashita.events.register('text_in', 'omni_pops_text', function (e)
             local n = h[1]:lower();
             if low:find('defeats the ' .. n, 1, true) or low:find('defeats ' .. n, 1, true)
                or low:find('the ' .. n .. ' falls to the ground', 1, true) or low:find(n .. ' falls to the ground', 1, true) then
-                local t = st.timers[h[1]];
-                if in_hnm_zone(h[1]) and (t == nil or os.time() - t.tod > 600) then
-                    start(h[1], os.time());
-                    msg(h[1] .. ' killed - new timer started from now.');
-                end
+                auto_kill(h[1], 'chat');
                 return;
             end
         end
     end);
+end);
+
+-- Watch for the HNMs near you: when one you can see drops to 0% HP (or vanishes at low HP), that's the ToD.
+local seen, last_scan, last_zone = {}, 0, -1;
+local function scan()
+    local zone = AshitaCore:GetMemoryManager():GetParty():GetMemberZone(0);
+    if zone ~= last_zone then seen = {}; last_zone = zone; end   -- zoning is not a kill
+    local ent = AshitaCore:GetMemoryManager():GetEntity();
+    local now_seen = {};
+    for i = 0, 2303 do
+        local name = ent:GetName(i);
+        if name ~= nil and name ~= '' and GROUP_OF[name] and ent:GetRenderFlags0(i) ~= 0 then
+            local hp = ent:GetHPPercent(i);
+            now_seen[name] = hp;
+            local was = seen[name];
+            if was ~= nil and was > 0 and hp == 0 then auto_kill(name, 'nearby'); end
+        end
+    end
+    for name, hp in pairs(seen) do
+        if now_seen[name] == nil and hp <= 3 then auto_kill(name, 'nearby'); end
+    end
+    seen = now_seen;
+end
+ashita.events.register('d3d_present', 'omni_pops_watch', function ()
+    local c = os.clock();
+    if c - last_scan < 1 then return; end
+    last_scan = c;
+    pcall(scan);
 end);
 
 -- Checked every frame (cheap: a handful of timers).
@@ -327,10 +433,16 @@ ashita.events.register('command', 'omni_pops_cmd', function (e)
         msg('Which HNM? e.g. /pops add fafnir 21:35');
     elseif c == 'kill' or c == 'killed' then
         local name = find_hnm(rest);
-        if name then start(name, os.time()); else msg('Which HNM? e.g. /pops kill fafnir'); end
+        if name then start(name, os.time(), 'button'); else msg('Which HNM? e.g. /pops kill fafnir'); end
     elseif c == 'del' or c == 'remove' or c == 'stop' then
         local name = find_hnm(rest);
         if name and st.timers[name] then stop(name); else msg('No timer for that.'); end
+    elseif c == 'history' or c == 'tods' then
+        local name = find_hnm(rest);
+        if name == nil then msg('Which HNM? e.g. /pops history fafnir'); return; end
+        local h = read_history(name);
+        if #h == 0 then msg('No ToDs saved for ' .. name .. ' yet.'); return; end
+        for i = math.max(1, #h - 9), #h do msg(('%s ToD %s (%s)'):format(name, os.date('%a %d %b %H:%M:%S', h[i][1]), h[i][2] or '?')); end
     elseif c == 'list' then
         list((a[3] or ''):lower() == 'party' or (a[3] or ''):lower() == 'p');
     elseif c == 'warn' or c == 'warnings' then
