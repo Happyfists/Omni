@@ -49,6 +49,37 @@ local HNMS = {
 local GROUP_OF = {};
 for _, h in ipairs(HNMS) do GROUP_OF[h[1]] = h[2]; end
 
+-- The zone each HNM lives in. A kill is only taken as that HNM's ToD in its own zone, so a
+-- same-named monster elsewhere (Nyzul Isle's floor bosses, Einherjar, Dynamis...) doesn't count.
+local HNM_ZONE = {
+    ['Fafnir'] = 154,            -- Dragon's Aery
+    ['Behemoth'] = 127,          -- Behemoth's Dominion
+    ['Adamantoise'] = 128,       -- Valley of Sorrows
+    ['Argus'] = 198,             -- Maze of Shakhrami
+    ['King Arthro'] = 104,       -- Jugner Forest
+    ['Shikigami Weapon'] = 122,  -- Ro'Maeve
+    ['Serket'] = 200,            -- Garlaige Citadel
+    ['Simurgh'] = 110,           -- Rolanberry Fields
+    ['Roc'] = 120,               -- Sauromugue Champaign
+    ['Lord of Onzozo'] = 213,    -- Labyrinth of Onzozo
+    ['Khimaira'] = 79,           -- Caedarva Mire
+    ['Cerberus'] = 61,           -- Mount Zhayolm
+    ['Hydra'] = 62,              -- Halvung
+    ['Medusa'] = 54,             -- Arrapago Reef
+    ['Gurfurlur the Menacing'] = 62, -- Halvung
+    ['Gulool Ja Ja'] = 65,       -- Mamook
+    ['Jormungand'] = 5,          -- Uleguerand Range
+    ['Tiamat'] = 7,              -- Attohwa Chasm
+    ['Vrtra'] = 190,             -- King Ranperre's Tomb
+};
+local function in_hnm_zone(name)
+    local want = HNM_ZONE[name];
+    if want == nil then return true; end
+    local z = -1;
+    pcall(function () z = AshitaCore:GetMemoryManager():GetParty():GetMemberZone(0); end);
+    return z == want;
+end
+
 local function find_hnm(text)
     text = (text or ''):lower():gsub('^%s+', ''):gsub('%s+$', '');
     if text == '' then return nil; end
@@ -233,7 +264,7 @@ ashita.events.register('text_in', 'omni_pops_text', function (e)
             if low:find('defeats the ' .. n, 1, true) or low:find('defeats ' .. n, 1, true)
                or low:find('the ' .. n .. ' falls to the ground', 1, true) or low:find(n .. ' falls to the ground', 1, true) then
                 local t = st.timers[h[1]];
-                if t == nil or os.time() - t.tod > 600 then
+                if in_hnm_zone(h[1]) and (t == nil or os.time() - t.tod > 600) then
                     start(h[1], os.time());
                     msg(h[1] .. ' killed - new timer started from now.');
                 end
