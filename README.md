@@ -2,7 +2,7 @@
 
 All-in-one Ashita v4 addon for CatsEyeXI, by Happyfists.
 
-A small bar along the top of the screen (job, XP/LP, wallet, buffs, target with TH and distance) and a drop-down panel of tabs: Abyssea procs and NM pops, **Happy Pops** (HNM time-of-death and window timers), **Happy Translate** (chat translation), Quests, Multisend, Damage, Character, Ultimates, Currency, Dailies, Codex, Sky, Sea (with the Jailers pop chain and the AV helper), Ventures, Sparks, Options (with Happy Talks spoken alerts and the Roll Tracker) and Treasure Hunter. It also draws spell animations on the field (fireballs, lightning, rocks, cures...) and party job pictures.
+A small bar along the top of the screen (job, XP/LP, wallet, buffs, target with TH and distance; in Abyssea, Dynamis and Nyzul Isle it shows their time, lights, time extensions or floor and objective instead) and a drop-down panel of tabs: Abyssea procs and NM pops, **Happy Pops** (HNM time-of-death and window timers), **Happy Translate** (chat translation), Quests, Multisend, Damage, Character, Ultimates, Currency, Dailies, Codex, Sky, Sea (with the Jailers pop chain and the AV helper), Ventures, Sparks, Options (with Happy Talks spoken alerts and the Roll Tracker) and Treasure Hunter. It also draws spell animations on the field (fireballs, lightning, rocks, cures...) and party job pictures.
 
 ## Newest pages
 

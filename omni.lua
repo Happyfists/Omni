@@ -55,7 +55,7 @@
 
 addon.name    = 'omni';
 addon.author  = 'Happyfists';
-addon.version = '2.99';
+addon.version = '3.00';
 addon.desc    = 'All-in-one addon.';
 
 require('common');
@@ -629,6 +629,13 @@ do
     if (ok) then dynamis = mod; else print('[omni] Dynamis could not load: ' .. tostring(mod)); end
 end
 
+-- Nyzul Isle on the bar: floor, objective and time left (omni_nyzul.lua).
+local nyzul = nil;
+do
+    local ok, mod = pcall(require, 'omni_nyzul');
+    if (ok) then nyzul = mod; else print('[omni] Nyzul Isle could not load: ' .. tostring(mod)); end
+end
+
 local function draw_bar(player, job)
     local s = omni.settings;
     local level = player:GetMainJobLevel();
@@ -713,6 +720,9 @@ local function draw_bar(player, job)
         elseif (dynamis ~= nil and omni.settings.dyna_bar ~= false and dynamis.inside()) then
             -- In Dynamis: time left and which time extensions are done.
             dynamis.draw_bar(s.colors);
+        elseif (nyzul ~= nil and omni.settings.nyzul_bar ~= false and nyzul.inside()) then
+            -- On Nyzul Isle: floor, objective and time left.
+            nyzul.draw_bar(s.colors);
         else
             draw_xp(player);
             draw_wallet();
@@ -1769,6 +1779,7 @@ do
             if (section('Bars')) then
             toggle('Abyssea time and lights', 'aby_bar', true, 'In Abyssea zones the bar shows Visitant time and lights instead of XP.');
             toggle('Dynamis time and time extensions', 'dyna_bar', true, 'In Dynamis the bar shows the time left and which of the five\ntime extensions (granules of time) you have, instead of XP.');
+            toggle('Nyzul Isle floor, objective and time', 'nyzul_bar', true, 'On Nyzul Isle the bar shows the floor, the floor\'s objective (hover it for a tip)\nand the time left, instead of XP.');
             toggle('Sneak / Invisible buttons', 'stealth_bar', true, 'Magic, ninjutsu, Spectral Jig or oils and powders.');
             local hide = { not s.show_native };
             if (imgui.Checkbox("Hide the game's buff icons##opt_native", hide)) then
