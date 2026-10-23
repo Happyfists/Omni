@@ -158,41 +158,57 @@ end);
 dyn.inside = function () pcall(check_zone); return st.inside; end
 dyn.seconds_left = function () if st.ends == nil then return nil; end return math.max(0, st.ends - os.time()); end
 
--- The bar: "Dynamis  Time 47:12  ● ● ○ ○ ○"
+-- The bar, all on one line:  Dynamis  Xarcabard   Time 47:12   ● ● ○ ○ ○  2/5
 dyn.draw_bar = function (c)
+    local y = imgui.GetCursorPosY();
+    local function same(gap) imgui.SameLine(0, gap); imgui.SetCursorPosY(y); end   -- keep every part on one line
+    local _, th = imgui.CalcTextSize('Ag');
+    th = th or 14;
+
     imgui.TextColored({ 0.80, 0.55, 1.00, 1.0 }, 'Dynamis');
-    if imgui.IsItemHovered() then imgui.SetTooltip('Dynamis - ' .. (ZONE_NAME[st.zone] or '?')); end
-    imgui.SameLine(0, 12);
+    local zn = ZONE_NAME[st.zone];
+    if zn then
+        same(6);
+        imgui.TextColored(c.dim, zn);
+    end
+
+    same(16);
     imgui.TextColored(c.label, 'Time');
-    imgui.SameLine(0, 5);
+    same(6);
     local secs = dyn.seconds_left() or 0;
     local tcol = (secs <= 300) and { 1.0, 0.40, 0.40, 1.0 } or ((secs <= 900) and { 1.0, 0.80, 0.30, 1.0 } or { 0.50, 0.92, 0.50, 1.0 });
-    local h, m, s = math.floor(secs / 3600), math.floor(secs / 60) % 60, secs % 60;
-    imgui.TextColored(tcol, (h > 0) and string.format('%d:%02d:%02d', h, m, s) or string.format('%d:%02d', m, s));
+    local h, m, sec = math.floor(secs / 3600), math.floor(secs / 60) % 60, secs % 60;
+    imgui.TextColored(tcol, (h > 0) and string.format('%d:%02d:%02d', h, m, sec) or string.format('%d:%02d', m, sec));
     if imgui.IsItemHovered() then
         imgui.SetTooltip(st.told and 'Time left before you are expelled (from the game\'s own message).\nYellow at 15 minutes, red at 5.'
             or 'Counting down from 60 minutes until the game says the exact time.\nYellow at 15 minutes, red at 5.');
     end
-    -- The five granules: filled = got (that time-extension NM is done), hollow = still to get.
-    imgui.SameLine(0, 14);
-    local x, y = imgui.GetCursorScreenPos();
-    local _, th = imgui.CalcTextSize('Ag');
-    local r = math.floor((th or 14) / 2) - 1;
+
+    -- The five time extensions: a filled dot once got, a faint ring while still to get.
+    same(16);
+    local x0, y0 = imgui.GetCursorScreenPos();
+    local r, gap = 5, 5;
     local dl = imgui.GetWindowDrawList();
     local ext = ZONES[st.zone] or ORIG;
     local got = 0;
     for i, g in ipairs(dyn.GRANULES) do
-        local cx, cy = x + r + (i - 1) * (r * 2 + 6), y + (th or 14) / 2;
+        local cx, cy = x0 + r + (i - 1) * (r * 2 + gap), y0 + th / 2;
         if st.keys[i] then
             dl:AddCircleFilled({ cx, cy }, r, imgui.GetColorU32(g.col), 16);
+            dl:AddCircle({ cx, cy }, r, imgui.GetColorU32({ 1, 1, 1, 0.35 }), 16, 1.0);
             got = got + 1;
         else
-            dl:AddCircle({ cx, cy }, r, imgui.GetColorU32({ g.col[1], g.col[2], g.col[3], 0.55 }), 16, 1.5);
+            dl:AddCircleFilled({ cx, cy }, r, imgui.GetColorU32({ 0, 0, 0, 0.35 }), 16);
+            dl:AddCircle({ cx, cy }, r - 0.5, imgui.GetColorU32({ g.col[1], g.col[2], g.col[3], 0.45 }), 16, 1.0);
         end
     end
-    local w = 5 * (r * 2 + 6);
-    imgui.InvisibleButton('##omni_dyna_keys', { w, th or 14 });
-    if imgui.IsItemHovered() then
+    local w = 5 * (r * 2) + 4 * gap;
+    imgui.InvisibleButton('##omni_dyna_keys', { w, th });
+    local hovered = imgui.IsItemHovered();
+    same(8);
+    imgui.TextColored((got == 5) and { 1.0, 0.84, 0.30, 1.0 } or c.dim, ('%d/5'):format(got));
+    hovered = hovered or imgui.IsItemHovered();
+    if hovered then
         local lines = { ('Time extensions: %d / 5'):format(got) };
         for i, g in ipairs(dyn.GRANULES) do
             lines[#lines + 1] = ('  %s %s  (+%d min)'):format(st.keys[i] and '[got]' or '[   ]', g.short, math.floor(ext[i] / 60));
