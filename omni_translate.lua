@@ -279,6 +279,7 @@ end
 -- Every player name seen talking in chat is kept in translate\names.txt (lowercase -> as written).
 -- Any of those names inside a line is taken out before translating and put back in front.
 local KNOWN_NAMES = {};
+local recent_out = {};   -- lines you sent through Happy Translate (lowercase) -> os.clock()
 local quick_inline;   -- set further down
 
 local function split_names(text)
@@ -986,6 +987,10 @@ ashita.events.register('text_in', 'omni_translate_text', function (e)
         -- Remember who is talking ("[1]<Huli>", "(Huli)", "Huli : ") for the names list.
         local who = pre:gsub('%[%d%]', ''):match('(%a[%w_]+)');
         if who then add_name(who, true); end
+        -- Your own translated line coming back (the game wraps names in codes, so the name check can miss it).
+        local mine_key = rest:gsub('^%s+', ''):gsub('%s+$', ''):gsub('%s+', ' '):lower();
+        local sent_at = recent_out[mine_key];
+        if sent_at ~= nil and os.clock() - sent_at < 120 then return; end
         local rest_x = expand_short(rest);   -- "da sm de" -> "da shen me de"
         local names, core = split_names(rest_x);   -- "Quixy zu wo" -> Quixy + "zu wo"
         if st.langs.zh and core ~= '' and (looks_pinyin(core) or game_phrase(core) ~= nil) then
@@ -1084,7 +1089,7 @@ local SHORTHAND = {
     ill = "I'll", im = "I'm", ive = "I've", dont = "don't", cant = "can't", wont = "won't",
     didnt = "didn't", doesnt = "doesn't", isnt = "isn't", wasnt = "wasn't", arent = "aren't", thats = "that's",
     whats = "what's", u = 'you', ur = 'your', r = 'are', pls = 'please', plz = 'please', thx = 'thanks',
-    ty = 'thank you', np = 'no problem', ppl = 'people', ssent = 'sent', iss = 'is', gonna = 'going to', wanna = 'want to',
+    ty = 'thank you', np = 'no problem', cap = 'max out', capped = 'maxed out', caps = 'maxes out', ppl = 'people', ssent = 'sent', iss = 'is', gonna = 'going to', wanna = 'want to',
 };
 local function tidy_english(text)
     return (text:gsub("%f[%w]([%a']+)%f[^%w']", function (w)
@@ -1095,11 +1100,21 @@ local function tidy_english(text)
     end));
 end
 
+-- "happy" for Happyfists, "assume" for Assumemygender: 5+ letters that start a known player's name.
+local function short_name(w)
+    local l = w:lower();
+    if #l < 5 then return nil; end
+    for k in pairs(KNOWN_NAMES) do
+        if #k > #l and k:sub(1, #l) == l then return KNOWN_NAMES[k]; end   -- sent as the full name
+    end
+    return nil;
+end
+
 -- Player names (from the names list) stay as they are too.
 local function protect_words(text)
     local map, n = {}, 0;
     local out = text:gsub('%f[%w](%w+)%f[%W]', function (w)
-        local keepw = KEEP_EN[w:lower()] or KNOWN_NAMES[w:lower()];
+        local keepw = KEEP_EN[w:lower()] or KNOWN_NAMES[w:lower()] or short_name(w);
         if keepw == nil then return w; end
         n = n + 1;
         local tag = tostring(7300 + n);
@@ -1124,7 +1139,11 @@ local function restore_words(text, map)
 end
 
 local function send_text(keep, text, force_english)
-    local function send(out) passthrough[out] = true; AshitaCore:GetChatManager():QueueCommand(1, out); end
+    local function send(out)
+        passthrough[out] = true;
+        recent_out[(out:gsub('^%S+%s+', ''):gsub('%s+', ' '):lower())] = os.clock();   -- so our own line isn't translated back
+        AshitaCore:GetChatManager():QueueCommand(1, out);
+    end
     if text:sub(1, 1) == '=' or force_english then
         send(keep .. ' ' .. (text:sub(1, 1) == '=' and text:sub(2) or text));
         return;

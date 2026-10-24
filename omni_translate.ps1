@@ -1,7 +1,7 @@
 # omni_translate.ps1 - helper for omni's Happy Translate (omni_translate.lua).
 # Reads text (UTF-8) from -In, writes the result (UTF-8) to -Out. On failure writes "!<reason>".
 # Started hidden by omni; only the one chat line is sent.
-#   -Mode ja   Japanese -> English                     (MyMemory)
+#   -Mode ja   Japanese -> English                     (Google Translate, MyMemory if that fails)
 #   -Mode py   pinyin -> Chinese characters -> English  (Google Input Tools, then MyMemory)
 #   -Mode zh   English -> Chinese characters            (MyMemory; omni turns them into pinyin)
 #   -Mode es / pt / fr / de   that language -> English  (MyMemory)
@@ -42,6 +42,25 @@ function MyMemory([string]$text, [string]$pair) {
     return [System.Net.WebUtility]::HtmlDecode($t)
 }
 
+# Google Translate (the free web endpoint, no key): much better than MyMemory, used first.
+function Google([string]$text, [string]$from, [string]$to) {
+    $q = [Uri]::EscapeDataString($text)
+    $url = "https://translate.googleapis.com/translate_a/single?client=gtx&sl=$from&tl=$to&dt=t&q=$q"
+    $raw = Invoke-WebRequest -Uri $url -TimeoutSec 10 -UseBasicParsing
+    $bytes = $raw.RawContentStream.ToArray()
+    $json = $utf8.GetString($bytes) | ConvertFrom-Json
+    $out = ''
+    foreach ($seg in $json[0]) { if ($seg -and $seg[0]) { $out += [string]$seg[0] } }
+    if ([string]::IsNullOrWhiteSpace($out)) { throw 'google: empty' }
+    return $out
+}
+
+# Google first, MyMemory if Google fails. $pair is MyMemory's "from|to".
+function Tr([string]$text, [string]$pair) {
+    $p = $pair.Split('|')
+    try { return (Google $text $p[0] $p[1]) } catch { return (MyMemory $text $pair) }
+}
+
 function PinyinToHanzi([string]$text) {
     # Parts marked |like this| (English words, numbers) are kept as they are. Every other run is
     # pinyin: each comma/full-stop piece is sent without spaces ("dou tong guan le" -> "doutongguanle").
@@ -74,17 +93,17 @@ function Translate([string]$text, [string]$mode) {
         'py' {
             $hanzi = PinyinToHanzi $text
             if ($hanzi.Length -eq 0) { throw 'no pinyin found' }
-            return (MyMemory $hanzi 'zh-CN|en')
+            return (Tr $hanzi 'zh-CN|en')
         }
-        'zh' { return (MyMemory $text 'en|zh-CN') }
+        'zh' { return (Tr $text 'en|zh-CN') }
         { $_ -match '^to_[a-z]{2}$' } {
             # English -> the reply language you picked (to_ja, to_fr, to_de, to_es, to_pt)
-            return (MyMemory $text ('en|' + $mode.Substring(3)))
+            return (Tr $text ('en|' + $mode.Substring(3)))
         }
         default {
             # ja, es, pt, fr, de ... -> English
             if ($mode -notmatch '^[a-z]{2}$') { $mode = 'ja' }
-            return (MyMemory $text ($mode + '|en'))
+            return (Tr $text ($mode + '|en'))
         }
     }
 }

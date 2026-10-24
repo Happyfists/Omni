@@ -200,7 +200,7 @@ with a drop-down panel of tabs underneath it for everything else.
       shorthand (sm = shen me "what") are translated instantly.
     * Everything translated is remembered in translate\memory.txt, so a line is never sent twice.
       Your own phrases go in translate\phrases.txt, or:  /translate learn zu wo = invite me
-    * Uses MyMemory (free, about 5000 characters a day) and Google Input Tools (pinyin), through a
+    * Uses Google Translate (free web version) with MyMemory as a backup, and Google Input Tools (pinyin), through a
       small hidden PowerShell helper (omni_translate.ps1). /translate status shows today's use.
 
   SEA > JAILERS
@@ -274,5 +274,5 @@ with a drop-down panel of tabs underneath it for everything else.
     * Spell art (assets/fx/) and tab backgrounds made with Canva's AI image generator.
     * HNM windows from bg-wiki "CatsEyeXI Content/HNMs"; Sea data from bg-wiki "CatsEyeXI
       Content/Sea", the HorizonXI wiki and Allakhazam.
-    * Happy Translate: MyMemory (translated.net) and Google Input Tools; pinyin table made with
+    * Happy Translate: Google Translate, MyMemory (translated.net) and Google Input Tools; pinyin table made with
       pypinyin (MIT licence).
