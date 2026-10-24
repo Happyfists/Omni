@@ -34,11 +34,11 @@ local pops = {};
 ----------------------------------------------------------------------------------------------------
 -- The HNMs and their windows
 ----------------------------------------------------------------------------------------------------
--- CatsEyeXI respawns are the hours PLUS 16 seconds (57:00:16, 81:00:16 ...), so every window here
--- is 16 seconds after the round hour.
+-- CatsEyeXI: the 57h and 81h HNMs (Cerberus, Khimaira, Hydra, the ToAU kings and the wyrms) respawn
+-- at the hours PLUS 16 seconds (57:00:16, 81:00:16). The 21h ones are on the hour.
 local RESPAWN_EXTRA = 16;
 local GROUPS = {
-    h21 = { first = 21 * 3600 + RESPAWN_EXTRA, step = 5 * 60,  count = 7 },
+    h21 = { first = 21 * 3600,                 step = 5 * 60,  count = 7 },   -- no extra seconds
     h57 = { first = 57 * 3600 + RESPAWN_EXTRA, step = 10 * 60, count = 7 },   -- Cerberus, Khimaira, Hydra: 57:00:16
     h81 = { first = 81 * 3600 + RESPAWN_EXTRA, step = 10 * 60, count = 7 },   -- ToAU beastmen kings: 81:00:16
     -- Wyrms (Jormungand, Tiamat, Vrtra): 81:00:16 like the ToAU kings, 7 windows 10 min apart.

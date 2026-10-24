@@ -171,8 +171,8 @@ with a drop-down panel of tabs underneath it for everything else.
       ago) and press Start. Every HNM is listed; running timers are on top with a countdown bar.
     * Each window: warnings at 2 min, 1 min, 30 sec and 10 sec, then OPEN, then "closed" 50 sec
       later. Windows are counted 1/7 ... 7/7 (the last one is the forced pop).
-      CatsEyeXI respawns are the hours plus 16 seconds:
-      21h HNMs: every 5 min from 21:00:16.  57h (Cerberus, Khimaira, Hydra): every 10 min from 57:00:16.
+      CatsEyeXI: the 57h and 81h HNMs respawn at the hours plus 16 seconds:
+      21h HNMs: every 5 min from 21:00.  57h (Cerberus, Khimaira, Hydra): every 10 min from 57:00:16.
       81h (ToAU kings) and the wyrms (Jormungand, Tiamat, Vrtra): every 10 min from 81:00:16.
     * A kill seen in chat ("... defeats Fafnir"), or an HNM seen dying near you (0% HP), starts a
       new timer by itself - only in that HNM's own zone, so same-named monsters elsewhere
