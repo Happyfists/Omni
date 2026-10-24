@@ -107,6 +107,7 @@ local function save()
         f:write('ls ', st.ls and 1 or 0, '\n');
         f:write('warn ', st.warn and 1 or 0, '\n');
         for name, t in pairs(st.timers) do f:write('tod ', t.tod, ' ', name, '\n'); end
+        for name, t in pairs(st.timers) do if t.locked then f:write('lock ', name, '\n'); end end
         for name, tod in pairs(st.removed) do f:write('removed ', tod, ' ', name, '\n'); end
         f:close();
     end);
@@ -124,6 +125,8 @@ local function load()
             if rt then st.removed[rn] = tonumber(rt); end
             local tod, name = line:match('^tod (%d+) (.+)$');
             if tod and GROUP_OF[name] then st.timers[name] = { tod = tonumber(tod), fired = {}, loaded = true }; end
+            local lk = line:match('^lock (.+)$');
+            if lk and st.timers[lk] then st.timers[lk].locked = true; end
         end
         f:close();
     end);
@@ -323,9 +326,38 @@ local function announce(name, chan)
         name, os.date('%H:%M:%S', t.tod), os.date('%a %d %b %H:%M:%S', first), g.count, tail);
     pcall(function () AshitaCore:GetChatManager():QueueCommand(1, (chan or '/l') .. ' ' .. line); end);
 end
+-- Lock: some NMs share a name with ones you can pop yourself, and killing those would reset the
+-- timer. A locked ToD can't be changed by an automatic kill until 30 minutes before its first window;
+-- then the lock comes off by itself.
+local LOCK_UNTIL = 30 * 60;
+local function lock_ends(name)
+    local t = st.timers[name];
+    if t == nil then return nil; end
+    return t.tod + GROUPS[GROUP_OF[name]].first - LOCK_UNTIL;
+end
+local function is_locked(name)
+    local t = st.timers[name];
+    if t == nil or not t.locked then return false; end
+    if os.time() >= lock_ends(name) then t.locked = nil; save(); return false; end
+    return true;
+end
+local function set_lock(name, on)
+    local t = st.timers[name];
+    if t == nil then msg(name .. ' has no ToD to lock.'); return; end
+    if on and os.time() >= lock_ends(name) then msg(name .. ' is already within 30 min of its window - nothing to lock.'); return; end
+    t.locked = on or nil;
+    save();
+    if on then
+        msg(('%s ToD %s locked until %s (30 min before its first window).'):format(name, os.date('%H:%M:%S', t.tod), os.date('%a %d %b %H:%M', lock_ends(name))));
+    else
+        msg(name .. ' unlocked.');
+    end
+end
+
 -- An automatic ToD (chat or seen dying nearby). Ignored if we already have one from the last 10 min.
 local function auto_kill(name, how)
     if not in_hnm_zone(name) then return; end   -- same name, wrong zone (e.g. a Nyzul Isle floor boss)
+    if is_locked(name) then return; end          -- ToD locked in (a pop-able NM of the same name died)
     local t = st.timers[name];
     if t ~= nil and os.time() - t.tod <= 600 then return; end
     start(name, os.time(), how);
@@ -453,6 +485,10 @@ ashita.events.register('command', 'omni_pops_cmd', function (e)
     elseif c == 'warn' or c == 'warnings' then
         st.warn = not st.warn; save();
         msg('Window warnings ' .. (st.warn and 'ON' or 'OFF') .. '.');
+    elseif c == 'lock' or c == 'unlock' then
+        local name = find_hnm(rest);
+        if name == nil then msg('Which HNM? e.g. /pops lock khimaira'); return; end
+        set_lock(name, c == 'lock');
     elseif c == 'ls' or c == 'ls1' or c == 'linkshell' or c == 'ls2' or c == 'linkshell2' then
         local name = find_hnm(rest);
         if name == nil then msg('Which HNM? e.g. /pops ls fafnir  (or /pops ls2 fafnir)'); return; end
@@ -461,7 +497,7 @@ ashita.events.register('command', 'omni_pops_cmd', function (e)
         st.party = not st.party; save();
         msg('Party chat warnings ' .. (st.party and 'ON' or 'OFF') .. '.');
     else
-        msg('/pops  |  /pops add <hnm> [21:35]  |  /pops kill <hnm>  |  /pops del <hnm>  |  /pops list [party]  |  /pops party  |  /pops ls <hnm>  |  /pops ls2 <hnm>');
+        msg('/pops  |  /pops add <hnm> [21:35]  |  /pops kill <hnm>  |  /pops del <hnm>  |  /pops list [party]  |  /pops party  |  /pops ls <hnm>  |  /pops ls2 <hnm>  |  /pops lock|unlock <hnm>');
     end
 end);
 
@@ -545,15 +581,32 @@ local function body()
     imgui.PushStyleColor(ImGuiCol_TableRowBgAlt, { 0, 0, 0, 0 });
     local flags = bit.bor(ImGuiTableFlags_BordersInnerH, ImGuiTableFlags_SizingFixedFit);
     if imgui.BeginTable('##pops_table', 5, flags) then
-        imgui.TableSetupColumn('HNM', ImGuiTableColumnFlags_WidthFixed, 200);
+        imgui.TableSetupColumn('HNM', ImGuiTableColumnFlags_WidthFixed, 262);
         imgui.TableSetupColumn('ToD', ImGuiTableColumnFlags_WidthFixed, 62);
         imgui.TableSetupColumn('Countdown', ImGuiTableColumnFlags_WidthFixed, 150);
-        imgui.TableSetupColumn('Pop date', ImGuiTableColumnFlags_WidthFixed, 300);
+        imgui.TableSetupColumn('Pop date', ImGuiTableColumnFlags_WidthFixed, 280);
         imgui.TableSetupColumn('##act', ImGuiTableColumnFlags_WidthFixed, 140);
         imgui.TableHeadersRow();
 
         local function name_cell(h, col)
             imgui.TableNextColumn();
+            local nm = h[1];
+            if st.timers[nm] ~= nil then
+                -- Lock button: gold "Locked" while the ToD is locked in, dim "Lock" otherwise.
+                local locked = is_locked(nm);
+                local gold = { 0.95, 0.78, 0.30, 1.0 };
+                imgui.PushStyleColor(ImGuiCol_Button, locked and { gold[1], gold[2], gold[3], 0.30 } or { line[1], line[2], line[3], 0.35 });
+                imgui.PushStyleColor(ImGuiCol_Text, locked and gold or C.dim);
+                if imgui.SmallButton((locked and 'Locked' or ' Lock ') .. '##pops_lock_' .. nm) then set_lock(nm, not locked); end
+                imgui.PopStyleColor(2);
+                if imgui.IsItemHovered() then
+                    local le = lock_ends(nm);
+                    imgui.SetTooltip(locked
+                        and ('ToD locked in until %s (30 min before the first window).\nKills seen in chat or nearby can\'t change it till then.\nClick to unlock.'):format(os.date('%a %d %b %H:%M', le))
+                        or ('Lock this ToD in until 30 min before the first window (%s),\nso killing a pop-able NM with the same name doesn\'t reset it.'):format(os.date('%a %d %b %H:%M', le)));
+                end
+                imgui.SameLine(0, 6);
+            end
             imgui.TextColored(col, h[1]);
             if imgui.IsItemClicked() then
                 for i, x in ipairs(HNMS) do if x[1] == h[1] then pick[1] = i - 1; end end
@@ -606,8 +659,11 @@ local function body()
                 imgui.TextColored(C.green, 'should be up since ' .. os.date('%a %H:%M', last));
             end
             imgui.TableNextColumn();
-            if imgui.SmallButton('Killed##pops_k_' .. name) then start(name, os.time(), 'button'); end
-            if imgui.IsItemHovered() then imgui.SetTooltip('It died just now - start a new timer.'); end
+            if imgui.SmallButton('Killed##pops_k_' .. name) then
+                if is_locked(name) then msg(name .. ' ToD is locked - press Locked first if it really died again.');
+                else start(name, os.time(), 'button'); end
+            end
+            if imgui.IsItemHovered() then imgui.SetTooltip(is_locked(name) and 'ToD is locked - unlock it first to change it.' or 'It died just now - start a new timer.'); end
             imgui.SameLine(0, 4);
             if imgui.SmallButton('L1##pops_l1_' .. name) then announce(name, '/l'); end
             if imgui.IsItemHovered() then imgui.SetTooltip('Announce this ToD to linkshell 1 (/l):\n' .. name .. ' ToD hh:mm:ss - Repop at <day date time> (7 windows, forced hh:mm)'); end
