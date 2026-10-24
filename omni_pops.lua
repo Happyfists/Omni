@@ -11,7 +11,7 @@
       57h group: windows every 10 min from 57:00, forced at 58:00 (7 windows)
       81h group: windows every 10 min from 81:00, forced at 82:00 (7 windows)
       Wyrms (Jormungand, Tiamat, Vrtra): not on that page. 7 windows 10 min apart (Leon),
-      first window at 81:00, forced at 82:00 (CatsEyeXI, checked in game 24 Oct).
+      first window at 81:00:16, forced at 82:00:16 (CatsEyeXI, checked in game 24 Oct).
 
     Commands
       /pops                        open omni's panel on the Happy Pops tab
@@ -34,13 +34,15 @@ local pops = {};
 ----------------------------------------------------------------------------------------------------
 -- The HNMs and their windows
 ----------------------------------------------------------------------------------------------------
+-- CatsEyeXI respawns are the hours PLUS 16 seconds (57:00:16, 81:00:16 ...), so every window here
+-- is 16 seconds after the round hour.
+local RESPAWN_EXTRA = 16;
 local GROUPS = {
-    h21 = { first = 21 * 3600, step = 5 * 60,  count = 7 },
-    h57 = { first = 57 * 3600, step = 10 * 60, count = 7 },
-    h81 = { first = 81 * 3600, step = 10 * 60, count = 7 },
-    -- Wyrms (Jormungand, Tiamat, Vrtra): 81h like the 81h group, 7 windows 10 min apart (Leon, 24 Oct:
-    -- the 72h guess was 9 hours early on CatsEyeXI).
-    wyrm = { first = 81 * 3600, step = 10 * 60, count = 7, label = '81h' },
+    h21 = { first = 21 * 3600 + RESPAWN_EXTRA, step = 5 * 60,  count = 7 },
+    h57 = { first = 57 * 3600 + RESPAWN_EXTRA, step = 10 * 60, count = 7 },   -- Cerberus, Khimaira, Hydra: 57:00:16
+    h81 = { first = 81 * 3600 + RESPAWN_EXTRA, step = 10 * 60, count = 7 },   -- ToAU beastmen kings: 81:00:16
+    -- Wyrms (Jormungand, Tiamat, Vrtra): 81:00:16 like the ToAU kings, 7 windows 10 min apart.
+    wyrm = { first = 81 * 3600 + RESPAWN_EXTRA, step = 10 * 60, count = 7, label = '81h' },
 };
 local HNMS = {
     { 'Fafnir', 'h21' }, { 'Behemoth', 'h21' }, { 'Adamantoise', 'h21' }, { 'Argus', 'h21' },
