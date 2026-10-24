@@ -175,6 +175,21 @@ local function first_japanese(s)
     return nil;
 end
 
+-- How many real Japanese letters (hiragana, katakana, kanji) a line has. Faces like "ω .`)/" or
+-- "┗(｀O ´)┛" use symbols, Greek and box lines, and aren't sent to the translator.
+local function japanese_count(s)
+    local i, n, c = 1, #s, 0;
+    while i <= n do
+        local b, t = s:byte(i), s:byte(i + 1) or 0;
+        if (b == 0x82 and t >= 0x9F and t <= 0xF1) or (b == 0x83 and t >= 0x40 and t <= 0x96)
+           or (((b >= 0x88 and b <= 0x9F) or (b >= 0xE0 and b <= 0xEA)) and t >= 0x40 and t <= 0xFC and t ~= 0x7F) then
+            c = c + 1;
+        end
+        if (b >= 0x81 and b <= 0x9F) or (b >= 0xE0 and b <= 0xFC) then i = i + 2; else i = i + 1; end
+    end
+    return c;
+end
+
 local function clean(s)
     -- Auto-translate phrases ({Hello!}) become plain text in your language first.
     local ok, parsed = pcall(function () return AshitaCore:GetChatManager():ParseAutoTranslate(s, true); end);
@@ -243,7 +258,8 @@ end
 -- Game names Chinese players use, swapped for the English name before a line goes to the
 -- translator so it can't turn them into something else ("bai men" = white gate = Whitegate).
 local GLOSSARY = {
-    ['bai men'] = 'Whitegate', ['jue dui mei de'] = 'Absolute Virtue',
+    ['bai men'] = 'Whitegate', ['bai hu'] = 'Byakko', ['qing long'] = 'Seiryu', ['zhu que'] = 'Suzaku',
+    ['xuan wu'] = 'Genbu', ['ba ha mu te'] = 'Bahamut', ['bahamute'] = 'Bahamut', ['jue dui mei de'] = 'Absolute Virtue',
 };
 
 local SHORT = {
@@ -313,6 +329,9 @@ for w in ('pop nm hnm boss ws tp mp hp lv exp xp gil ok pt ls ki item drop sky s
 
 local function looks_pinyin(text)
     if PY == nil then return false; end
+    -- A shout in capitals ("DANG!", "GG") is English.
+    local letters = text:gsub('[^%a]', '');
+    if #letters >= 2 and letters == letters:upper() then return false; end
     local words, good, eng = 0, 0, 0;
     for w in words_only(text):gmatch('%a+') do
         if not GAME_EN[w] then
@@ -343,6 +362,84 @@ local GAME_PY = {
     ['zuo le'] = 'done', ['zuo le ma'] = 'done it?', ['zuo wan le'] = 'finished', ['ka zhu le'] = "I'm stuck",
     ['ka le'] = 'stuck', ['zuo dao'] = 'got up to', ['bang wo'] = 'help me', ['bang mang'] = 'help',
     ['ni bai men ren wu zuo le ma'] = 'have you done the Whitegate missions?',
+    ['shui ba lan men guan le'] = "who closed the blue door?",
+    ['jie san jiu xing la'] = "just disband it",
+    ['mei wei zi la'] = "no spots left (party full)",
+    ['mei wei zi le'] = "no spots left (party full)",
+    ['hai you wei zi ma'] = "any spots left?",
+    ['hai you wei zhi ma'] = "any spots left?",
+    ['hai you wei zhi me'] = "any spots left?",
+    ['wo da yi chang'] = "I'll do one run",
+    ['ni men da wo kan kan'] = "you fight, I'll watch",
+    ['ni you bu mai gei wo'] = "and you won't sell it to me",
+    ['huo dong gao qi'] = "let's get the event going",
+    ['gu ji shi de'] = "probably, yes",
+    ['da bu guo le a'] = "can't beat it?",
+    ['da bu guo'] = "can't beat it",
+    ['gei wo jia xue'] = "heal me",
+    ['mei qu guo'] = "haven't been there",
+    ['chuan song'] = "teleport",
+    ['wo shuo wo mei guo bu neng chuan song ba'] = "I said I haven't been there, so I can't teleport",
+    ['na fei ba'] = "then fly (teleport) there",
+    ['wo dai ni pao'] = "I'll run you there",
+    ['ke yi tui'] = "can leave the party",
+    ['wo ke yi tui'] = "I can leave the party",
+    ['ni tui'] = "you leave the party",
+    ['shui yao zu'] = "who wants an invite?",
+    ['da dian sha'] = "what shall we fight?",
+    ['yao chuan hui qu yi xia ba'] = "need to teleport back for a bit",
+    ['fa zai qun li le'] = "posted it in the group chat",
+    ['zu ni gan ma'] = "why would I invite you?",
+    ['bu da le'] = "not fighting any more?",
+    ['rao ban tian ye mei rao guo qu'] = "went round for ages and still couldn't get past",
+    ['rao ban tian ye mei rao guoqu'] = "went round for ages and still couldn't get past",
+    ['lian meng'] = "alliance",
+    ['lian men'] = "alliance",
+    ['lian men wo'] = "alliance me",
+    ['lian meng wo'] = "alliance me",
+    ['lian men dui zhang'] = "alliance leader",
+    ['lian meng dui zhang'] = "alliance leader",
+    ['ni mei zhan ji'] = "you don't have the points",
+    ['ni mei zhan ji ba'] = "you don't have the points, right?",
+    ['wo you zhan ji'] = "I have the points",
+    ['ren ne'] = "where are they?",
+    ['chi fan qu le'] = "gone to eat",
+    ['jin'] = "come in",
+    ['ni men na zu'] = "which party are you in?",
+    ['hai yao ren bu'] = "still need people?",
+    ['bu neng'] = "can't",
+    ['dou gei'] = "give it all",
+    ['wo huan'] = "I'll swap",
+    ['ni ganjin de dengni le'] = "hurry up, we're waiting for you",
+    ['ni gan jin de deng ni le'] = "hurry up, we're waiting for you",
+    ['bie chou re nao a'] = "don't join in just for fun",
+    ['mei man de'] = "anyone not capped",
+    ['man le'] = "capped (full)",
+    ['ni neng jin bu'] = "can you get in?",
+    ['ni neng jin ma'] = "can you get in?",
+    ['ni hui da ming ling ma'] = "do you know how to type commands?",
+    ['ni da ming ling'] = "you type the command",
+    ['dai dai wo'] = "take me along",
+    ['gan shen me'] = "what for?",
+    ['ni men xian da yi ge ran hou wo zai lai'] = "you fight one first, then I'll come",
+    ['xian bie jiao yi'] = "don't trade yet",
+    ['wo dao le a'] = "I'm here",
+    ['wo zai'] = "I'm here",
+    ['wo you wo lai le'] = "I have it, I'm coming",
+    ['ni zhe nao dai'] = "you airhead",
+    ['jiao ni yi zhao'] = "let me teach you a trick",
+    ['chuan bu liao'] = "can't wear it",
+    ['suo yi chuan bu liao'] = "so I can't wear it",
+    ['shi tou chou qi le'] = "got all the stones",
+    ['wo bu zhi dao qu na da'] = "I don't know where to fight",
+    ['qu na'] = "where to?",
+    ['shui yao'] = "who wants it?",
+    ['ni you bu li wo'] = "you're ignoring me again",
+    ['za mei'] = "why not?",
+    ['lai ren a'] = "somebody help!",
+    ['ta shi hun zi'] = "he's a jerk",
+    ['bie a'] = "don't!",
+    ['shi ni de hao ma'] = "is that your alt?",
     ['shi tou'] = 'stones', ['shi tou chou qi le ma'] = 'got all the stones yet?', ['shi tou qi le ma'] = 'got all the stones yet?',
     ['chou qi le'] = 'got the full set', ['chou qi le ma'] = 'got them all yet?', ['qi le'] = 'got them all',
     ['qi le ma'] = 'got them all yet?', ['hai cha'] = 'still missing', ['hai cha ji ge'] = 'how many still missing?',
@@ -872,6 +969,7 @@ ashita.events.register('text_in', 'omni_translate_text', function (e)
         local at = first_japanese(s);
         if at ~= nil then
             if not st.langs.ja then return; end
+            if japanese_count(s) < 2 then return; end   -- a face / symbols, not Japanese words
             -- Keep the English part in front ("Name : ", "(Name) ") as it is; translate the rest.
             local prefix = s:sub(1, at - 1);
             if #prefix > 40 then prefix = ''; at = 1; end
@@ -912,12 +1010,12 @@ ashita.events.register('text_in', 'omni_translate_text', function (e)
                 while k <= #cw do
                     -- Game names from the glossary go over as English.
                     local hit = nil;
-                    for n = math.min(4, #cw - k + 1), 2, -1 do
+                    for n = math.min(4, #cw - k + 1), 1, -1 do
                         local ph = words_only(table.concat(cw, ' ', k, k + n - 1));
                         if GLOSSARY[ph] then hit = n; parts[#parts + 1] = '|' .. GLOSSARY[ph] .. '|'; break; end
                     end
                     if hit then k = k + hit; prev = ''; else
-                    local w = cw[k]; k = k + 1;
+                    local w = cw[k]:gsub('\239[\39\40]', ''); k = k + 1;   -- auto-translate brackets
                     local letters = w:lower():gsub('[^%a]', '');
                     -- A game word that is Chinese after certain words: "ji lv" / "gai lv" = chance (not "level").
                     local zh_here = GAME_EN[letters] and ZH_AFTER[letters] and ZH_AFTER[letters][prev];
@@ -927,6 +1025,10 @@ ashita.events.register('text_in', 'omni_translate_text', function (e)
                     else parts[#parts + 1] = '|' .. w .. '|'; end
                     end
                 end
+                -- Mostly English words (an item list with one pinyin-looking word): leave it alone.
+                local lit, all = 0, 0;
+                for _, p in ipairs(parts) do all = all + 1; if p:sub(1, 1) == '|' then lit = lit + 1; end end
+                if all > 0 and lit * 2 > all then return; end
                 one_line(e, pre, 'py', table.concat(parts, ' '));
             end
             return;
@@ -972,12 +1074,32 @@ local REPLY_LANGS = { { 'zh', 'Chinese (pinyin)' }, { 'ja', 'Japanese' }, { 'fr'
 local KEEP_EN = {
     pop = 'pop', pops = 'pop', nm = 'NM', nms = 'NM', hnm = 'HNM', hnms = 'HNM', av = 'AV', ws = 'WS',
     tp = 'TP', mp = 'MP', hp = 'HP', ki = 'KI', kis = 'KI', gil = 'gil', ls = 'LS', exp = 'exp', xp = 'exp',
-    ja = 'JA', sp = 'SP', lv = 'lv', lvl = 'lv', pt = 'PT', ah = 'AH',
+    ja = 'JA', sp = 'SP', lv = 'lv', lvl = 'lv', pt = 'PT', ah = 'AH', lol = 'lol', xd = 'XD', dkp = 'DKP',
+    ap = 'AP', cp = 'CP', jp = 'JP', whm = 'WHM', rdm = 'RDM', brd = 'BRD', blm = 'BLM', sch = 'SCH', cor = 'COR',
+    geo = 'GEO', pld = 'PLD', sam = 'SAM', nin = 'NIN', drk = 'DRK', drg = 'DRG', smn = 'SMN', thf = 'THF',
+    mnk = 'MNK', rng = 'RNG', bst = 'BST', blu = 'BLU', pup = 'PUP', dnc = 'DNC',
 };
+-- Chat shorthand spelled out so the translator understands it ("ill stay" = "I'll stay", not "sick").
+local SHORTHAND = {
+    ill = "I'll", im = "I'm", ive = "I've", dont = "don't", cant = "can't", wont = "won't",
+    didnt = "didn't", doesnt = "doesn't", isnt = "isn't", wasnt = "wasn't", arent = "aren't", thats = "that's",
+    whats = "what's", u = 'you', ur = 'your', r = 'are', pls = 'please', plz = 'please', thx = 'thanks',
+    ty = 'thank you', np = 'no problem', ppl = 'people', ssent = 'sent', iss = 'is', gonna = 'going to', wanna = 'want to',
+};
+local function tidy_english(text)
+    return (text:gsub("%f[%w]([%a']+)%f[^%w']", function (w)
+        local x = SHORTHAND[w:lower()];
+        if x == nil then return w; end
+        if w:sub(1, 1):match('%u') then x = x:sub(1, 1):upper() .. x:sub(2); end
+        return x;
+    end));
+end
+
+-- Player names (from the names list) stay as they are too.
 local function protect_words(text)
     local map, n = {}, 0;
     local out = text:gsub('%f[%w](%w+)%f[%W]', function (w)
-        local keepw = KEEP_EN[w:lower()];
+        local keepw = KEEP_EN[w:lower()] or KNOWN_NAMES[w:lower()];
         if keepw == nil then return w; end
         n = n + 1;
         local tag = tostring(7300 + n);
@@ -1007,7 +1129,10 @@ local function send_text(keep, text, force_english)
         send(keep .. ' ' .. (text:sub(1, 1) == '=' and text:sub(2) or text));
         return;
     end
+    -- An emote or game command (/yawn, /wave, /check) goes as typed.
+    if text:match('^%s*/') then send(keep .. ' ' .. text); return; end
     local en = sjis_to_utf8(text) or text;
+    en = tidy_english(en);
     local function send_as_typed()
         msg('sent in English instead.');
         file_log('OUT', keep, text, '(sent in English - translator failed)', lang);
@@ -1356,6 +1481,7 @@ tr.set = function (on) st.master = (on == true); save(); if not st.master then s
 -- omni unloaded or reloaded: close the helper too.
 ashita.events.register('unload', 'omni_translate_unload', function () stop_worker(); end);
 tr.first_japanese = first_japanese;
+tr.japanese_count = japanese_count;
 tr.looks_pinyin = looks_pinyin;
 tr.game_phrase = game_phrase;
 tr.split_names = split_names;
