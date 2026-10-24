@@ -213,6 +213,10 @@ local function check(name, t, now)
         for _, w in ipairs(WARN) do
             events[#events + 1] = { open_t + w[1], ('%s window %s %s'):format(name, tag, w[2]) .. (forced and ' (forced pop)' or ''), false, 'w' .. w[1] };
         end
+        if k == 1 then
+            -- One hour before the first window: told to the linkshell (tick box "1h warning to linkshell").
+            events[#events + 1] = { open_t - 3600, ('%s window 1/%d in 1 hour (%s)'):format(name, g.count, os.date('%H:%M:%S', open_t)), false, 'ls1h', true };
+        end
         events[#events + 1] = { open_t, ('%s window %s OPEN!'):format(name, tag) .. (forced and ' Forced pop - it should be up now!' or ''), true, 'open' };
         if k < g.count then
             events[#events + 1] = { open_t + 50, ('%s window %s closed - next window (%d/%d) in %s'):format(
@@ -225,7 +229,13 @@ local function check(name, t, now)
             if not t.fired[key] and now >= e[1] then
                 t.fired[key] = true;
                 -- Only announce it if it is fresh (not when loading an old timer or catching up).
-                if st.warn and now - e[1] <= 5 and not t.loaded_skip then
+                if e[5] then
+                    -- The 1-hour linkshell warning (fresh only: within 5 minutes of the hour mark).
+                    if st.ls and now - e[1] <= 300 and not t.loaded_skip then
+                        msg(e[2]);
+                        pcall(function () AshitaCore:GetChatManager():QueueCommand(1, '/l ' .. e[2]); end);
+                    end
+                elseif st.warn and now - e[1] <= 5 and not t.loaded_skip then
                     msg(e[2]);
                     sound(e[3]);
                     party(e[2], e[3]);
@@ -489,6 +499,9 @@ ashita.events.register('command', 'omni_pops_cmd', function (e)
         local name = find_hnm(rest);
         if name == nil then msg('Which HNM? e.g. /pops lock khimaira'); return; end
         set_lock(name, c == 'lock');
+    elseif c == 'ls1h' or c == 'hour' then
+        st.ls = not st.ls; save();
+        msg('1 hour linkshell warning ' .. (st.ls and 'ON' or 'OFF') .. '.');
     elseif c == 'ls' or c == 'ls1' or c == 'linkshell' or c == 'ls2' or c == 'linkshell2' then
         local name = find_hnm(rest);
         if name == nil then msg('Which HNM? e.g. /pops ls fafnir  (or /pops ls2 fafnir)'); return; end
@@ -698,6 +711,10 @@ local function body()
     local pv = { st.party };
     if imgui.Checkbox('Warn the party too##pops_party', pv) then st.party = pv[1]; save(); end
     if imgui.IsItemHovered() then imgui.SetTooltip('Posts every warning to party chat too\n(each OPEN with a <call14> sound). Same as /pops party.'); end
+    imgui.SameLine(0, 16);
+    local lv = { st.ls };
+    if imgui.Checkbox('1h warning to linkshell##pops_ls1h', lv) then st.ls = lv[1]; save(); end
+    if imgui.IsItemHovered() then imgui.SetTooltip('One hour before the first window of every timer, posts to /l:\n"Jormungand window 1/7 in 1 hour (22:18:49)"\nSame as /pops ls1h.'); end
     imgui.SameLine(0, 16);
     imgui.TextColored(C.dim, ('%d active'):format(#active));
 end

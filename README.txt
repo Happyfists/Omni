@@ -178,7 +178,8 @@ with a drop-down panel of tabs underneath it for everything else.
       (Nyzul Isle floor bosses, Einherjar...) don't count.
     * Every ToD is saved in config\addons\omni\tods\<HNM>.txt; /pops history <hnm> shows the
       last ones, and after a reload any timer still running comes back from there.
-    * Tick boxes: Window warnings, Warn the party too (<call14> on OPEN).
+    * Tick boxes: Window warnings, Warn the party too (<call14> on OPEN), 1h warning to linkshell
+      (one hour before the first window of every timer: "/l Jormungand window 1/7 in 1 hour (22:18:49)").
     * L1 / L2 buttons on each running timer announce its ToD to linkshell 1 or 2 when you
       press them ("/l Fafnir ToD 13:40:00 - Repop at Thu 22 Oct 10:40:00 ..."). Nothing is
       posted by itself. Also /pops ls <hnm> and /pops ls2 <hnm>.
