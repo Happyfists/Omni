@@ -279,6 +279,10 @@ end
 -- Every player name seen talking in chat is kept in translate\names.txt (lowercase -> as written).
 -- Any of those names inside a line is taken out before translating and put back in front.
 local KNOWN_NAMES = {};
+-- The Happy Translate box: the game's own chat line also gets what you type there, so pressing Enter
+-- would send your English straight out. While the box has the keyboard (and just after), and for
+-- anything matching what was in it, that line is stopped.
+local box = { active_t = -10, text = '', sent_text = '', sent_t = -10 };
 local recent_out = {};   -- lines you sent through Happy Translate (lowercase) -> os.clock()
 local quick_inline;   -- set further down
 
@@ -1218,6 +1222,19 @@ local function reply(e)
 end
 
 ashita.events.register('command', 'omni_translate_cmd', function (e)
+    -- A chat line the game is sending because you pressed Enter while typing in the Happy Translate box.
+    if not e.injected and not passthrough[e.command] then
+        local norm = function (x) return (x or ''):gsub('^/%a+%d?%s+', ''):gsub('^%s+', ''):gsub('%s+$', ''):lower(); end
+        local line = norm(e.command);
+        local now = os.clock();
+        local typed_in_box = (now - box.active_t < 0.6)
+            or (line ~= '' and (line == norm(box.text) or (now - box.sent_t < 15 and line == norm(box.sent_text))));
+        if typed_in_box and not e.command:lower():match('^/z') and not e.command:lower():match('^/translate') then
+            e.blocked = true;
+            msg('that was typed in the Happy Translate box - not sent as it was. Press Send to translate it.');
+            return;
+        end
+    end
     local a = e.command:args();
     if #a == 0 then return; end
     local c0 = a[1]:lower();
@@ -1430,6 +1447,8 @@ local function body(in_tab)
     imgui.PushItemWidth(-54);
     local hint = 'type in English, then click Send - it goes out in the language on the left';
     imgui.InputTextWithHint('##trw_in', hint, in_buf, 200);
+    if imgui.IsItemActive() then box.active_t = os.clock(); end
+    if not in_buf[1]:match('^%s*$') then box.text = in_buf[1]; end
     local entered = false;   -- only the Send button sends (Leon's choice); Enter does nothing here
     imgui.PopItemWidth();
     imgui.SameLine(0, 4);
@@ -1437,9 +1456,11 @@ local function body(in_tab)
     if (entered or clicked) and not in_buf[1]:match('^%s*$') then
         local text = in_buf[1]:gsub('^%s+', '');
         in_buf[1] = '';
+        box.sent_text, box.sent_t = text, os.clock();
         local ok, err = pcall(function ()
         if text:sub(1, 1) == '/' then
             -- A whole command (/l2 hi, /p hi): run it like the chat line would.
+            passthrough[text] = true;
             AshitaCore:GetChatManager():QueueCommand(1, text);
         elseif keep == '/t ' then
             msg('type a name for the tell first.');
