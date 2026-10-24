@@ -582,9 +582,9 @@ local function body()
     local flags = bit.bor(ImGuiTableFlags_BordersInnerH, ImGuiTableFlags_SizingFixedFit);
     if imgui.BeginTable('##pops_table', 5, flags) then
         imgui.TableSetupColumn('HNM', ImGuiTableColumnFlags_WidthFixed, 262);
-        imgui.TableSetupColumn('ToD', ImGuiTableColumnFlags_WidthFixed, 62);
+        imgui.TableSetupColumn('ToD', ImGuiTableColumnFlags_WidthFixed, 84);
         imgui.TableSetupColumn('Countdown', ImGuiTableColumnFlags_WidthFixed, 150);
-        imgui.TableSetupColumn('Pop date', ImGuiTableColumnFlags_WidthFixed, 280);
+        imgui.TableSetupColumn('Pop date', ImGuiTableColumnFlags_WidthFixed, 300);
         imgui.TableSetupColumn('##act', ImGuiTableColumnFlags_WidthFixed, 140);
         imgui.TableHeadersRow();
 
@@ -626,7 +626,7 @@ local function body()
             pcall(imgui.TableSetBgColor, ImGuiTableBgTarget_RowBg0, imgui.GetColorU32({ accent[1], accent[2], accent[3], 0.10 }));
             name_cell(h, accent);
             imgui.TableNextColumn();
-            imgui.TextColored(C.text, os.date('%H:%M', t.tod));
+            imgui.TextColored(C.text, os.date('%H:%M:%S', t.tod));
             imgui.TableNextColumn();
             if s.phase == 'open' then
                 local blink = (math.floor(os.clock() * 2) % 2 == 0);
@@ -648,7 +648,7 @@ local function body()
             imgui.TableNextColumn();
             local tail = ((g.forced == false) and '(last %s)' or '(forced %s)'):format(os.date('%H:%M', last));
             if s.phase == 'wait' then
-                imgui.TextColored(C.text, os.date('%a %d %b %H:%M', s.next_open));
+                imgui.TextColored(C.text, os.date('%a %d %b %H:%M:%S', s.next_open));
                 imgui.SameLine(0, 6);
                 imgui.TextColored(C.dim, tail);
             elseif s.phase == 'open' then
