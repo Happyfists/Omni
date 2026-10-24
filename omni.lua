@@ -55,7 +55,7 @@
 
 addon.name    = 'omni';
 addon.author  = 'Happyfists';
-addon.version = '3.14';
+addon.version = '3.15';
 addon.desc    = 'All-in-one addon.';
 
 require('common');
@@ -935,6 +935,13 @@ local function target_color(entity, index)
     return { 1.0, 0.4, 1.0, 1.0 };
 end
 
+-- Monster info strip under the target bar (omni_mobinfo.lua, reads the mobdb addon's database).
+local mobinfo = nil;
+do
+    local ok, mod = pcall(require, 'omni_mobinfo');
+    if (ok) then mobinfo = mod; else print('[omni] Monster info could not load: ' .. tostring(mod)); end
+end
+
 -- Returns the height of the bar it drew, or 0 if there is no target.
 local function draw_target(ox, ow, oh)
     local target = AshitaCore:GetMemoryManager():GetTarget();
@@ -1072,6 +1079,16 @@ local function draw_target(ox, ow, oh)
 
     imgui.PopStyleVar(square and 2 or 1);
     imgui.PopStyleColor(3);
+
+    -- A monster: what mobdb knows about it, in a thin strip right under the target bar.
+    if (mobinfo ~= nil and s.mob_info ~= false and bit.band(entity.SpawnFlags or 0, 0x10) ~= 0) then
+        local okr, r = pcall(mobinfo.lookup, index, entity.Name);
+        if (okr and r ~= nil) then
+            local okd, mh = pcall(mobinfo.draw, s.bar_x + (ox or 0), s.bar_y + BAR_HEIGHT - 1 + height - 1, W, r,
+                s.colors, s.colors.bg, s.colors.border);
+            if (okd and type(mh) == 'number') then omni.mob_h = mh - 1; end
+        end
+    end
     return height;
 end
 
@@ -1779,6 +1796,7 @@ do
             if (section('Bars')) then
             toggle('Abyssea time and lights', 'aby_bar', true, 'In Abyssea zones the bar shows Visitant time and lights instead of XP.');
             toggle('Dynamis time and time extensions', 'dyna_bar', true, 'In Dynamis the bar shows the time left and which of the five\ntime extensions (granules of time) you have, instead of XP.');
+            toggle('Monster info under the target bar', 'mob_info', true, 'Level, job, NM, aggro (sight / sound / scent...), links, weaknesses,\nresistances, immunities and respawn of the monster you target.\nHover it for its drops. Needs the mobdb addon in your addons folder\n(it reads mobdb\'s database; mobdb itself does not need to be loaded).');
             toggle('Nyzul Isle floor, objective and time', 'nyzul_bar', true, 'On Nyzul Isle the bar shows the floor, the floor\'s objective (hover it for a tip)\nand the time left, instead of XP.');
             toggle('Sneak / Invisible buttons', 'stealth_bar', true, 'Magic, ninjutsu, Spectral Jig or oils and powders.');
             local hide = { not s.show_native };
@@ -2578,6 +2596,7 @@ ashita.events.register('d3d_present', 'omni_present', function ()
     local th = target_need();
     local W = omni.bar_width;
     local row = 0;
+    omni.mob_h = 0;
     if (eh > 0 and th > 0) then
         local lw = math.floor(W * 0.42);
         row = math.max(eh, th);
@@ -2588,7 +2607,7 @@ ashita.events.register('d3d_present', 'omni_present', function ()
     elseif (th > 0) then
         row = draw_target(0, W, th);
     end
-    omni.exp_h = math.max(0, row - 1);
+    omni.exp_h = math.max(0, row - 1) + (omni.mob_h or 0);
     -- Buff times hang under the row: keep the panel clear of them.
     if (omni.buff_times and eh > 0) then omni.exp_h = omni.exp_h + BUFF_TIME_H; end
     omni.target_h = 0;
