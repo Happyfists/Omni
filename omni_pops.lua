@@ -11,7 +11,7 @@
       57h group: windows every 10 min from 57:00, forced at 58:00 (7 windows)
       81h group: windows every 10 min from 81:00, forced at 82:00 (7 windows)
       Wyrms (Jormungand, Tiamat, Vrtra): not on that page. 7 windows 10 min apart (Leon),
-      first window assumed at 72:00, forced at 73:00. Change GROUPS.wyrm if CatsEyeXI differs.
+      first window at 81:00, forced at 82:00 (CatsEyeXI, checked in game 24 Oct).
 
     Commands
       /pops                        open omni's panel on the Happy Pops tab
@@ -38,9 +38,9 @@ local GROUPS = {
     h21 = { first = 21 * 3600, step = 5 * 60,  count = 7 },
     h57 = { first = 57 * 3600, step = 10 * 60, count = 7 },
     h81 = { first = 81 * 3600, step = 10 * 60, count = 7 },
-    -- Wyrms (Leon, from playing): 7 windows 10 min apart like the others. First window assumed at 72h (classic
-    -- earliest wyrm pop) - change "first" here if CatsEyeXI uses another hour.
-    wyrm = { first = 72 * 3600, step = 10 * 60, count = 7, label = '72h' },
+    -- Wyrms (Jormungand, Tiamat, Vrtra): 81h like the 81h group, 7 windows 10 min apart (Leon, 24 Oct:
+    -- the 72h guess was 9 hours early on CatsEyeXI).
+    wyrm = { first = 81 * 3600, step = 10 * 60, count = 7, label = '81h' },
 };
 local HNMS = {
     { 'Fafnir', 'h21' }, { 'Behemoth', 'h21' }, { 'Adamantoise', 'h21' }, { 'Argus', 'h21' },
