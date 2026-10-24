@@ -308,15 +308,20 @@ local function start(name, tod, how)
     local g = GROUPS[GROUP_OF[name]];
     msg(('%s ToD %s - first window %s (in %s), %d windows %d min apart.'):format(
         name, clock(tod), clock(tod + g.first), span(tod + g.first - os.time()), g.count, g.step / 60));
-    -- Tell the linkshell: "/l Fafnir ToD 13:03:12 - Repop at Thu 22 Oct 10:03:12 (7 windows, forced 10:33)"
-    if st.ls then
-        local first = tod + g.first;
-        local last = first + (g.count - 1) * g.step;
-        local tail = (g.forced == false) and ('until ' .. os.date('%a %d %b %H:%M', last)) or ('forced ' .. os.date('%H:%M', last));
-        local line = ('%s ToD %s - Repop at %s (%d windows, %s)'):format(
-            name, os.date('%H:%M:%S', tod), os.date('%a %d %b %H:%M:%S', first), g.count, tail);
-        pcall(function () AshitaCore:GetChatManager():QueueCommand(1, '/l ' .. line); end);
-    end
+end
+
+-- Announce an HNM's ToD to a linkshell (only when you press its L1 / L2 button, or /pops ls <hnm>):
+--   /l Fafnir ToD 13:03:12 - Repop at Thu 22 Oct 10:03:12 (7 windows, forced 10:33)
+local function announce(name, chan)
+    local t = st.timers[name];
+    if t == nil then msg(name .. ' has no ToD to announce.'); return; end
+    local g = GROUPS[GROUP_OF[name]];
+    local first = t.tod + g.first;
+    local last = first + (g.count - 1) * g.step;
+    local tail = (g.forced == false) and ('until ' .. os.date('%a %d %b %H:%M', last)) or ('forced ' .. os.date('%H:%M', last));
+    local line = ('%s ToD %s - Repop at %s (%d windows, %s)'):format(
+        name, os.date('%H:%M:%S', t.tod), os.date('%a %d %b %H:%M:%S', first), g.count, tail);
+    pcall(function () AshitaCore:GetChatManager():QueueCommand(1, (chan or '/l') .. ' ' .. line); end);
 end
 -- An automatic ToD (chat or seen dying nearby). Ignored if we already have one from the last 10 min.
 local function auto_kill(name, how)
@@ -448,14 +453,15 @@ ashita.events.register('command', 'omni_pops_cmd', function (e)
     elseif c == 'warn' or c == 'warnings' then
         st.warn = not st.warn; save();
         msg('Window warnings ' .. (st.warn and 'ON' or 'OFF') .. '.');
-    elseif c == 'ls' or c == 'linkshell' then
-        st.ls = not st.ls; save();
-        msg('Linkshell ToD posts ' .. (st.ls and 'ON' or 'OFF') .. '.');
+    elseif c == 'ls' or c == 'ls1' or c == 'linkshell' or c == 'ls2' or c == 'linkshell2' then
+        local name = find_hnm(rest);
+        if name == nil then msg('Which HNM? e.g. /pops ls fafnir  (or /pops ls2 fafnir)'); return; end
+        announce(name, (c == 'ls2' or c == 'linkshell2') and '/l2' or '/l');
     elseif c == 'party' then
         st.party = not st.party; save();
         msg('Party chat warnings ' .. (st.party and 'ON' or 'OFF') .. '.');
     else
-        msg('/pops  |  /pops add <hnm> [21:35]  |  /pops kill <hnm>  |  /pops del <hnm>  |  /pops list [party]  |  /pops party');
+        msg('/pops  |  /pops add <hnm> [21:35]  |  /pops kill <hnm>  |  /pops del <hnm>  |  /pops list [party]  |  /pops party  |  /pops ls <hnm>  |  /pops ls2 <hnm>');
     end
 end);
 
@@ -543,7 +549,7 @@ local function body()
         imgui.TableSetupColumn('ToD', ImGuiTableColumnFlags_WidthFixed, 62);
         imgui.TableSetupColumn('Countdown', ImGuiTableColumnFlags_WidthFixed, 150);
         imgui.TableSetupColumn('Pop date', ImGuiTableColumnFlags_WidthFixed, 300);
-        imgui.TableSetupColumn('##act', ImGuiTableColumnFlags_WidthFixed, 80);
+        imgui.TableSetupColumn('##act', ImGuiTableColumnFlags_WidthFixed, 140);
         imgui.TableHeadersRow();
 
         local function name_cell(h, col)
@@ -603,6 +609,12 @@ local function body()
             if imgui.SmallButton('Killed##pops_k_' .. name) then start(name, os.time(), 'button'); end
             if imgui.IsItemHovered() then imgui.SetTooltip('It died just now - start a new timer.'); end
             imgui.SameLine(0, 4);
+            if imgui.SmallButton('L1##pops_l1_' .. name) then announce(name, '/l'); end
+            if imgui.IsItemHovered() then imgui.SetTooltip('Announce this ToD to linkshell 1 (/l):\n' .. name .. ' ToD hh:mm:ss - Repop at <day date time> (7 windows, forced hh:mm)'); end
+            imgui.SameLine(0, 4);
+            if imgui.SmallButton('L2##pops_l2_' .. name) then announce(name, '/l2'); end
+            if imgui.IsItemHovered() then imgui.SetTooltip('Announce this ToD to linkshell 2 (/l2).'); end
+            imgui.SameLine(0, 4);
             if imgui.SmallButton('X##pops_x_' .. name) then stop(name); end
             if imgui.IsItemHovered() then imgui.SetTooltip('Stop tracking it.'); end
         end
@@ -630,10 +642,6 @@ local function body()
     local pv = { st.party };
     if imgui.Checkbox('Warn the party too##pops_party', pv) then st.party = pv[1]; save(); end
     if imgui.IsItemHovered() then imgui.SetTooltip('Posts every warning to party chat too\n(each OPEN with a <call14> sound). Same as /pops party.'); end
-    imgui.SameLine(0, 16);
-    local lv = { st.ls };
-    if imgui.Checkbox('Post ToD to linkshell##pops_ls', lv) then st.ls = lv[1]; save(); end
-    if imgui.IsItemHovered() then imgui.SetTooltip('When a ToD is recorded, posts it to /l:\n"Fafnir ToD 13:03:12 - Repop at Thu 22 Oct 10:03:12 (7 windows, forced 10:33)"\nSame as /pops ls.'); end
     imgui.SameLine(0, 16);
     imgui.TextColored(C.dim, ('%d active'):format(#active));
 end

@@ -179,8 +179,10 @@ with a drop-down panel of tabs underneath it for everything else.
       (Nyzul Isle floor bosses, Einherjar...) don't count.
     * Every ToD is saved in config\addons\omni\tods\<HNM>.txt; /pops history <hnm> shows the
       last ones, and after a reload any timer still running comes back from there.
-    * Tick boxes: Window warnings, Warn the party too (<call14> on OPEN),
-      Post ToD to linkshell ("/l Fafnir ToD 13:40:00 - Repop at Thu 22 Oct 10:40:00 ...").
+    * Tick boxes: Window warnings, Warn the party too (<call14> on OPEN).
+    * L1 / L2 buttons on each running timer announce its ToD to linkshell 1 or 2 when you
+      press them ("/l Fafnir ToD 13:40:00 - Repop at Thu 22 Oct 10:40:00 ..."). Nothing is
+      posted by itself. Also /pops ls <hnm> and /pops ls2 <hnm>.
 
   HAPPY TRANSLATE (top row tab, On/Off slider next to it, /translate on|off)
     * Tick the languages you want: Chinese (pinyin), Japanese, French, German, Spanish, Portuguese.
@@ -215,7 +217,7 @@ with a drop-down panel of tabs underneath it for everything else.
     /ddr                 reset the damage meter
     /ddp [n]             post the top n damage dealers in party chat
     /avh help            AV helper commands
-    /pops                Happy Pops tab   (/pops add <hnm> [21:35], kill, del, list, history,
+    /pops                Happy Pops tab   (/pops add <hnm> [21:35], kill, del, list, history, ls <hnm>, ls2 <hnm>,
                          warn, party, ls)
     /translate           Happy Translate on/off  (status, learn, test, window)
     /zl /zl2 /zp /zs /zsh /zt <name> /zr   send a message translated into pinyin
