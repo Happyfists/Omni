@@ -184,6 +184,9 @@ with a drop-down panel of tabs underneath it for everything else.
     * L1 / L2 buttons on each running timer announce its ToD to linkshell 1 or 2 when you
       press them ("/l Fafnir ToD 13:40:00 - Repop at Thu 22 Oct 10:40:00 ..."). Nothing is
       posted by itself. Also /pops ls <hnm> and /pops ls2 <hnm>.
+    * When the HNM pops, the timer shows POPPED and stops counting windows and warning. It is
+      spotted by itself when the HNM appears near you in its zone; or press Up (Not up undoes it),
+      or /pops up <hnm>. Killing it starts the next timer as usual.
     * Lock button beside each running timer's name: locks the ToD in until 30 min before the
       first window, so killing a pop-able NM of the same name can't reset it (/pops lock <hnm>,
       /pops unlock <hnm>). It unlocks by itself 30 min before the window.

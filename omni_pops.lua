@@ -110,6 +110,7 @@ local function save()
         f:write('warn ', st.warn and 1 or 0, '\n');
         for name, t in pairs(st.timers) do f:write('tod ', t.tod, ' ', name, '\n'); end
         for name, t in pairs(st.timers) do if t.locked then f:write('lock ', name, '\n'); end end
+        for name, t in pairs(st.timers) do if t.popped then f:write('popped ', t.popped, ' ', name, '\n'); end end
         for name, tod in pairs(st.removed) do f:write('removed ', tod, ' ', name, '\n'); end
         f:close();
     end);
@@ -127,6 +128,8 @@ local function load()
             if rt then st.removed[rn] = tonumber(rt); end
             local tod, name = line:match('^tod (%d+) (.+)$');
             if tod and GROUP_OF[name] then st.timers[name] = { tod = tonumber(tod), fired = {}, loaded = true }; end
+            local pt, pn = line:match('^popped (%d+) (.+)$');
+            if pt and st.timers[pn] then st.timers[pn].popped = tonumber(pt); end
             local lk = line:match('^lock (.+)$');
             if lk and st.timers[lk] then st.timers[lk].locked = true; end
         end
@@ -169,6 +172,11 @@ end
 local function status(name, t, now)
     local g = GROUPS[GROUP_OF[name]];
     local first = t.tod + g.first;
+    if t.popped then
+        -- It has popped: which window it came in.
+        local k = math.max(1, math.min(g.count, math.floor((t.popped - first) / g.step) + 1));
+        return { phase = 'popped', at = t.popped, win = k, count = g.count };
+    end
     local last = first + (g.count - 1) * g.step;
     if now < first then
         return { phase = 'wait', win = 1, count = g.count, next_open = first, left = first - now };
@@ -205,6 +213,7 @@ local WARN = {
 };
 
 local function check(name, t, now)
+    if t.popped then return; end   -- it's up: no more window countdown or warnings
     local g = GROUPS[GROUP_OF[name]];
     local first = t.tod + g.first;
     for k = 1, g.count do
@@ -401,6 +410,21 @@ ashita.events.register('text_in', 'omni_pops_text', function (e)
     end);
 end);
 
+-- It popped: the window countdown and warnings stop until it dies (Killed / a kill seen starts a new timer).
+local function set_popped(name, when, how)
+    local t = st.timers[name];
+    if t == nil then return; end
+    if when == nil then t.popped = nil; save(); msg(name .. ' back to counting windows.'); return; end
+    t.popped = when;
+    save();
+    local s = status(name, t, when);
+    local line = ('%s POPPED! (window %d/%d, %s)'):format(name, s.win, s.count, os.date('%H:%M:%S', when));
+    msg(line .. ((how == 'nearby') and ' - seen near you.' or ''));
+    sound(true);
+    party(line, true);
+end
+pops.set_popped = set_popped;
+
 -- Watch for the HNMs near you: when one you can see drops to 0% HP (or vanishes at low HP), that's the ToD.
 local seen, last_scan, last_zone = {}, 0, -1;
 local function scan()
@@ -415,6 +439,12 @@ local function scan()
             now_seen[name] = hp;
             local was = seen[name];
             if was ~= nil and was > 0 and hp == 0 then auto_kill(name, 'nearby'); end
+            -- Seen alive in its own zone from 2 minutes before window 1 on: it has popped.
+            local t = st.timers[name];
+            if hp > 0 and t ~= nil and not t.popped and in_hnm_zone(name)
+               and os.time() >= t.tod + GROUPS[GROUP_OF[name]].first - 120 then
+                set_popped(name, os.time(), 'nearby');
+            end
         end
     end
     for name, hp in pairs(seen) do
@@ -449,6 +479,7 @@ local function list(to_party)
         local line;
         if s.phase == 'wait' then line = ('%s: window %d/%d in %s (%s)'):format(name, s.win, s.count, span(s.left), clock(s.next_open));
         elseif s.phase == 'open' then line = ('%s: window %d/%d OPEN now'):format(name, s.win, s.count);
+        elseif s.phase == 'popped' then line = ('%s: POPPED at %s (window %d/%d)'):format(name, os.date('%H:%M:%S', s.at), s.win, s.count);
         else line = ('%s: all windows passed - should be up (forced %s ago)'):format(name, span(s.since)); end
         if to_party then
             pcall(function () AshitaCore:GetChatManager():QueueCommand(1, '/p ' .. line); end);
@@ -501,6 +532,10 @@ ashita.events.register('command', 'omni_pops_cmd', function (e)
         local name = find_hnm(rest);
         if name == nil then msg('Which HNM? e.g. /pops lock khimaira'); return; end
         set_lock(name, c == 'lock');
+    elseif c == 'up' or c == 'popped' or c == 'notup' then
+        local name = find_hnm(rest);
+        if name == nil or st.timers[name] == nil then msg('Which HNM (with a timer)? e.g. /pops up fafnir'); return; end
+        set_popped(name, (c ~= 'notup') and os.time() or nil, 'typed');
     elseif c == 'ls1h' or c == 'hour' then
         st.ls = not st.ls; save();
         msg('1 hour linkshell warning ' .. (st.ls and 'ON' or 'OFF') .. '.');
@@ -512,7 +547,7 @@ ashita.events.register('command', 'omni_pops_cmd', function (e)
         st.party = not st.party; save();
         msg('Party chat warnings ' .. (st.party and 'ON' or 'OFF') .. '.');
     else
-        msg('/pops  |  /pops add <hnm> [21:35]  |  /pops kill <hnm>  |  /pops del <hnm>  |  /pops list [party]  |  /pops party  |  /pops ls <hnm>  |  /pops ls2 <hnm>  |  /pops lock|unlock <hnm>');
+        msg('/pops  |  /pops add <hnm> [21:35]  |  /pops kill <hnm>  |  /pops del <hnm>  |  /pops list [party]  |  /pops party  |  /pops ls <hnm>  |  /pops ls2 <hnm>  |  /pops lock|unlock <hnm>  |  /pops up|notup <hnm>');
     end
 end);
 
@@ -578,6 +613,7 @@ local function body()
     end
     local function key(h)
         local s = status(h[1], st.timers[h[1]], now);
+        if s.phase == 'popped' then return -3; end
         if s.phase == 'open' then return -1; end
         if s.phase == 'done' then return -2; end
         return s.left;
@@ -600,7 +636,7 @@ local function body()
         imgui.TableSetupColumn('ToD', ImGuiTableColumnFlags_WidthFixed, 84);
         imgui.TableSetupColumn('Countdown', ImGuiTableColumnFlags_WidthFixed, 150);
         imgui.TableSetupColumn('Pop date', ImGuiTableColumnFlags_WidthFixed, 300);
-        imgui.TableSetupColumn('##act', ImGuiTableColumnFlags_WidthFixed, 140);
+        imgui.TableSetupColumn('##act', ImGuiTableColumnFlags_WidthFixed, 190);
         imgui.TableHeadersRow();
 
         local function name_cell(h, col)
@@ -643,7 +679,9 @@ local function body()
             imgui.TableNextColumn();
             imgui.TextColored(C.text, os.date('%H:%M:%S', t.tod));
             imgui.TableNextColumn();
-            if s.phase == 'open' then
+            if s.phase == 'popped' then
+                imgui.TextColored(C.green, 'POPPED');
+            elseif s.phase == 'open' then
                 local blink = (math.floor(os.clock() * 2) % 2 == 0);
                 imgui.TextColored(blink and C.green or C.text, ('OPEN  %ds'):format(math.ceil(s.left)));
             elseif s.phase == 'wait' then
@@ -662,7 +700,11 @@ local function body()
             -- Pop date: the day and time of the next window, and of the last (forced) one.
             imgui.TableNextColumn();
             local tail = ((g.forced == false) and '(last %s)' or '(forced %s)'):format(os.date('%H:%M', last));
-            if s.phase == 'wait' then
+            if s.phase == 'popped' then
+                imgui.TextColored(C.green, ('popped %s'):format(os.date('%a %d %b %H:%M:%S', s.at)));
+                imgui.SameLine(0, 6);
+                imgui.TextColored(C.dim, ('(window %d/%d)'):format(s.win, s.count));
+            elseif s.phase == 'wait' then
                 imgui.TextColored(C.text, os.date('%a %d %b %H:%M:%S', s.next_open));
                 imgui.SameLine(0, 6);
                 imgui.TextColored(C.dim, tail);
@@ -679,6 +721,9 @@ local function body()
                 else start(name, os.time(), 'button'); end
             end
             if imgui.IsItemHovered() then imgui.SetTooltip(is_locked(name) and 'ToD is locked - unlock it first to change it.' or 'It died just now - start a new timer.'); end
+            imgui.SameLine(0, 4);
+            if imgui.SmallButton((t.popped and 'Not up' or 'Up') .. '##pops_up_' .. name) then set_popped(name, (not t.popped) and os.time() or nil, 'button'); end
+            if imgui.IsItemHovered() then imgui.SetTooltip(t.popped and 'It wasn\'t really up - go back to counting the windows.' or 'It has popped - stop counting the windows.\n(Done by itself when it is seen near you in its zone.)'); end
             imgui.SameLine(0, 4);
             if imgui.SmallButton('L1##pops_l1_' .. name) then announce(name, '/l'); end
             if imgui.IsItemHovered() then imgui.SetTooltip('Announce this ToD to linkshell 1 (/l):\n' .. name .. ' ToD hh:mm:ss - Repop at <day date time> (7 windows, forced hh:mm)'); end
