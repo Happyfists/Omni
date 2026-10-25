@@ -3,8 +3,9 @@
 
     Says something when you get a tell, a GM tell, a party or alliance invite, a trade, an emote at
     you, someone checks you, your bags are full, you skill up, or someone says your name in chat.
-    Party and linkshell chat (yours too) give a soft sound instead of a voice: ping, bonk, pop,
-    chime or drop (assets/alerts/sfx/), picked per alert.
+    Party and linkshell chat (yours too) give a soft sound instead of a voice - 18 to pick from
+    (ping, bonk, pop, chime, drop, bell, ding-dong, blip, coin, bubble, knock, marimba, pluck,
+    sparkle, gong, boing, tick, kalimba; assets/alerts/sfx/), picked per alert.
     Pick a voice pack (assets/alerts/<pack>/<alert>.wav), test each one, and switch each alert on
     or off.
 
@@ -77,7 +78,8 @@ talks.ALERTS = {
     { key = 'party',    label = 'Party / alliance chat', delay = 1, sfx = 'ping' },
     { key = 'ls',       label = 'Linkshell chat (LS1 / LS2)', delay = 1, sfx = 'bonk' },
 };
-talks.SFX = { 'ping', 'bonk', 'pop', 'chime', 'drop' };
+talks.SFX = { 'ping', 'bonk', 'pop', 'chime', 'drop', 'bell', 'dingdong', 'blip', 'coin', 'bubble',
+              'knock', 'marimba', 'pluck', 'sparkle', 'gong', 'boing', 'tick', 'kalimba' };
 local DELAY, SFXDEF = {}, {};
 for _, a in ipairs(talks.ALERTS) do DELAY[a.key] = a.delay; SFXDEF[a.key] = a.sfx; end
 
@@ -240,13 +242,19 @@ talks.render = function (opts)
         if a.sfx then
             -- Which sound: click to go to the next one (and hear it).
             imgui.SameLine(0, 6);
+            -- Which sound: a drop-down list; picking one plays it.
             local cur = sfx_of(a.key);
-            if imgui.SmallButton(('Sound: %s##talk_snd%d'):format(cur, i)) then
-                local nxt = talks.SFX[1];
-                for j, n in ipairs(talks.SFX) do if n == cur then nxt = talks.SFX[(j % #talks.SFX) + 1]; end end
-                s['talk_' .. a.key .. '_snd'] = nxt; save(); talks.play(a.key);
+            imgui.PushItemWidth(110);
+            if imgui.BeginCombo('##talk_snd' .. i, cur) then
+                for _, n in ipairs(talks.SFX) do
+                    if imgui.Selectable(n .. '##talk_sel' .. i .. n, n == cur) then
+                        s['talk_' .. a.key .. '_snd'] = n; save(); talks.play(a.key);
+                    end
+                end
+                imgui.EndCombo();
             end
-            if imgui.IsItemHovered() then imgui.SetTooltip('Click for the next sound: ping, bonk, pop, chime, drop.\nNot a voice - same with every voice pack.'); end
+            imgui.PopItemWidth();
+            if imgui.IsItemHovered() then imgui.SetTooltip('Pick the sound (18 to choose from). Not a voice - same with every voice pack.'); end
         end
     end
     imgui.Dummy({ 1, 6 });
