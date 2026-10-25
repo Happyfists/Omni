@@ -192,10 +192,14 @@ end
 -- Drawn on the points bar in place of XP and the wallet (c = omni colours).
 local PURPLE = { 0.78, 0.58, 1.00, 1.0 };
 aby.draw_bar = function (c)
+    -- Keep every part on the same line as the first (the job text beside the picture is two lines,
+    -- which would otherwise pull the later parts down).
+    local y = imgui.GetCursorPosY();
+    local function same(gap) imgui.SameLine(0, gap); imgui.SetCursorPosY(y); end
     imgui.TextColored(PURPLE, 'Abyssea');
-    imgui.SameLine(0, 12);
+    same(12);
     imgui.TextColored(c.label, 'Time');
-    imgui.SameLine(0, 5);
+    same(5);
     local m = minutes_left();
     local tcol = (m == nil) and c.dim or ((m <= 5) and { 1.0, 0.40, 0.40, 1.0 } or ((m <= 15) and { 1.0, 0.80, 0.30, 1.0 } or { 0.50, 0.92, 0.50, 1.0 }));
     imgui.TextColored(tcol, aby.time_text());
@@ -204,9 +208,9 @@ aby.draw_bar = function (c)
             or 'Visitant time left. Turns yellow at 15 minutes and red at 5.');
     end
     for _, l in ipairs(aby.LIGHTS) do
-        imgui.SameLine(0, 14);
+        same(14);
         imgui.TextColored(l.col, l.label);
-        imgui.SameLine(0, 5);
+        same(5);
         local v = st.lights[l.key] or 0;
         -- Capped lights show in gold.
         imgui.TextColored((v >= l.max) and { 1.0, 0.84, 0.30, 1.0 } or c.text, tostring(v));
