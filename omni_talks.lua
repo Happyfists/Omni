@@ -3,6 +3,8 @@
 
     Says something when you get a tell, a GM tell, a party or alliance invite, a trade, an emote at
     you, someone checks you, your bags are full, you skill up, or someone says your name in chat.
+    Party and linkshell chat (yours too) give a soft sound instead of a voice: ping, bonk, pop,
+    chime or drop (assets/alerts/sfx/), picked per alert.
     Pick a voice pack (assets/alerts/<pack>/<alert>.wav), test each one, and switch each alert on
     or off.
 
@@ -71,9 +73,13 @@ talks.ALERTS = {
     { key = 'bags',     label = 'Bags full',            delay = 30 },
     { key = 'skillup',  label = 'Skill up',             delay = 10 },
     { key = 'name',     label = 'Your name said in chat', delay = 5 },
+    -- Soft sounds, not voices (any pack): sfx = the default sound.
+    { key = 'party',    label = 'Party / alliance chat', delay = 1, sfx = 'ping' },
+    { key = 'ls',       label = 'Linkshell chat (LS1 / LS2)', delay = 1, sfx = 'bonk' },
 };
-local DELAY = {};
-for _, a in ipairs(talks.ALERTS) do DELAY[a.key] = a.delay; end
+talks.SFX = { 'ping', 'bonk', 'pop', 'chime', 'drop' };
+local DELAY, SFXDEF = {}, {};
+for _, a in ipairs(talks.ALERTS) do DELAY[a.key] = a.delay; SFXDEF[a.key] = a.sfx; end
 
 local function S() return talks.settings or {}; end
 local function on(key, default) local v = S()[key]; if v == nil then return default; end return v == true; end
@@ -96,7 +102,14 @@ local function random_pack()
 end
 math.randomseed(os.time());
 
+local function sfx_of(key) return S()['talk_' .. key .. '_snd'] or SFXDEF[key]; end
+
 talks.play = function (key, pk)
+    if SFXDEF[key] then
+        local path = base() .. 'sfx\\' .. sfx_of(key) .. '.wav';
+        pcall(function () ashita.misc.play_sound(path); end);
+        return;
+    end
     pk = pk or pack();
     if pk == 'random' then pk = random_pack(); end
     local path = base() .. pk .. '\\' .. key .. '.wav';
@@ -154,16 +167,25 @@ end
 
 -- Your name in say, shout, yell, linkshells, party, unity or assist - but not your own lines.
 local NAME_MODES = { [9] = true, [10] = true, [11] = true, [13] = true, [14] = true, [214] = true, [212] = true, [220] = true, [222] = true };
+-- Party / alliance and linkshell chat, your own lines included (5/13 party, 6/14 LS1, 213/214 LS2).
+local CHAT_SFX = { [5] = 'party', [13] = 'party', [6] = 'ls', [14] = 'ls', [213] = 'ls', [214] = 'ls' };
 local function on_text(e)
     local mode = bit.band(e.mode_modified or e.mode or 0, 0xFF);
-    if not NAME_MODES[mode] then return; end
+    local snd = CHAT_SFX[mode];
+    if not NAME_MODES[mode] then
+        if snd then alert(snd); end
+        return;
+    end
     local name = AshitaCore:GetMemoryManager():GetParty():GetMemberName(0);
-    if name == nil or name == '' then return; end
+    if name == nil or name == '' then if snd then alert(snd); end return; end
     local msg = (e.message_modified or e.message or ''):gsub('[\30\31].', '');
     local low, lname = msg:lower(), name:lower();
-    if not low:find(lname, 1, true) then return; end
+    if not low:find(lname, 1, true) then if snd then alert(snd); end return; end
     -- Skip what you said yourself ("Name : ...", "<Name>", "(Name)", "[1]<Name>").
-    if low:find(lname .. ' :', 1, true) or low:find('<' .. lname .. '>', 1, true) or low:find('(' .. lname .. ')', 1, true) then return; end
+    if low:find(lname .. ' :', 1, true) or low:find('<' .. lname .. '>', 1, true) or low:find('(' .. lname .. ')', 1, true) then
+        if snd then alert(snd); end
+        return;
+    end
     alert('name');
 end
 
@@ -215,6 +237,17 @@ talks.render = function (opts)
         if imgui.Checkbox(a.label .. '##talk_a' .. i, v) then s['talk_' .. a.key] = v[1]; save(); end
         imgui.SameLine(x0 + 250);
         if imgui.SmallButton('Test##talk_t' .. i) then talks.play(a.key); end
+        if a.sfx then
+            -- Which sound: click to go to the next one (and hear it).
+            imgui.SameLine(0, 6);
+            local cur = sfx_of(a.key);
+            if imgui.SmallButton(('Sound: %s##talk_snd%d'):format(cur, i)) then
+                local nxt = talks.SFX[1];
+                for j, n in ipairs(talks.SFX) do if n == cur then nxt = talks.SFX[(j % #talks.SFX) + 1]; end end
+                s['talk_' .. a.key .. '_snd'] = nxt; save(); talks.play(a.key);
+            end
+            if imgui.IsItemHovered() then imgui.SetTooltip('Click for the next sound: ping, bonk, pop, chime, drop.\nNot a voice - same with every voice pack.'); end
+        end
     end
     imgui.Dummy({ 1, 6 });
 
