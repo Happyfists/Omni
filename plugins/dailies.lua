@@ -144,7 +144,7 @@ local function readSeaLines(msg)
     if not msg:find('\129\158', 1, true) then return false; end
     local found = false;
     for line in (msg .. '\n'):gmatch('([^\r\n\7]*)[\r\n\7]') do
-        local clean = line:gsub('[\30\31].', '');
+        local clean = line:gsub('[\30\31\127].', '');
         local quest, objective = clean:match('\129\158%s*(.-)%s*:%s*(.-)%s*$');
         if quest and seaHandlers[quest] and objective ~= '' then
             local obj = seaHandlers[quest](objective);
@@ -266,7 +266,7 @@ local function onTextIn(e)
     -- Ru'Hmet), and any line about a daily or quest anywhere, so the wording can be matched.
     pcall(function ()
         local z = AshitaCore:GetMemoryManager():GetParty():GetMemberZone(0);
-        local txt = (e.message or ''):gsub('[\30\31].', ''):gsub('[\r\n\7]+', ' | ');
+        local txt = (e.message or ''):gsub('[\30\31\127].', ''):gsub('[\r\n\7]+', ' | ');
         local low = txt:lower();
         if z == 245 or z == 33 or z == 34 or z == 35 or low:find('daily', 1, true) or low:find('quest', 1, true) then
             dlog(('text zone %s mode %d (full %s): %s'):format(tostring(z), channel, tostring(e.mode), txt));
@@ -278,7 +278,8 @@ local function onTextIn(e)
 
     -- The rest (Goblin Dailies, Goldilox) is read from any channel too: the whole message as one
     -- line, colour codes and line breaks removed (a timestamp in front is fine).
-    local msg = (e.message or ''):gsub('[\30\31].', ''):gsub('[\r\n\7]+', ' '):gsub('%s+$', '');
+    -- (\127 + one byte: the marks CatsEyeXI puts round names, e.g. \127\252Fishstix\127\251)
+    local msg = (e.message or ''):gsub('[\30\31\127].', ''):gsub('[\r\n\7]+', ' '):gsub('%s+$', '');
 
     -- Storming Sea "Defeat mobs" kills in chat ("Name defeats the Zdei.") - a backup for the packet below.
     local killer, mob = msg:match('(%a+) defeats the (.-)%.%s*$');
