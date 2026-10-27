@@ -186,9 +186,12 @@ local function countSeaKill(killer, mob, key)
     local dm = state and state.sea and state.sea['Defeat mobs'];
     if not dm or dm.status == 'complete' then return false; end
     local target = seaTarget(dm);
-    -- The quest names the kind ("Zdei"); the monsters are Qn'zdei, Ix'zdei, Om'zdei... so the
-    -- monster's name only has to contain it.
-    if not target or not mob or not mob:lower():find(target:lower(), 1, true) then return false; end
+    -- The quest names the kind ("Zdei"); the Sea monsters are "<prefix>'<kind>": Qn'zdei, Ix'zdei,
+    -- Aw'zdei, Eo'zdei, Om'aern, Kf'ghrah... (mobdb, zones 33-35). The Aerns' pets (Aern's Euvhi,
+    -- Aern's Xzomit, Aern's Wynav, Aern's Elemental) don't count.
+    if not target or not mob then return false; end
+    local m, t = mob:lower(), target:lower();
+    if m ~= t and m:match("^%a+'(.+)$") ~= t then return false; end
     local inParty = false;
     pcall(function ()
         local party = AshitaCore:GetMemoryManager():GetParty();
