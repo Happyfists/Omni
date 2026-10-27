@@ -128,12 +128,37 @@ local seaHandlers = {
     ['Defeat mobs'] = function(msg)
         local target, zone, killed, total = msg:match('(.+) %((.+)%) (%d+)/(%d+)');
         if target then
-            local remaining = tonumber(total) - tonumber(killed);
-            return string.format('Kill %d more %s at %s (%s total)', remaining, target, zone, total);
+            local remaining = math.max(0, tonumber(total) - tonumber(killed));
+            return string.format('Kill %d more %s at %s (%s/%s)', remaining, target, zone, killed, total);
         end
         return msg;
     end,
 };
+
+------------------------------------------------------------
+-- Storming Sea quest list: "<diamond> Item request: Luminian Tissue x5, ..." lines.
+-- They can come on any chat channel, one line per message or several in one, so every
+-- line of every message is checked (the diamond is Shift-JIS 81 9E).
+------------------------------------------------------------
+local function readSeaLines(msg)
+    if not msg:find('\129\158', 1, true) then return false; end
+    local found = false;
+    for line in (msg .. '\n'):gmatch('([^\r\n\7]*)[\r\n\7]') do
+        local clean = line:gsub('[\30\31].', '');
+        local quest, objective = clean:match('\129\158%s*(.-)%s*:%s*(.-)%s*$');
+        if quest and seaHandlers[quest] and objective ~= '' then
+            local obj = seaHandlers[quest](objective);
+            local status = 'active';
+            -- Defeat mobs: done once the count is reached (e.g. "10/10")
+            local killed, total = objective:match('(%d+)/(%d+)%s*$');
+            if killed and tonumber(killed) >= tonumber(total) then status = 'complete'; obj = 'Complete! ' .. obj; end
+            state.sea[quest] = { status = status, objective = obj };
+            found = true;
+        end
+    end
+    if found then settings.save(); end
+    return found;
+end
 
 ------------------------------------------------------------
 -- Text event handler (intercept NPC dialog + quest updates)
@@ -143,6 +168,9 @@ local function onTextIn(e)
     ensureState();
 
     local channel = e.mode % 256;
+
+    -- Storming Sea quest lines, whatever channel or zone they come in.
+    if readSeaLines(e.message or '') then return; end
 
     -- Quest update messages (channel 121)
     if channel == 121 then
