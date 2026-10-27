@@ -172,65 +172,49 @@ local function onTextIn(e)
     -- Storming Sea quest lines, whatever channel or zone they come in.
     if readSeaLines(e.message or '') then return; end
 
-    -- Quest update messages (channel 121)
-    if channel == 121 then
-        local msg = e.message or '';
+    -- The rest (Goblin Dailies, Goldilox) is read from any channel too: the whole message as one
+    -- line, colour codes and line breaks removed (a timestamp in front is fine).
+    local msg = (e.message or ''):gsub('[\30\31].', ''):gsub('[\r\n\7]+', ' '):gsub('%s+$', '');
 
-        -- "please return to X to claim your reward!"
-        local npc = msg:match('.*, please return to (%a+) to claim your reward!');
-        if npc and goblinHandlers[npc] then
-            state.goblins[npc] = { status = 'return', objective = 'Return to ' .. npc };
-            settings.save();
-            return;
-        end
-
-        -- Kill counter update
-        local kills = msg:match('Daily Quest: (%d+) kills? remain');
-        if kills and state.goblins.Murdox then
-            state.goblins.Murdox.objective = kills .. ' kills remaining';
-            settings.save();
-            return;
-        end
-
-        -- Goldilox dice roll
-        if msg:match('Dice roll!') then
-            state.goldilox = 'complete';
-            settings.save();
-            return;
-        end
+    -- "..., please return to X to claim your reward!"
+    local npc = msg:match('please return to (%a+) to claim your reward');
+    if npc and goblinHandlers[npc] then
+        state.goblins[npc] = { status = 'return', objective = 'Return to ' .. npc };
+        settings.save();
         return;
     end
 
-    -- NPC dialog (channel 9)
-    if channel == 9 then
-        local zone = AshitaCore:GetMemoryManager():GetParty():GetMemberZone(0);
-        local msg = e.message or '';
+    -- Kill counter update
+    local kills = msg:match('Daily Quest: (%d+) kills? remain');
+    if kills then
+        state.goblins.Murdox = state.goblins.Murdox or { status = 'active' };
+        state.goblins.Murdox.objective = kills .. ' kills remaining';
+        settings.save();
+        return;
+    end
 
-        -- Goblin Dailies (Lower Jeuno)
-        if zone == ZONE_LOWER_JEUNO then
-            local npc, message = msg:match('.-(%a+).-:.-(%a+.*)\n');
-            if npc and goblinHandlers[npc] then
-                if message:find('completed') then
-                    state.goblins[npc] = { status = 'complete', objective = 'Complete!' };
-                else
-                    local obj = goblinHandlers[npc].parse(message);
-                    state.goblins[npc] = { status = 'active', objective = obj or message };
-                end
-                settings.save();
-            end
-            return;
-        end
+    -- Goldilox dice roll
+    if msg:match('Dice roll!') then
+        state.goldilox = 'complete';
+        settings.save();
+        return;
+    end
 
-        -- Storming Sea (Hu'Xzoi)
-        if zone == ZONE_HUXZOI then
-            local quest, objective = msg:match('\129\158 (.-): (.+)\n');
-            if quest and seaHandlers[quest] then
-                local obj = seaHandlers[quest](objective:match('^%s*(.-)%s*$'));
-                state.sea[quest] = { status = 'active', objective = obj };
-                settings.save();
+    -- A goblin talking: "Fishstix : Go to ..." (only NPC lines - not you or other players)
+    if channel ~= 9 and channel ~= 150 and channel ~= 151 and channel ~= 142 and channel ~= 148 then return; end
+    local who, message = msg:match('(%a+)%s*:%s*(%a.*)$');
+    if who and goblinHandlers[who] then
+        if message:find('completed') then
+            state.goblins[who] = { status = 'complete', objective = 'Complete!' };
+        else
+            local obj = goblinHandlers[who].parse(message);
+            local old = state.goblins[who];
+            -- small talk after you've started keeps the objective you already have
+            if obj or old == nil or old.status == 'none' then
+                state.goblins[who] = { status = 'active', objective = obj or message };
             end
-            return;
         end
+        settings.save();
     end
 end
 
