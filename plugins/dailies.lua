@@ -251,26 +251,43 @@ local function renderDailyRow(name, icon, data, idx)
         and { base[1] + 0.02, base[2] + 0.02, base[3] + 0.04, 0.50 }
         or  { base[1], base[2], base[3], 0.30 };
 
+    -- The objective in full, wrapped to the room left of the status badge; the row grows to fit.
+    local badgeW = imgui.CalcTextSize(statusLabel);
+    local availW = imgui.GetContentRegionAvail();
+    if type(availW) ~= 'number' then availW = 400; end
+    local wrapW = math.max(120, availW - badgeW - 40);
+    local lines, line = {}, '';
+    for word in tostring(objective):gmatch('%S+') do
+        local try = (line == '') and word or (line .. ' ' .. word);
+        if line ~= '' and imgui.CalcTextSize(try) > wrapW then
+            lines[#lines + 1] = line;
+            line = word;
+        else
+            line = try;
+        end
+    end
+    if line ~= '' then lines[#lines + 1] = line; end
+    local rowH = math.max(38, 22 + #lines * 16);
+
     imgui.PushStyleColor(ImGuiCol_ChildBg, bgColor);
-    imgui.BeginChild(rowId, { -1, 38 }, false);
+    imgui.BeginChild(rowId, { -1, rowH }, false);
 
     local dl = imgui.GetWindowDrawList();
     local wx, wy = imgui.GetWindowPos();
     local ww = imgui.GetWindowWidth();
 
     -- Status accent bar
-    dl:AddRectFilled({ wx, wy }, { wx + 3, wy + 38 }, imgui.GetColorU32(statusColor));
+    dl:AddRectFilled({ wx, wy }, { wx + 3, wy + rowH }, imgui.GetColorU32(statusColor));
 
     -- Name
     dl:AddText({ wx + 10, wy + 4 }, imgui.GetColorU32(ui.color('white')), name);
 
-    -- Objective
-    local objStr = objective;
-    if #objStr > 45 then objStr = objStr:sub(1, 42) .. '...'; end
-    dl:AddText({ wx + 10, wy + 20 }, imgui.GetColorU32(ui.color('dimmed')), objStr);
+    -- Objective (every line of it)
+    for i, l in ipairs(lines) do
+        dl:AddText({ wx + 10, wy + 20 + (i - 1) * 16 }, imgui.GetColorU32(ui.color('dimmed')), l);
+    end
 
     -- Status badge on right
-    local badgeW = imgui.CalcTextSize(statusLabel);
     local badgeBg = imgui.GetColorU32({ statusColor[1] * 0.3, statusColor[2] * 0.3, statusColor[3] * 0.3, 0.5 });
     dl:AddRectFilled(
         { wx + ww - badgeW - 16, wy + 10 },
