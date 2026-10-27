@@ -186,7 +186,9 @@ local function countSeaKill(killer, mob, key)
     local dm = state and state.sea and state.sea['Defeat mobs'];
     if not dm or dm.status == 'complete' then return false; end
     local target = seaTarget(dm);
-    if not target or not mob or mob:lower() ~= target:lower() then return false; end
+    -- The quest names the kind ("Zdei"); the monsters are Qn'zdei, Ix'zdei, Om'zdei... so the
+    -- monster's name only has to contain it.
+    if not target or not mob or not mob:lower():find(target:lower(), 1, true) then return false; end
     local inParty = false;
     pcall(function ()
         local party = AshitaCore:GetMemoryManager():GetParty();
