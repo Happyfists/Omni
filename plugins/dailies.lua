@@ -80,7 +80,7 @@ local goblinHandlers = {
     Murdox = {
         parse = function(msg)
             local zone, count, target = msg:match('Go to (.+) and kill (%d+) (.+)!');
-            if zone then return string.format('Kill %s %s at %s', count, target, zone); end
+            if zone then return string.format('Kill %s %s at %s', count, target, zone), { total = tonumber(count), killed = 0, progress = 0 }; end
         end,
         updateKills = function(msg)
             local kills = msg:match('Daily Quest: (%d+) kills? remain');
@@ -152,7 +152,17 @@ local function readSeaLines(msg)
             -- Defeat mobs: done once the count is reached (e.g. "10/10")
             local killed, total = objective:match('(%d+)/(%d+)%s*$');
             if killed and tonumber(killed) >= tonumber(total) then status = 'complete'; obj = 'Complete! ' .. obj; end
-            state.sea[quest] = { status = status, objective = obj };
+            local row = { status = status, objective = obj };
+            local target, zone, k, t = objective:match('(.+) %((.+)%) (%d+)/(%d+)');
+            if target then
+                row.target, row.zone, row.killed, row.total = target, zone, tonumber(k), tonumber(t);
+                -- keep our own count if it is ahead (the list is only re-sent when you ask the NPC)
+                local old = state.sea[quest];
+                if old and old.target == target and (old.killed or 0) > row.killed then row.killed = old.killed; end
+                row.progress = row.killed / math.max(1, row.total);
+                if row.killed >= row.total then row.status = 'complete'; end
+            end
+            state.sea[quest] = row;
             found = true;
         end
     end
@@ -176,6 +186,28 @@ local function onTextIn(e)
     -- line, colour codes and line breaks removed (a timestamp in front is fine).
     local msg = (e.message or ''):gsub('[\30\31].', ''):gsub('[\r\n\7]+', ' '):gsub('%s+$', '');
 
+    -- Storming Sea "Defeat mobs": count kills of the target by you or your party ("Name defeats the Zdei.")
+    local dm = state.sea['Defeat mobs'];
+    if dm and dm.target and dm.status ~= 'complete' then
+        local killer, mob = msg:match('(%a+) defeats the (.-)%.%s*$');
+        if killer and mob and mob:lower() == dm.target:lower() then
+            local inParty = false;
+            pcall(function ()
+                local party = AshitaCore:GetMemoryManager():GetParty();
+                for i = 0, 5 do if party:GetMemberName(i) == killer then inParty = true; end end
+            end);
+            if inParty then
+                dm.killed = math.min(dm.total, (dm.killed or 0) + 1);
+                dm.progress = dm.killed / math.max(1, dm.total);
+                local left = dm.total - dm.killed;
+                dm.objective = string.format('Kill %d more %s at %s (%d/%d)', left, dm.target, dm.zone or '?', dm.killed, dm.total);
+                if left <= 0 then dm.status = 'complete'; dm.objective = 'Complete! ' .. dm.objective; end
+                settings.save();
+                return;
+            end
+        end
+    end
+
     -- "..., please return to X to claim your reward!"
     local npc = msg:match('please return to (%a+) to claim your reward');
     if npc and goblinHandlers[npc] then
@@ -187,8 +219,13 @@ local function onTextIn(e)
     -- Kill counter update
     local kills = msg:match('Daily Quest: (%d+) kills? remain');
     if kills then
-        state.goblins.Murdox = state.goblins.Murdox or { status = 'active' };
-        state.goblins.Murdox.objective = kills .. ' kills remaining';
+        local m = state.goblins.Murdox or { status = 'active' };
+        state.goblins.Murdox = m;
+        m.objective = kills .. ' kills remaining';
+        if m.total and m.total > 0 then
+            m.killed = math.max(0, m.total - tonumber(kills));
+            m.progress = m.killed / m.total;
+        end
         settings.save();
         return;
     end
@@ -207,11 +244,13 @@ local function onTextIn(e)
         if message:find('completed') then
             state.goblins[who] = { status = 'complete', objective = 'Complete!' };
         else
-            local obj = goblinHandlers[who].parse(message);
+            local obj, extra = goblinHandlers[who].parse(message);
             local old = state.goblins[who];
             -- small talk after you've started keeps the objective you already have
             if obj or old == nil or old.status == 'none' then
-                state.goblins[who] = { status = 'active', objective = obj or message };
+                local row = { status = 'active', objective = obj or message };
+                for k, v in pairs(extra or {}) do row[k] = v; end
+                state.goblins[who] = row;
             end
         end
         settings.save();
@@ -267,7 +306,8 @@ local function renderDailyRow(name, icon, data, idx)
         end
     end
     if line ~= '' then lines[#lines + 1] = line; end
-    local rowH = math.max(38, 22 + #lines * 16);
+    local prog = data and data.progress;
+    local rowH = math.max(38, 22 + #lines * 16 + (prog and 8 or 0));
 
     imgui.PushStyleColor(ImGuiCol_ChildBg, bgColor);
     imgui.BeginChild(rowId, { -1, rowH }, false);
@@ -285,6 +325,16 @@ local function renderDailyRow(name, icon, data, idx)
     -- Objective (every line of it)
     for i, l in ipairs(lines) do
         dl:AddText({ wx + 10, wy + 20 + (i - 1) * 16 }, imgui.GetColorU32(ui.color('dimmed')), l);
+    end
+
+    -- Progress bar under the objective: red -> yellow -> green as it fills.
+    if prog then
+        local bx1, by = wx + 10, wy + 22 + #lines * 16;
+        local bx2 = wx + ww - badgeW - 30;
+        local p = math.max(0, math.min(1, prog));
+        local col = (p < 0.5) and { 0.95, 0.35 + p * 1.1, 0.30, 1.0 } or { 0.95 - (p - 0.5) * 1.3, 0.90, 0.35, 1.0 };
+        dl:AddRectFilled({ bx1, by }, { bx2, by + 5 }, imgui.GetColorU32({ 0.20, 0.21, 0.28, 1.0 }), 2.0);
+        if p > 0 then dl:AddRectFilled({ bx1, by }, { bx1 + (bx2 - bx1) * p, by + 5 }, imgui.GetColorU32(col), 2.0); end
     end
 
     -- Status badge on right
@@ -370,7 +420,7 @@ local function render(addonState, uiLib, itemsLib)
     -- Storming Sea
     local seaComplete = 0;
     for _, quest in ipairs(SEA_ORDER) do
-        if state.sea[quest] then seaComplete = seaComplete + 1; end
+        if state.sea[quest] and state.sea[quest].status == 'complete' then seaComplete = seaComplete + 1; end
     end
 
     local seaOpen = ui.sectionHeader(string.format('Storming Sea (%d/3)', seaComplete), nil, 'dailies:sea');
