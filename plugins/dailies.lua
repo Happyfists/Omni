@@ -171,6 +171,64 @@ local function readSeaLines(msg)
 end
 
 ------------------------------------------------------------
+-- Storming Sea "Defeat mobs": count a kill of the target by you or your party.
+-- killer: a name or a server id; key: the dead monster's id (so one kill isn't counted twice).
+------------------------------------------------------------
+local counted = {};
+local function seaTarget(dm)
+    if dm.target then return dm.target; end
+    -- saved before the target was kept: read it back from "Kill N more X at Z (k/t)"
+    local t, z, k, n = (dm.objective or ''):match('Kill %d+ more (.+) at (.+) %((%d+)/(%d+)%)');
+    if t then dm.target, dm.zone, dm.killed, dm.total = t, z, tonumber(k), tonumber(n); end
+    return dm.target;
+end
+local function countSeaKill(killer, mob, key)
+    local dm = state and state.sea and state.sea['Defeat mobs'];
+    if not dm or dm.status == 'complete' then return false; end
+    local target = seaTarget(dm);
+    if not target or not mob or mob:lower() ~= target:lower() then return false; end
+    local inParty = false;
+    pcall(function ()
+        local party = AshitaCore:GetMemoryManager():GetParty();
+        for i = 0, 17 do
+            if party:GetMemberIsActive(i) == 1 and (party:GetMemberName(i) == killer or party:GetMemberServerId(i) == killer) then inParty = true; end
+        end
+    end);
+    if not inParty then return false; end
+    if key then
+        if counted[key] and os.clock() - counted[key] < 30 then return true; end
+        counted[key] = os.clock();
+    end
+    dm.total = dm.total or 10;
+    dm.killed = math.min(dm.total, (dm.killed or 0) + 1);
+    dm.progress = dm.killed / math.max(1, dm.total);
+    local left = dm.total - dm.killed;
+    dm.objective = string.format('Kill %d more %s at %s (%d/%d)', left, target, dm.zone or '?', dm.killed, dm.total);
+    if left <= 0 then dm.status = 'complete'; dm.objective = 'Complete! ' .. dm.objective; end
+    settings.save();
+    return true;
+end
+
+-- The game's own "defeated" event (action message packet 0x029), which arrives whatever the chat
+-- filters show: 0x04 actor id, 0x08 target id, 0x16 target index, 0x18 message.
+local DEFEAT_MSGS = { [6] = true, [20] = true, [97] = true, [113] = true, [406] = true, [605] = true, [646] = true };
+local function onPacketIn(e)
+    if e.id ~= 0x029 then return; end
+    pcall(function ()
+        ensureState();
+        local d = e.data;
+        local msgId = struct.unpack('H', d, 0x18 + 1);
+        if not DEFEAT_MSGS[msgId] then return; end
+        local actor = struct.unpack('I', d, 0x04 + 1);
+        local target = struct.unpack('I', d, 0x08 + 1);
+        local tindex = struct.unpack('H', d, 0x16 + 1);
+        local ent = GetEntity(tindex);
+        local name = ent and ent.Name or nil;
+        countSeaKill(actor, name, target);
+    end);
+end
+
+------------------------------------------------------------
 -- Text event handler (intercept NPC dialog + quest updates)
 ------------------------------------------------------------
 local function onTextIn(e)
@@ -186,26 +244,14 @@ local function onTextIn(e)
     -- line, colour codes and line breaks removed (a timestamp in front is fine).
     local msg = (e.message or ''):gsub('[\30\31].', ''):gsub('[\r\n\7]+', ' '):gsub('%s+$', '');
 
-    -- Storming Sea "Defeat mobs": count kills of the target by you or your party ("Name defeats the Zdei.")
-    local dm = state.sea['Defeat mobs'];
-    if dm and dm.target and dm.status ~= 'complete' then
-        local killer, mob = msg:match('(%a+) defeats the (.-)%.%s*$');
-        if killer and mob and mob:lower() == dm.target:lower() then
-            local inParty = false;
-            pcall(function ()
-                local party = AshitaCore:GetMemoryManager():GetParty();
-                for i = 0, 5 do if party:GetMemberName(i) == killer then inParty = true; end end
-            end);
-            if inParty then
-                dm.killed = math.min(dm.total, (dm.killed or 0) + 1);
-                dm.progress = dm.killed / math.max(1, dm.total);
-                local left = dm.total - dm.killed;
-                dm.objective = string.format('Kill %d more %s at %s (%d/%d)', left, dm.target, dm.zone or '?', dm.killed, dm.total);
-                if left <= 0 then dm.status = 'complete'; dm.objective = 'Complete! ' .. dm.objective; end
-                settings.save();
-                return;
-            end
-        end
+    -- Storming Sea "Defeat mobs" kills in chat ("Name defeats the Zdei.") - a backup for the packet below.
+    local killer, mob = msg:match('(%a+) defeats the (.-)%.%s*$');
+    if killer and mob then
+        -- the packet usually counted it a moment ago; only count from chat if it didn't
+        local recent = false;
+        for _, t in pairs(counted) do if os.clock() - t < 3 then recent = true; end end
+        if recent then return; end
+        if countSeaKill(killer, mob, nil) then return; end
     end
 
     -- "..., please return to X to claim your reward!"
@@ -460,6 +506,7 @@ return {
             end,
         };
         ashita.events.register('text_in', 'lqs_dailies_text', onTextIn);
+        ashita.events.register('packet_in', 'lqs_dailies_pkt', onPacketIn);
 
         -- Register as a sub-tab in the Quest window
         local ok, questPlugin = pcall(require, 'core/quest');
@@ -478,5 +525,6 @@ return {
 
     onUnload = function()
         ashita.events.unregister('text_in', 'lqs_dailies_text');
+        ashita.events.unregister('packet_in', 'lqs_dailies_pkt');
     end,
 };
