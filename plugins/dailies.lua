@@ -175,6 +175,13 @@ end
 -- killer: a name or a server id; key: the dead monster's id (so one kill isn't counted twice).
 ------------------------------------------------------------
 local counted = {};
+-- A small log of what the kill counter sees: config\addons\omni\dailies_debug.txt
+local function dlog(line)
+    pcall(function ()
+        local f = io.open(('%s\\config\\addons\\omni\\dailies_debug.txt'):format(AshitaCore:GetInstallPath()), 'a');
+        if f then f:write(os.date('%H:%M:%S '), line, '\n'); f:close(); end
+    end);
+end
 local function seaTarget(dm)
     if dm.target then return dm.target; end
     -- saved before the target was kept: read it back from "Kill N more X at Z (k/t)"
@@ -192,13 +199,25 @@ local function countSeaKill(killer, mob, key)
     if not target or not mob then return false; end
     local m, t = mob:lower(), target:lower();
     if m ~= t and m:match("^%a+'(.+)$") ~= t then return false; end
+    -- In your party / alliance? (by name or server id; no "is active" check - under VanaCore it
+    -- doesn't answer the way Ashita does, and empty slots have no name and id 0 anyway)
     local inParty = false;
     pcall(function ()
         local party = AshitaCore:GetMemoryManager():GetParty();
         for i = 0, 17 do
-            if party:GetMemberIsActive(i) == 1 and (party:GetMemberName(i) == killer or party:GetMemberServerId(i) == killer) then inParty = true; end
+            local n, id = party:GetMemberName(i), party:GetMemberServerId(i);
+            if (type(killer) == 'string' and n and n ~= '' and n:lower() == killer:lower())
+               or (type(killer) == 'number' and id and id ~= 0 and id == killer) then inParty = true; end
         end
     end);
+    -- your own kill even if the party list can't be read
+    if not inParty then
+        pcall(function ()
+            local me = GetPlayerEntity();
+            if me and ((type(killer) == 'number' and me.ServerId == killer) or (type(killer) == 'string' and me.Name == killer)) then inParty = true; end
+        end);
+    end
+    dlog(('kill %s by %s: target %s, in party %s'):format(tostring(mob), tostring(killer), tostring(target), tostring(inParty)));
     if not inParty then return false; end
     if key then
         if counted[key] and os.clock() - counted[key] < 30 then return true; end
@@ -229,6 +248,7 @@ local function onPacketIn(e)
         local tindex = struct.unpack('H', d, 0x16 + 1);
         local ent = GetEntity(tindex);
         local name = ent and ent.Name or nil;
+        dlog(('0x029 msg %d actor %d target %d (%s)'):format(msgId, actor, target, tostring(name)));
         countSeaKill(actor, name, target);
     end);
 end
@@ -241,6 +261,17 @@ local function onTextIn(e)
     ensureState();
 
     local channel = e.mode % 256;
+
+    -- Write down what the game says near the daily NPCs / in the Sea (Lower Jeuno, Al'Taieu, Hu'Xzoi,
+    -- Ru'Hmet), and any line about a daily or quest anywhere, so the wording can be matched.
+    pcall(function ()
+        local z = AshitaCore:GetMemoryManager():GetParty():GetMemberZone(0);
+        local txt = (e.message or ''):gsub('[\30\31].', ''):gsub('[\r\n\7]+', ' | ');
+        local low = txt:lower();
+        if z == 245 or z == 33 or z == 34 or z == 35 or low:find('daily', 1, true) or low:find('quest', 1, true) then
+            dlog(('text zone %s mode %d (full %s): %s'):format(tostring(z), channel, tostring(e.mode), txt));
+        end
+    end);
 
     -- Storming Sea quest lines, whatever channel or zone they come in.
     if readSeaLines(e.message or '') then return; end
