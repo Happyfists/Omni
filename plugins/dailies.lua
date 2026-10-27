@@ -320,7 +320,8 @@ local function onTextIn(e)
     end
 
     -- A goblin talking: "Fishstix : Go to ..." (only NPC lines - not you or other players)
-    if channel ~= 9 and channel ~= 150 and channel ~= 151 and channel ~= 142 and channel ~= 148 then return; end
+    -- (any chat channel: on CatsEyeXI the goblins don't speak on the usual NPC one; only the five goblin
+    -- names are accepted, and players can't be called Fishstix etc.)
     local who, message = msg:match('(%a+)%s*:%s*(%a.*)$');
     if who and goblinHandlers[who] then
         if message:find('completed') then
