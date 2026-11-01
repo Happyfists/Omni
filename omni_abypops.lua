@@ -673,11 +673,11 @@ local function zone_by_short(short)
     return nil;
 end
 local function tracker_body()
-    local sty = package.loaded['omni_style'];
+    imgui.SetWindowFontScale(0.85);
     if imgui.SmallButton((track.small and '+' or '-') .. '##abytrack_small') then track.small = not track.small; track_save(); end
     if imgui.IsItemHovered() then imgui.SetTooltip(track.small and 'Show what you need' or 'Minimise (just the NMs and how far along)'); end
     imgui.SameLine(0, 8);
-    imgui.TextColored(C.gold, ('Tracking %d NM%s'):format(#track.list, #track.list == 1 and '' or 's'));
+    imgui.TextColored(C.gold, 'NM Tracker');
     local remove = nil;
     for ti, t in ipairs(track.list) do
         local zone = zone_by_short(t.zone);
@@ -689,8 +689,7 @@ local function tracker_body()
             if imgui.IsItemHovered() then imgui.SetTooltip('Stop tracking ' .. nm.name); end
             imgui.SameLine(0, 6);
             imgui.TextColored(done and C.green or C.text, nm.name);
-            imgui.SameLine(0, 6);
-            imgui.TextColored(C.faint, '(' .. t.zone .. (nm.location and nm.location ~= '' and (' ' .. nm.location) or '') .. ')');
+            if imgui.IsItemHovered() then imgui.SetTooltip(t.zone .. (nm.location and nm.location ~= '' and (' ' .. nm.location) or '')); end
             imgui.SameLine(0, 8);
             if need == 0 then imgui.TextColored(C.faint, short_spawn(nm));
             elseif done then imgui.TextColored(C.green, 'Ready to pop!');
@@ -698,12 +697,12 @@ local function tracker_body()
             if not track.small then
                 for ri, r in ipairs(nm.requirements or {}) do
                     local got = req_have(r);
-                    imgui.Dummy({ 14, 1 }); imgui.SameLine(0, 0);
+                    imgui.Dummy({ 8, 1 }); imgui.SameLine(0, 0);
                     mark(got);
-                    imgui.Dummy({ 16, 14 }); imgui.SameLine(0, 2);
+                    imgui.Dummy({ 14, 12 }); imgui.SameLine(0, 2);
                     imgui.TextColored(got and C.green or C.text, r.name);
-                    if not got then
-                        imgui.SameLine(0, 6);
+                    if not got and imgui.IsItemHovered() then
+                        -- where it comes from: on hover only, to keep the pop-out small
                         local src = r.source or '';
                         local snm = zone and find_nm(zone, src);
                         local stext = 'from ' .. (src ~= '' and src or '?');
@@ -711,9 +710,8 @@ local function tracker_body()
                             local sh, sn = progress(snm);
                             if sn > 0 then stext = stext .. ((sh == sn) and ' (ready)' or (' (%d/%d)'):format(sh, sn)); end
                         end
-                        imgui.TextColored(C.faint, stext);
                         local pyx = (r.type == 'item' and in_list(zone.gold_pyxis_items, r.name)) or (r.type == 'ki' and in_list(zone.gold_pyxis_keyitems, r.name));
-                        if pyx then imgui.SameLine(0, 6); imgui.TextColored(C.yellow, 'or gold Pyxis'); end
+                        imgui.SetTooltip(stext .. (pyx and ' or a gold Pyxis' or ''));
                     end
                 end
             end
