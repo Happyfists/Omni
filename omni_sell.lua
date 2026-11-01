@@ -181,19 +181,20 @@ sell.render = function (host)
         imgui.Dummy({ 1, 2 });
         if (count == 0) then
             imgui.SetCursorPosX(12);
-            imgui.TextColored(ui.color('dimmed'), 'Empty - add items below or with "+ List" next to an inventory item.');
-        end
-        imgui.SetCursorPosX(12);
-        imgui.PushItemWidth(220);
-        imgui.InputText('##sell_add', add_name, 64);
-        imgui.PopItemWidth();
-        imgui.SameLine(0, 6);
-        if (imgui.SmallButton('Add to list##sell_add_btn')) then
-            add_to_list(add_name[1]);
-            add_name[1] = '';
+            imgui.TextColored(ui.color('dimmed'), 'Empty - add items on the line below or with "+ List" next to an inventory item.');
         end
     end
 
+    -- One line, shown even with the list folded: add an item, and sell the whole list.
+    imgui.PushItemWidth(220);
+    imgui.InputTextWithHint('##sell_add', 'item to add', add_name, 64);
+    imgui.PopItemWidth();
+    imgui.SameLine(0, 6);
+    if (imgui.Button('Add to list##sell_add_btn')) then
+        add_to_list(add_name[1]);
+        add_name[1] = '';
+    end
+    imgui.SameLine(0, 14);
     if (imgui.Button('Sell it now##sell_list_btn')) then
         start(saved.list, 'your sell list');
     end
