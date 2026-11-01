@@ -309,6 +309,56 @@ end
 ----------------------------------------------------------------------------------------------------
 local st = { zone = nil, nm = nil, filter = 'all', last_game_zone = -1 };
 
+----------------------------------------------------------------------------------------------------
+-- Tracker: NMs you picked with "Track" are shown in a small pop-out with what you still need.
+-- Saved per character: config\addons\omni\abytrack_<name>.txt  ("Zone|NM" per line, "small 1").
+----------------------------------------------------------------------------------------------------
+local track = { list = {}, small = false, owner = nil, open = { true } };
+local function track_path(name)
+    return string.format('%s\\config\\addons\\omni\\abytrack_%s.txt', AshitaCore:GetInstallPath(), name);
+end
+local function track_save()
+    if track.owner == nil then return; end
+    pcall(function ()
+        local f = io.open(track_path(track.owner), 'w');
+        if not f then return; end
+        f:write('small ', track.small and '1' or '0', '\n');
+        for _, t in ipairs(track.list) do f:write(t.zone, '|', t.name, '\n'); end
+        f:close();
+    end);
+end
+local function track_load()
+    local name = my_name();
+    if name == nil or name == track.owner then return; end
+    track.owner, track.list, track.small = name, {}, false;
+    pcall(function ()
+        local f = io.open(track_path(name), 'r');
+        if not f then return; end
+        for raw in f:lines() do
+            local line = raw:gsub('[\r\n]+$', '');
+            local sm = line:match('^small (%d)$');
+            if sm then track.small = (sm == '1');
+            else
+                local z, n = line:match('^(.-)|(.+)$');
+                if z and n then track.list[#track.list + 1] = { zone = z, name = n }; end
+            end
+        end
+        f:close();
+    end);
+end
+local function tracked_at(zone_short, name)
+    for i, t in ipairs(track.list) do if t.zone == zone_short and norm(t.name) == norm(name) then return i; end end
+    return nil;
+end
+local function track_toggle(zone_short, name)
+    track_load();
+    local i = tracked_at(zone_short, name);
+    if i then table.remove(track.list, i); else track.list[#track.list + 1] = { zone = zone_short, name = name }; end
+    track.open[1] = true;
+    track_save();
+end
+pops.track = track_toggle;
+
 local function u32c(c) return imgui.GetColorU32(c); end
 
 local function head_button(label, on)
@@ -527,6 +577,18 @@ pops.render = function (opts)
     inner, x0 = card_begin('##abypops_nm', W, math.floor(h), nm.name, right);
     imgui.TextColored(C.dim, nm.spawn_type or '');
     if nm.source_note then imgui.SameLine(0, 10); imgui.TextColored(C.faint, nm.source_note); end
+    -- Track: show this NM in the tracker pop-out
+    do
+        track_load();
+        local on = tracked_at(zone.short_name, nm.name) ~= nil;
+        local label = on and 'Tracking' or 'Track';
+        imgui.SameLine(x0 + inner - imgui.CalcTextSize(label) - 16);
+        imgui.PushStyleColor(ImGuiCol_Button, on and { 0.55, 0.45, 0.18, 1.0 } or { 0.16, 0.17, 0.26, 1.0 });
+        imgui.PushStyleColor(ImGuiCol_Text, on and { 1, 0.96, 0.85, 1 } or C.dim);
+        if imgui.SmallButton(label .. '##abytrack_btn') then track_toggle(zone.short_name, nm.name); end
+        imgui.PopStyleColor(2);
+        if imgui.IsItemHovered() then imgui.SetTooltip(on and 'Stop tracking this NM' or 'Show this NM in the tracker pop-out,\nwith what you still need to pop it'); end
+    end
 
     local col_name, col_from = x0 + 22, x0 + math.floor(inner * 0.42);
     if #reqs > 0 then
@@ -604,5 +666,77 @@ pops.render = function (opts)
     end
     card_end();
 end
+
+-- The tracker pop-out: each tracked NM, how far along, and every piece you still need with where it comes from.
+local function zone_by_short(short)
+    for _, z in ipairs(data.zones) do if z.short_name == short then return z; end end
+    return nil;
+end
+local function tracker_body()
+    local sty = package.loaded['omni_style'];
+    if imgui.SmallButton((track.small and '+' or '-') .. '##abytrack_small') then track.small = not track.small; track_save(); end
+    if imgui.IsItemHovered() then imgui.SetTooltip(track.small and 'Show what you need' or 'Minimise (just the NMs and how far along)'); end
+    imgui.SameLine(0, 8);
+    imgui.TextColored(C.gold, ('Tracking %d NM%s'):format(#track.list, #track.list == 1 and '' or 's'));
+    local remove = nil;
+    for ti, t in ipairs(track.list) do
+        local zone = zone_by_short(t.zone);
+        local nm = zone and find_nm(zone, t.name);
+        if nm then
+            local have, need = progress(nm);
+            local done = need > 0 and have == need;
+            if imgui.SmallButton('x##abytrack_x' .. ti) then remove = ti; end
+            if imgui.IsItemHovered() then imgui.SetTooltip('Stop tracking ' .. nm.name); end
+            imgui.SameLine(0, 6);
+            imgui.TextColored(done and C.green or C.text, nm.name);
+            imgui.SameLine(0, 6);
+            imgui.TextColored(C.faint, '(' .. t.zone .. (nm.location and nm.location ~= '' and (' ' .. nm.location) or '') .. ')');
+            imgui.SameLine(0, 8);
+            if need == 0 then imgui.TextColored(C.faint, short_spawn(nm));
+            elseif done then imgui.TextColored(C.green, 'Ready to pop!');
+            else imgui.TextColored(have > 0 and C.yellow or C.dim, ('%d/%d'):format(have, need)); end
+            if not track.small then
+                for ri, r in ipairs(nm.requirements or {}) do
+                    local got = req_have(r);
+                    imgui.Dummy({ 14, 1 }); imgui.SameLine(0, 0);
+                    mark(got);
+                    imgui.Dummy({ 16, 14 }); imgui.SameLine(0, 2);
+                    imgui.TextColored(got and C.green or C.text, r.name);
+                    if not got then
+                        imgui.SameLine(0, 6);
+                        local src = r.source or '';
+                        local snm = zone and find_nm(zone, src);
+                        local stext = 'from ' .. (src ~= '' and src or '?');
+                        if snm then
+                            local sh, sn = progress(snm);
+                            if sn > 0 then stext = stext .. ((sh == sn) and ' (ready)' or (' (%d/%d)'):format(sh, sn)); end
+                        end
+                        imgui.TextColored(C.faint, stext);
+                        local pyx = (r.type == 'item' and in_list(zone.gold_pyxis_items, r.name)) or (r.type == 'ki' and in_list(zone.gold_pyxis_keyitems, r.name));
+                        if pyx then imgui.SameLine(0, 6); imgui.TextColored(C.yellow, 'or gold Pyxis'); end
+                    end
+                end
+            end
+        end
+    end
+    if remove then table.remove(track.list, remove); track_save(); end
+end
+
+ashita.events.register('d3d_present', 'omni_abytrack', function ()
+    pcall(track_load);
+    if #track.list == 0 or not track.open[1] then return; end
+    pcall(load_saved);
+    if dirty then pcall(save_now); end
+    pcall(scan_items);
+    local sty = package.loaded['omni_style'];
+    local ns = sty and sty.begin() or nil;
+    imgui.SetNextWindowSize({ 0, 0 }, ImGuiCond_Always);
+    if imgui.Begin('NM Tracker###omni_abytrack', track.open, bit.bor(ImGuiWindowFlags_NoResize, ImGuiWindowFlags_NoScrollbar, ImGuiWindowFlags_NoCollapse)) then
+        local ok, err = pcall(tracker_body);
+        if not ok then imgui.Text(tostring(err)); end
+    end
+    imgui.End();
+    if sty then sty.finish(ns); end
+end);
 
 return pops;
