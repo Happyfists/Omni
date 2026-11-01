@@ -672,6 +672,11 @@ local function zone_by_short(short)
     for _, z in ipairs(data.zones) do if z.short_name == short then return z; end end
     return nil;
 end
+-- Tell the party what you still need: a tick box per missing item (ticked = already asked).
+local asked = {};   -- [NM .. '|' .. item] = true
+local function party_say(text)
+    pcall(function () AshitaCore:GetChatManager():QueueCommand(1, '/p ' .. text); end);
+end
 local function tracker_body()
     imgui.SetWindowFontScale(0.85);
     if imgui.SmallButton((track.small and '+' or '-') .. '##abytrack_small') then track.small = not track.small; track_save(); end
@@ -694,6 +699,18 @@ local function tracker_body()
             if need == 0 then imgui.TextColored(C.faint, short_spawn(nm));
             elseif done then imgui.TextColored(C.green, 'Ready to pop!');
             else imgui.TextColored(have > 0 and C.yellow or C.dim, ('%d/%d'):format(have, need)); end
+            -- /p: ask the party for everything still missing for this NM
+            if need > 0 and not done then
+                imgui.SameLine(0, 8);
+                if imgui.SmallButton('/p##abytrack_pall' .. ti) then
+                    local miss = {};
+                    for _, r in ipairs(nm.requirements or {}) do
+                        if not req_have(r) then miss[#miss + 1] = r.name; asked[nm.name .. '|' .. r.name] = true; end
+                    end
+                    if #miss > 0 then party_say(('Need for %s: %s'):format(nm.name, table.concat(miss, ', '))); end
+                end
+                if imgui.IsItemHovered() then imgui.SetTooltip('Tell the party everything you still need for ' .. nm.name); end
+            end
             if not track.small then
                 for ri, r in ipairs(nm.requirements or {}) do
                     local got = req_have(r);
@@ -701,7 +718,21 @@ local function tracker_body()
                     mark(got);
                     imgui.Dummy({ 14, 12 }); imgui.SameLine(0, 2);
                     imgui.TextColored(got and C.green or C.text, r.name);
-                    if not got and imgui.IsItemHovered() then
+                    local hover_name = imgui.IsItemHovered();
+                    local akey = nm.name .. '|' .. r.name;
+                    if got then
+                        asked[akey] = nil;
+                    else
+                        -- tick box: tick it to tell the party you need this one
+                        imgui.SameLine(0, 6);
+                        local v = { asked[akey] == true };
+                        if imgui.Checkbox('##abyask' .. ti .. '_' .. ri, v) then
+                            asked[akey] = v[1] or nil;
+                            if v[1] then party_say(('Need %s (for %s)'):format(r.name, nm.name)); end
+                        end
+                        if imgui.IsItemHovered() then imgui.SetTooltip(asked[akey] and 'Already asked the party (untick to ask again)' or ('Tick to tell the party: Need ' .. r.name)); end
+                    end
+                    if not got and hover_name then
                         -- where it comes from: on hover only, to keep the pop-out small
                         local src = r.source or '';
                         local snm = zone and find_nm(zone, src);
