@@ -714,7 +714,17 @@ aby.render_popout = function (opts)
         end
         end   -- Happy Procs
         if show_chests then gap(); pcall(pyx.popout_body); end
-        if show_track then gap(); pcall(pops.tracker_body); end
+        -- NM Tracker on the left, augmented items from gold chests in the space beside it
+        local show_aug = false;
+        if show_chests and pyx.aug_visible then local ok, v = pcall(pyx.aug_visible); show_aug = ok and v; end
+        if show_track or show_aug then
+            gap();
+            if show_track then
+                imgui.BeginGroup(); pcall(pops.tracker_body); imgui.EndGroup();
+                if show_aug then imgui.SameLine(0, 28); end
+            end
+            if show_aug then imgui.BeginGroup(); pcall(pyx.aug_body); imgui.EndGroup(); end
+        end
 
         local x, y = imgui.GetWindowPos();
         if type(x) == 'number' and (math.floor(x) ~= S.aby_pop_x or math.floor(y) ~= S.aby_pop_y)
