@@ -718,6 +718,19 @@ local function tracker_body()
         end
     end
     if remove then table.remove(track.list, remove); track_save(); end
+    imgui.SetWindowFontScale(1.0);
+end
+-- For the shared Abyssea pop-out.
+pops.tracker_visible = function ()
+    pcall(track_load);
+    return #track.list > 0 and track.open[1] == true;
+end
+pops.tracker_body = function ()
+    if imgui.SmallButton('x##abytrack_host_x') then track.open[1] = false; return; end
+    if imgui.IsItemHovered() then imgui.SetTooltip('Hide the NM Tracker (Track an NM to bring it back)'); end
+    imgui.SameLine(0, 6);
+    local ok, err = pcall(tracker_body);
+    if not ok then imgui.SetWindowFontScale(1.0); imgui.Text(tostring(err)); end
 end
 
 ashita.events.register('d3d_present', 'omni_abytrack', function ()
@@ -726,6 +739,8 @@ ashita.events.register('d3d_present', 'omni_abytrack', function ()
     pcall(load_saved);
     if dirty then pcall(save_now); end
     pcall(scan_items);
+    local host = package.loaded['omni_abyssea'];
+    if host and host.hosting_at and os.clock() - host.hosting_at < 1 then return; end   -- inside the Abyssea pop-out
     local sty = package.loaded['omni_style'];
     local ns = sty and sty.begin() or nil;
     imgui.SetNextWindowSize({ 0, 0 }, ImGuiCond_Always);

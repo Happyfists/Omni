@@ -640,12 +640,19 @@ end
 local pop_saved = 0;
 aby.render_popout = function (opts)
     local S = opts.settings or {};
-    if not S.aby_pop then return; end
-    local info = now_info();
-    check_target(S);
+    -- [3.74] One Abyssea pop-out: Happy Procs, Happy Chests and the NM Tracker stacked together.
+    local pyx = package.loaded['omni_pyxis'];
+    local pops = package.loaded['omni_abypops'];
+    local show_chests, show_track = false, false;
+    if pyx and pyx.popout_visible then local ok, v = pcall(pyx.popout_visible); show_chests = ok and v; end
+    if pops and pops.tracker_visible then local ok, v = pcall(pops.tracker_visible); show_track = ok and v; end
+    aby.hosting_at = os.clock();   -- the others draw in here, not in windows of their own
+    if not S.aby_pop and not show_chests and not show_track then return; end
+    local info = S.aby_pop and now_info() or nil;
+    if S.aby_pop then check_target(S); end
     local W = 290;
     imgui.SetNextWindowPos({ S.aby_pop_x or 400, S.aby_pop_y or 200 }, ImGuiCond_FirstUseEver);
-    imgui.SetNextWindowSizeConstraints({ W, 60 }, { W, 900 });
+    imgui.SetNextWindowSizeConstraints({ W, 30 }, { 1400, 1200 });
     -- omni's own look (Options > Look) for the window, its outline and buttons.
     local ost = package.loaded['omni_style'];
     local ons = ost and ost.begin() or nil;
@@ -659,6 +666,19 @@ aby.render_popout = function (opts)
         ImGuiWindowFlags_AlwaysAutoResize);
     if imgui.Begin('Procs##aby_popout', true, flags) then
         local inner = W - 16;
+        local first = true;
+        local function gap()
+            if not first then
+                imgui.Dummy({ 1, 2 });
+                local sx, sy = imgui.GetCursorScreenPos();
+                local ww = imgui.GetWindowWidth() or W;
+                imgui.GetWindowDrawList():AddLine({ sx, sy }, { sx + ww - 16, sy }, imgui.GetColorU32({ 0.90, 0.78, 0.40, 0.30 }), 1);
+                imgui.Dummy({ 1, 4 });
+            end
+            first = false;
+        end
+        if S.aby_pop then
+        first = false;
         -- Title line: clock and a close button.
         imgui.TextColored(C.gold, 'Happy Procs');
         if info then
@@ -692,6 +712,9 @@ aby.render_popout = function (opts)
         else
             imgui.TextColored(C.red, 'Clock not readable.');
         end
+        end   -- Happy Procs
+        if show_chests then gap(); pcall(pyx.popout_body); end
+        if show_track then gap(); pcall(pops.tracker_body); end
 
         local x, y = imgui.GetWindowPos();
         if type(x) == 'number' and (math.floor(x) ~= S.aby_pop_x or math.floor(y) ~= S.aby_pop_y)
