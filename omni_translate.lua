@@ -263,10 +263,17 @@ local GLOSSARY = {
     ['tian kong'] = 'Sky', ['tiankong'] = 'Sky',
     ['bai men'] = 'Whitegate', ['bai hu'] = 'Byakko', ['qing long'] = 'Seiryu', ['zhu que'] = 'Suzaku',
     ['xuan wu'] = 'Genbu', ['ba ha mu te'] = 'Bahamut', ['bahamute'] = 'Bahamut', ['jue dui mei de'] = 'Absolute Virtue',
+    -- "shua" next to a time question means spawn / repop, not brush (1 Nov: "K shizi shenme shihou shua")
+    ['shen me shi hou shua'] = 'when does it spawn', ['shenme shihou shua'] = 'when does it spawn',
+    ['shen me shi hou shua le'] = 'when did it spawn', ['shenme shihou shua le'] = 'when did it spawn',
+    ['shua le ma'] = 'has it spawned', ['shua le mei'] = 'has it spawned', ['ji dian shua'] = 'what time does it spawn',
+    ['shi zi'] = 'lion', ['shizi'] = 'lion',
 };
 
 local SHORT = {
     sm = 'shen me', zm = 'zen me', wsm = 'wei shen me', zms = 'zen me shuo', sms = 'shen me shi', dd = 'deng deng',
+    -- common misspellings (1 Nov: "sehnem huodong ?")
+    sehnem = 'shen me', shneme = 'shen me', shenem = 'shen me', shemne = 'shen me', snehme = 'shen me',
 };
 local function expand_short(text)
     return (text:gsub('%f[%w](%w+)%f[%W]', function (w)
@@ -507,6 +514,8 @@ local GAME_PY = {
     ['wei zi'] = 'spots', ['wei zhi'] = 'spots', ['mei wei zhi le'] = 'no spots left', ['mei wei zi le'] = 'no spots left', ['mei wei zhi le me'] = 'no spots left?',
     ['mei zu shang'] = "didn't get invited", ['mei zu dao'] = "didn't get invited", ['hui xue le'] = 'HP is back', ['hui fu le'] = 'recovered',
     ['lian wo'] = 'alliance me', ['lian men wo'] = 'alliance me', ['guo tu le'] = 'changed zones', ['wo guo tu le'] = 'I changed zones',
+    ['shen me huo dong'] = 'what event?', ['shenme huodong'] = 'what event?', ['shen me huodong'] = 'what event?', ['huodong'] = 'event', ['sha huo dong'] = 'what event?',
+    ['shen me shi hou shua'] = 'when does it spawn?', ['shua le ma'] = 'has it spawned?', ['shua le'] = 'it spawned',
     ['chu le ma'] = 'did it drop?', ['bu chu'] = "it doesn't drop", ['dian cuo le'] = 'clicked the wrong thing', ['sha huo dong'] = 'what event?',
     ['jia wo'] = 'add me', ['la wo'] = 'invite me', ['yao ren'] = 'need people', ['que ren'] = 'need people',
     ['hai que'] = 'still need', ['ji ge ren'] = 'how many people', ['ji ge'] = 'how many',
@@ -1067,7 +1076,7 @@ ashita.events.register('text_in', 'omni_translate_text', function (e)
                 while k <= #cw do
                     -- Game names from the glossary go over as English.
                     local hit = nil;
-                    for n = math.min(4, #cw - k + 1), 1, -1 do
+                    for n = math.min(6, #cw - k + 1), 1, -1 do
                         local ph = words_only(table.concat(cw, ' ', k, k + n - 1));
                         if GLOSSARY[ph] then hit = n; parts[#parts + 1] = '|' .. GLOSSARY[ph] .. '|'; break; end
                     end
