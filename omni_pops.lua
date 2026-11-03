@@ -3,8 +3,8 @@
 
     Type an HNM and its time of death (ToD). For every window it warns 2 min, 1 min, 30 sec and
     10 sec before, says when the window is OPEN, and says it closed 50 sec later - and counts the
-    windows (1/7, 2/7 ... 7/7 = forced pop). Seeing "<someone> defeats <HNM>" in chat starts a new
-    timer by itself; the Killed button does the same by hand.
+    windows (1/7, 2/7 ... 7/7 = forced pop). Press Killed (or /pops kill <hnm>) when it dies to start
+    the next timer.
 
     CatsEyeXI windows (bg-wiki, CatsEyeXI Content/HNMs):
       21h group: windows every 5 min from 21:00 after ToD, forced at 21:30 (7 windows)
@@ -21,10 +21,6 @@
       /pops kill <hnm>             it died now - new timer
       /pops del <hnm>              stop tracking it
       /pops list                   all timers in your chat (/pops list party = in party chat)
-      /pops history <hnm>          the last 10 saved ToDs (config\addons\omni\tods\<HNM>.txt)
-
-    Every ToD is saved to the tods folder, and an HNM seen dying near you
-    (0% HP, or gone at low HP) saves its ToD and starts the timer by itself.
 ]]
 
 local imgui = require('imgui');
@@ -260,75 +256,10 @@ end
 ----------------------------------------------------------------------------------------------------
 -- Starting / stopping timers
 ----------------------------------------------------------------------------------------------------
-----------------------------------------------------------------------------------------------------
--- ToD history: config\addons\omni\tods\<HNM>.txt, one line per kill.
-----------------------------------------------------------------------------------------------------
-local function tod_dir() return ('%s\\config\\addons\\omni\\tods\\'):format(AshitaCore:GetInstallPath()); end
-local function tod_file(name) return tod_dir() .. name:gsub('[^%w ]', ''):gsub(' ', '_') .. '.txt'; end
-local history = {};    -- history[name] = { {tod, how}, ... } newest last
-local function read_history(name)
-    if history[name] then return history[name]; end
-    local h = {};
-    pcall(function ()
-        local f = io.open(tod_file(name), 'r');
-        if f == nil then return; end
-        for raw in f:lines() do
-            local line = raw:gsub('%s+$', '');
-            local t, how = line:match('^(%d+)%s+%S+%s+%S+%s+(%S+)');
-            if t then h[#h + 1] = { tonumber(t), how }; end
-        end
-        f:close();
-    end);
-    history[name] = h;
-    return h;
-end
-
--- After a reload: any HNM whose last saved ToD (tods folder) is still in or before its windows
--- gets its timer back, even if pops.txt lost it. Ones you removed with X stay removed.
-local function restore_from_tods()
-    local n = 0;
-    for _, hh in ipairs(HNMS) do
-        local name = hh[1];
-        if st.timers[name] == nil then
-            local h = read_history(name);
-            local last = h[#h];
-            if last ~= nil and st.removed[name] ~= last[1] then
-                local g = GROUPS[hh[2]];
-                local ends = last[1] + g.first + (g.count - 1) * g.step + 3600;   -- keep it up to 1h after the last window
-                if os.time() < ends then
-                    st.timers[name] = { tod = last[1], fired = {}, loaded = true };
-                    n = n + 1;
-                end
-            end
-        end
-    end
-    return n;
-end
-local function log_tod(name, tod, how)
-    pcall(function ()
-        local d = tod_dir();
-        if not (ashita.fs and ashita.fs.exists and ashita.fs.exists(d)) then
-            pcall(function () ashita.fs.create_directory(d); end);
-            pcall(function () ashita.fs.create_dir(d); end);
-        end
-        local f = io.open(tod_file(name), 'a');
-        if f == nil then return; end
-        f:write(('%d  %s  %s\n'):format(tod, os.date('%Y-%m-%d %H:%M:%S', tod), how));
-        f:close();
-    end);
-    history[name] = nil;    -- re-read from the file next time
-end
-
-pcall(function ()
-    local n = restore_from_tods();
-    if n > 0 then save(); print(('\30\68[Happy Pops]\30\01 %d timer%s brought back from the tods folder.'):format(n, n == 1 and '' or 's')); end
-end);
-
 local function start(name, tod, how)
     st.timers[name] = { tod = tod, fired = {} };
     st.removed[name] = nil;
     save();
-    log_tod(name, tod, how or 'typed');
     local g = GROUPS[GROUP_OF[name]];
     msg(('%s ToD %s - first window %s (in %s), %d windows %d min apart.'):format(
         name, clock(tod), clock(tod + g.first), span(tod + g.first - os.time()), g.count, g.step / 60));
@@ -347,43 +278,6 @@ local function announce(name, chan)
         name, os.date('%H:%M:%S', t.tod), os.date('%a %d %b %H:%M:%S', first), g.count, tail);
     pcall(function () AshitaCore:GetChatManager():QueueCommand(1, (chan or '/l') .. ' ' .. line); end);
 end
--- Lock: some NMs share a name with ones you can pop yourself, and killing those would reset the
--- timer. A locked ToD can't be changed by an automatic kill until 30 minutes before its first window;
--- then the lock comes off by itself.
-local LOCK_UNTIL = 30 * 60;
-local function lock_ends(name)
-    local t = st.timers[name];
-    if t == nil then return nil; end
-    return t.tod + GROUPS[GROUP_OF[name]].first - LOCK_UNTIL;
-end
-local function is_locked(name)
-    local t = st.timers[name];
-    if t == nil or not t.locked then return false; end
-    if os.time() >= lock_ends(name) then t.locked = nil; save(); return false; end
-    return true;
-end
-local function set_lock(name, on)
-    local t = st.timers[name];
-    if t == nil then msg(name .. ' has no ToD to lock.'); return; end
-    if on and os.time() >= lock_ends(name) then msg(name .. ' is already within 30 min of its window - nothing to lock.'); return; end
-    t.locked = on or nil;
-    save();
-    if on then
-        msg(('%s ToD %s locked until %s (30 min before its first window).'):format(name, os.date('%H:%M:%S', t.tod), os.date('%a %d %b %H:%M', lock_ends(name))));
-    else
-        msg(name .. ' unlocked.');
-    end
-end
-
--- An automatic ToD (chat or seen dying nearby). Ignored if we already have one from the last 10 min.
-local function auto_kill(name, how)
-    if not in_hnm_zone(name) then return; end   -- same name, wrong zone (e.g. a Nyzul Isle floor boss)
-    if is_locked(name) then return; end          -- ToD locked in (a pop-able NM of the same name died)
-    local t = st.timers[name];
-    if t ~= nil and os.time() - t.tod <= 600 then return; end
-    start(name, os.time(), how);
-    msg(name .. ' died - ToD saved and new timer started.');
-end
 local function stop(name)
     if st.timers[name] then st.removed[name] = st.timers[name].tod; end
     st.timers[name] = nil;
@@ -393,24 +287,7 @@ end
 
 pops.start = start;
 
--- A kill seen in chat starts a new timer for that HNM.
-ashita.events.register('text_in', 'omni_pops_text', function (e)
-    if e.injected then return; end
-    pcall(function ()
-        local m = (e.message_modified or e.message or ''):gsub('[\30\31].', ''):gsub('\x7F.', '');
-        local low = m:lower();
-        for _, h in ipairs(HNMS) do
-            local n = h[1]:lower();
-            if low:find('defeats the ' .. n, 1, true) or low:find('defeats ' .. n, 1, true)
-               or low:find('the ' .. n .. ' falls to the ground', 1, true) or low:find(n .. ' falls to the ground', 1, true) then
-                auto_kill(h[1], 'chat');
-                return;
-            end
-        end
-    end);
-end);
-
--- It popped: the window countdown and warnings stop until it dies (Killed / a kill seen starts a new timer).
+-- It popped: the window countdown and warnings stop until it dies (Killed starts a new timer).
 local function set_popped(name, when, how)
     local t = st.timers[name];
     if t == nil then return; end
@@ -425,20 +302,14 @@ local function set_popped(name, when, how)
 end
 pops.set_popped = set_popped;
 
--- Watch for the HNMs near you: when one you can see drops to 0% HP (or vanishes at low HP), that's the ToD.
-local seen, last_scan, last_zone = {}, 0, -1;
+-- Watch for the HNMs near you: one seen alive in its zone near its window has popped.
+local last_scan = 0;
 local function scan()
-    local zone = AshitaCore:GetMemoryManager():GetParty():GetMemberZone(0);
-    if zone ~= last_zone then seen = {}; last_zone = zone; end   -- zoning is not a kill
     local ent = AshitaCore:GetMemoryManager():GetEntity();
-    local now_seen = {};
     for i = 0, 2303 do
         local name = ent:GetName(i);
         if name ~= nil and name ~= '' and GROUP_OF[name] and ent:GetRenderFlags0(i) ~= 0 then
             local hp = ent:GetHPPercent(i);
-            now_seen[name] = hp;
-            local was = seen[name];
-            if was ~= nil and was > 0 and hp == 0 then auto_kill(name, 'nearby'); end
             -- Seen alive in its own zone from 2 minutes before window 1 on: it has popped.
             local t = st.timers[name];
             if hp > 0 and t ~= nil and not t.popped and in_hnm_zone(name)
@@ -447,10 +318,6 @@ local function scan()
             end
         end
     end
-    for name, hp in pairs(seen) do
-        if now_seen[name] == nil and hp <= 3 then auto_kill(name, 'nearby'); end
-    end
-    seen = now_seen;
 end
 ashita.events.register('d3d_present', 'omni_pops_watch', function ()
     local c = os.clock();
@@ -517,21 +384,11 @@ ashita.events.register('command', 'omni_pops_cmd', function (e)
     elseif c == 'del' or c == 'remove' or c == 'stop' then
         local name = find_hnm(rest);
         if name and st.timers[name] then stop(name); else msg('No timer for that.'); end
-    elseif c == 'history' or c == 'tods' then
-        local name = find_hnm(rest);
-        if name == nil then msg('Which HNM? e.g. /pops history fafnir'); return; end
-        local h = read_history(name);
-        if #h == 0 then msg('No ToDs saved for ' .. name .. ' yet.'); return; end
-        for i = math.max(1, #h - 9), #h do msg(('%s ToD %s (%s)'):format(name, os.date('%a %d %b %H:%M:%S', h[i][1]), h[i][2] or '?')); end
     elseif c == 'list' then
         list((a[3] or ''):lower() == 'party' or (a[3] or ''):lower() == 'p');
     elseif c == 'warn' or c == 'warnings' then
         st.warn = not st.warn; save();
         msg('Window warnings ' .. (st.warn and 'ON' or 'OFF') .. '.');
-    elseif c == 'lock' or c == 'unlock' then
-        local name = find_hnm(rest);
-        if name == nil then msg('Which HNM? e.g. /pops lock khimaira'); return; end
-        set_lock(name, c == 'lock');
     elseif c == 'up' or c == 'popped' or c == 'notup' then
         local name = find_hnm(rest);
         if name == nil or st.timers[name] == nil then msg('Which HNM (with a timer)? e.g. /pops up fafnir'); return; end
@@ -547,7 +404,7 @@ ashita.events.register('command', 'omni_pops_cmd', function (e)
         st.party = not st.party; save();
         msg('Party chat warnings ' .. (st.party and 'ON' or 'OFF') .. '.');
     else
-        msg('/pops  |  /pops add <hnm> [21:35]  |  /pops kill <hnm>  |  /pops del <hnm>  |  /pops list [party]  |  /pops party  |  /pops ls <hnm>  |  /pops ls2 <hnm>  |  /pops lock|unlock <hnm>  |  /pops up|notup <hnm>');
+        msg('/pops  |  /pops add <hnm> [21:35]  |  /pops kill <hnm>  |  /pops del <hnm>  |  /pops list [party]  |  /pops party  |  /pops ls <hnm>  |  /pops ls2 <hnm>  |  /pops up|notup <hnm>');
     end
 end);
 
@@ -570,13 +427,6 @@ local NAMES_Z = table.concat(NAMES, '\0') .. '\0';
 local function hist_tip(name, t)
     local lines = { name };
     if t then lines[#lines + 1] = 'ToD ' .. os.date('%a %d %b %H:%M:%S', t.tod); end
-    if read_history ~= nil then
-        local h = read_history(name);
-        if #h > 0 then lines[#lines + 1] = 'Last ToDs:'; end
-        for i = #h, math.max(1, #h - 5), -1 do
-            lines[#lines + 1] = ('  %s  (%s)'):format(os.date('%a %d %b %H:%M:%S', h[i][1]), h[i][2] or '?');
-        end
-    end
     lines[#lines + 1] = 'Click the name to pick it above.';
     imgui.SetTooltip(table.concat(lines, '\n'));
 end
@@ -642,22 +492,6 @@ local function body()
         local function name_cell(h, col)
             imgui.TableNextColumn();
             local nm = h[1];
-            if st.timers[nm] ~= nil then
-                -- Lock button: gold "Locked" while the ToD is locked in, dim "Lock" otherwise.
-                local locked = is_locked(nm);
-                local gold = { 0.95, 0.78, 0.30, 1.0 };
-                imgui.PushStyleColor(ImGuiCol_Button, locked and { gold[1], gold[2], gold[3], 0.30 } or { line[1], line[2], line[3], 0.35 });
-                imgui.PushStyleColor(ImGuiCol_Text, locked and gold or C.dim);
-                if imgui.SmallButton((locked and 'Locked' or ' Lock ') .. '##pops_lock_' .. nm) then set_lock(nm, not locked); end
-                imgui.PopStyleColor(2);
-                if imgui.IsItemHovered() then
-                    local le = lock_ends(nm);
-                    imgui.SetTooltip(locked
-                        and ('ToD locked in until %s (30 min before the first window).\nKills seen in chat or nearby can\'t change it till then.\nClick to unlock.'):format(os.date('%a %d %b %H:%M', le))
-                        or ('Lock this ToD in until 30 min before the first window (%s),\nso killing a pop-able NM with the same name doesn\'t reset it.'):format(os.date('%a %d %b %H:%M', le)));
-                end
-                imgui.SameLine(0, 6);
-            end
             imgui.TextColored(col, h[1]);
             if imgui.IsItemClicked() then
                 for i, x in ipairs(HNMS) do if x[1] == h[1] then pick[1] = i - 1; end end
@@ -716,11 +550,8 @@ local function body()
                 imgui.TextColored(C.green, 'should be up since ' .. os.date('%a %H:%M', last));
             end
             imgui.TableNextColumn();
-            if imgui.SmallButton('Killed##pops_k_' .. name) then
-                if is_locked(name) then msg(name .. ' ToD is locked - press Locked first if it really died again.');
-                else start(name, os.time(), 'button'); end
-            end
-            if imgui.IsItemHovered() then imgui.SetTooltip(is_locked(name) and 'ToD is locked - unlock it first to change it.' or 'It died just now - start a new timer.'); end
+            if imgui.SmallButton('Killed##pops_k_' .. name) then start(name, os.time(), 'button'); end
+            if imgui.IsItemHovered() then imgui.SetTooltip('It died just now - start a new timer.'); end
             imgui.SameLine(0, 4);
             if imgui.SmallButton((t.popped and 'Not up' or 'Up') .. '##pops_up_' .. name) then set_popped(name, (not t.popped) and os.time() or nil, 'button'); end
             if imgui.IsItemHovered() then imgui.SetTooltip(t.popped and 'It wasn\'t really up - go back to counting the windows.' or 'It has popped - stop counting the windows.\n(Done by itself when it is seen near you in its zone.)'); end

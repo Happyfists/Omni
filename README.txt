@@ -174,11 +174,7 @@ with a drop-down panel of tabs underneath it for everything else.
       CatsEyeXI: the 57h and 81h HNMs respawn at the hours plus 16 seconds:
       21h HNMs: every 5 min from 21:00.  57h (Cerberus, Khimaira, Hydra): every 10 min from 57:00:16.
       81h (ToAU kings) and the wyrms (Jormungand, Tiamat, Vrtra): every 10 min from 81:00:16.
-    * A kill seen in chat ("... defeats Fafnir"), or an HNM seen dying near you (0% HP), starts a
-      new timer by itself - only in that HNM's own zone, so same-named monsters elsewhere
-      (Nyzul Isle floor bosses, Einherjar...) don't count.
-    * Every ToD is saved in config\addons\omni\tods\<HNM>.txt; /pops history <hnm> shows the
-      last ones, and after a reload any timer still running comes back from there.
+    * When it dies, press Killed (or /pops kill <hnm>) to start the next timer.
     * Tick boxes: Window warnings, Warn the party too (<call14> on OPEN), 1h warning to linkshell
       (one hour before the first window of every timer: "/l Jormungand window 1/7 in 1 hour (22:18:49)").
     * L1 / L2 buttons on each running timer announce its ToD to linkshell 1 or 2 when you
@@ -187,9 +183,6 @@ with a drop-down panel of tabs underneath it for everything else.
     * When the HNM pops, the timer shows POPPED and stops counting windows and warning. It is
       spotted by itself when the HNM appears near you in its zone; or press Up (Not up undoes it),
       or /pops up <hnm>. Killing it starts the next timer as usual.
-    * Lock button beside each running timer's name: locks the ToD in until 30 min before the
-      first window, so killing a pop-able NM of the same name can't reset it (/pops lock <hnm>,
-      /pops unlock <hnm>). It unlocks by itself 30 min before the window.
 
   HAPPY TRANSLATE (top row tab, On/Off slider next to it, /translate on|off)
     * Tick the languages you want: Chinese (pinyin), Japanese, French, German, Spanish, Portuguese.
@@ -224,7 +217,7 @@ with a drop-down panel of tabs underneath it for everything else.
     /ddr                 reset the damage meter
     /ddp [n]             post the top n damage dealers in party chat
     /avh help            AV helper commands
-    /pops                Happy Pops tab   (/pops add <hnm> [21:35], kill, del, list, history, ls <hnm>, ls2 <hnm>,
+    /pops                Happy Pops tab   (/pops add <hnm> [21:35], kill, del, list, ls <hnm>, ls2 <hnm>,
                          warn, party, ls)
     /translate           Happy Translate on/off  (status, learn, test, window)
     /zl /zl2 /zp /zs /zsh /zt <name> /zr   send a message translated into pinyin
