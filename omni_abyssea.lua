@@ -166,22 +166,41 @@ local function popup_on()
     local S = aby.get_settings and aby.get_settings() or nil;
     return not (S and S.aby_stagger_popup == false);
 end
+-- Moving it: Abyssea > Procs > "Move popup" shows it until you press the button again; drag it
+-- anywhere. Where you leave it (its centre) is saved in omni's settings (aby_stagger_x / _y).
+aby.stagger_moving = false;
 ashita.events.register('d3d_present', 'omni_abyssea_stagger', function ()
-    if os.clock() - stagger.shown_at > 4 or stagger.colour == nil or not popup_on() then return; end
+    local moving = aby.stagger_moving;
+    if not moving and (os.clock() - stagger.shown_at > 4 or stagger.colour == nil or not popup_on()) then return; end
     pcall(function ()
-        local info = STAGGER[stagger.colour] or STAGGER.white;
+        local S = aby.get_settings and aby.get_settings() or nil;
+        local info = moving and STAGGER.red or (STAGGER[stagger.colour] or STAGGER.white);
         local w, h = 1280, 720;
         pcall(function () local io_ = imgui.GetIO(); w, h = io_.DisplaySize.x, io_.DisplaySize.y; end);
-        imgui.SetNextWindowPos({ w / 2, h * 0.28 }, ImGuiCond_Always, { 0.5, 0.5 });
-        imgui.SetNextWindowBgAlpha(0.55);
-        local flags = bit.bor(ImGuiWindowFlags_NoDecoration, ImGuiWindowFlags_NoInputs, ImGuiWindowFlags_NoMove,
-            ImGuiWindowFlags_NoSavedSettings, ImGuiWindowFlags_NoFocusOnAppearing, ImGuiWindowFlags_AlwaysAutoResize);
+        local cx = (S and S.aby_stagger_x) or (w / 2);
+        local cy = (S and S.aby_stagger_y) or (h * 0.28);
+        imgui.SetNextWindowPos({ cx, cy }, moving and ImGuiCond_Appearing or ImGuiCond_Always, { 0.5, 0.5 });
+        imgui.SetNextWindowBgAlpha(moving and 0.80 or 0.55);
+        local flags = bit.bor(ImGuiWindowFlags_NoDecoration, ImGuiWindowFlags_NoSavedSettings,
+            ImGuiWindowFlags_NoFocusOnAppearing, ImGuiWindowFlags_AlwaysAutoResize);
+        if not moving then flags = bit.bor(flags, ImGuiWindowFlags_NoInputs, ImGuiWindowFlags_NoMove); end
         if imgui.Begin('##omni_stagger_popup', { true }, flags) then
             imgui.SetWindowFontScale(2.4);
             imgui.TextColored(info.col, info.text .. '!!');
             imgui.SetWindowFontScale(1.1);
-            imgui.TextColored({ 0.92, 0.92, 0.95, 1.0 }, info.what .. ((stagger.who and stagger.who ~= '') and ('  -  ' .. stagger.who) or ''));
+            if moving then
+                imgui.TextColored({ 0.92, 0.92, 0.95, 1.0 }, 'drag me where you want it, then press Move popup again');
+            else
+                imgui.TextColored({ 0.92, 0.92, 0.95, 1.0 }, info.what .. ((stagger.who and stagger.who ~= '') and ('  -  ' .. stagger.who) or ''));
+            end
             imgui.SetWindowFontScale(1.0);
+            if moving and S then
+                local px, py = imgui.GetWindowPos();
+                local ww, wh = imgui.GetWindowSize();
+                if type(px) == 'table' then px, py = px[1] or px.x, px[2] or px.y; end
+                if type(ww) == 'table' then ww, wh = ww[1] or ww.x, ww[2] or ww.y; end
+                if px and ww then S.aby_stagger_x, S.aby_stagger_y = math.floor(px + ww / 2), math.floor(py + wh / 2); end
+            end
         end
         imgui.End();
     end);
@@ -710,6 +729,15 @@ aby.render_procs = function (opts)
         if S.aby_stagger_popup ~= false then aby.test_stagger('red'); end
     end
     if imgui.IsItemHovered() then imgui.SetTooltip('A big coloured line on screen when a stagger lands (red / yellow / blue).\nTurning it on shows a test one.'); end
+    imgui.SameLine(0, 6);
+    if head_button('Move popup##aby_stgmove', aby.stagger_moving == true, 110) then
+        aby.stagger_moving = not aby.stagger_moving;
+        if not aby.stagger_moving and opts.save then pcall(opts.save); end   -- keep where you left it
+    end
+    if imgui.IsItemHovered() then imgui.SetTooltip('Shows the stagger popup so you can drag it.\nPress again to lock it there (saved).'); end
+    imgui.SameLine(0, 4);
+    if imgui.SmallButton('reset##aby_stgreset') then S.aby_stagger_x, S.aby_stagger_y = nil, nil; if opts.save then pcall(opts.save); end end
+    if imgui.IsItemHovered() then imgui.SetTooltip('Put the stagger popup back in the middle near the top.'); end
     imgui.SameLine(0, 6);
     if head_button('Weakness to /p##aby_wp', S.aby_weak_party ~= false, 140) then
         S.aby_weak_party = (S.aby_weak_party == false);
