@@ -219,6 +219,7 @@ with a drop-down panel of tabs underneath it for everything else.
     /hh                  Happy Healer commands (when it's on)
     /pops                Happy Pops (HNMs tab)   (/pops add <hnm> [21:35], kill, del, list, ls <hnm>, ls2 <hnm>,
                          warn, party, ls)
+    /tmon                training regime counter (status, reset, show, show always, hide)
     /translate           Happy Translate on/off  (status, learn, test, window)
     /zl /zl2 /zp /zs /zsh /zt <name> /zr   send a message translated into pinyin
 
@@ -269,6 +270,7 @@ with a drop-down panel of tabs underneath it for everything else.
     * targetlines by Jyouya - the line idea, world-to-screen maths and bone lookup (spell lines)
     * Craftbook by Happys; recipes from the LandSandBoat database (GNU GPL v3)
     * Sidekick by Seekey (MIT, SIDEKICK_LICENSE) - the engine behind Happy Healer
+    * trainmon by onimitch (MIT, trainmon\LICENSE_trainmon) - the training regime counter
     * Sky map: Ru'Aun Gardens by the Remapster project (remapster.com, CC BY-SA 4.0, REMAPSTER_LICENSE)
     * Automaton / Blue Magic: equip method as in atom0s' blusets and pupsets; blue spell facts as in
       bludex's CatsEyeXI data and LandSandBoat; PUP click-to-equip idea from puphq by QB1985

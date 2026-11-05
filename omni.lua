@@ -9,6 +9,8 @@
       * Looks (Options > Look): Crystal & Gold, Classic, and themes (THEMES in omni.lua, themes/<id>.lua
         for the Trove screens): Obsidian & Gold, Slate Minimal, Crimson Night, Emerald Grove, Amethyst, Frost.
       * Row under it: your buffs (left) and the target bar (right): name, HP, TH, distance, target's buffs.
+      * Training: Fields of Valor / Grounds of Tome kill counts under the buff box (omni_training.lua, trainmon/;
+        Options > Bars; /tmon).
       * Party jobs: see-through columns of FFXI job pictures beside the game's party and alliance
         lists; each grows upwards as people join (omni_party.lua, assets/jobs/ from HXUI).
       * Brighter chat colours for party, linkshells and tells (omni_chatcolors.lua; Options).
@@ -57,6 +59,7 @@
         IntegReady, and Abystagger by Laudout.
       * FFXI job pictures (assets/jobs/) from HXUI by Team HXUI (MIT, HXUI_LICENSE).
       * Craftbook by Happys (github.com/Happyfists/Craftbook); recipes from the LandSandBoat database (GNU GPL v3).
+      * Training regime counter: trainmon by onimitch (MIT, trainmon/LICENSE_trainmon; gdifonts by Thorny, MIT).
       * Sky map (images/sky_map.png): Ru'Aun Gardens by the Remapster project (remapster.com, CC BY-SA 4.0,
         REMAPSTER_LICENSE), with the god markers added.
       * Automaton and Blue Magic pages: omni's own code. They set attachments / spells the way atom0s' blusets and
@@ -963,6 +966,12 @@ local mobinfo = nil;
 do
     local ok, mod = pcall(require, 'omni_mobinfo');
     if (ok) then mobinfo = mod; mod.look = omni.strip_look; else print('[omni] Monster info could not load: ' .. tostring(mod)); end
+end
+
+-- Training regime kill counts under the buff box (omni_training.lua; the tracking is trainmon by onimitch).
+do
+    local ok, mod = pcall(require, 'omni_training');
+    if (ok) then omni.training = mod; mod.look = omni.strip_look; else print('[omni] Training could not load: ' .. tostring(mod)); end
 end
 
 -- Returns the height of the bar it drew, or 0 if there is no target.
