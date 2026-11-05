@@ -23,8 +23,8 @@
 
     Panel tabs (and the file that draws each one) - grouped by subject (3.98)
       Top row: places and content
-        Abyssea    - Procs (+ pop-out), NM Pops, Atma, Weapons and Empyrean armor
-                     (omni_abyssea.lua, omni_abypops.lua, omni_abyatma.lua, omni_abyweapons.lua, omni_abyempy.lua, abydata/)
+        Abyssea    - Procs (+ pop-out), NM Pops, Atma, Weapons, Empyrean armor, Chests and Augments
+                     (omni_abyssea.lua, omni_abypops.lua, omni_abyatma.lua, omni_abyweapons.lua, omni_abyempy.lua, omni_pyxis.lua, abydata/)
         Sea        - Sea (Lumoria), Jailers and AV, the Absolute Virtue helper (plugins/lumoria.lua, omni_jailers.lua, omni_av.lua)
         Sky        - Sky / Sky 2.0 / Pops / Map: pop items, god drops, the server's !pops list (omni_sky.lua)
         HNMs       - Happy Pops (HNM ToD and window timers, omni_pops.lua) and Roll Tracker (/random order, omni_rolls.lua)
@@ -40,7 +40,7 @@
                      click-to-equip PUP attachments, best builds, maneuver guide (omni_pup.lua); Blue Magic:
                      click-to-set BLU spells, ready sets, your blusets files, traits (omni_blu.lua)
         Currency   - Currency, Points and the Sparks shop (Trove: core/currency.lua, core/points.lua; omni_sparks.lua)
-        Items      - Sell It (omni_sell.lua)
+        Items      - Sell It (omni_sell.lua) and Happy Pouches (omni_pouches.lua)
         Combat     - Damage (Simple / Advanced) and TH, Treasure Hunter per monster (this file, omni_damage.lua, omni_th.lua)
         Multisend  - Follow Me, sim-cast and quick commands (omni_multisend.lua)
         Happy Translate - translated chat and a reply box (omni_translate.lua)
@@ -59,6 +59,8 @@
         IntegReady, and Abystagger by Laudout.
       * FFXI job pictures (assets/jobs/) from HXUI by Team HXUI (MIT, HXUI_LICENSE).
       * Craftbook by Happys (github.com/Happyfists/Craftbook); recipes from the LandSandBoat database (GNU GPL v3).
+      * Happy Pouches based on Pouches by Omnys (BSD, notice in omni_pouches.lua). Happy Chests based on
+        Pyxis by Integrity (rewritten; its chest pictures aren't included).
       * Training regime counter: trainmon by onimitch (MIT, trainmon/LICENSE_trainmon; gdifonts by Thorny, MIT).
       * Sky map (images/sky_map.png): Ru'Aun Gardens by the Remapster project (remapster.com, CC BY-SA 4.0,
         REMAPSTER_LICENSE), with the god markers added.
@@ -974,6 +976,18 @@ do
     if (ok) then omni.training = mod; mod.look = omni.strip_look; else print('[omni] Training could not load: ' .. tostring(mod)); end
 end
 
+-- Happy Pouches: open a whole stack of pouches, /pouches (Items > Pouches). Based on Pouches by Omnys (BSD).
+do
+    local ok, mod = pcall(require, 'omni_pouches');
+    if (ok) then omni.pouches = mod; else print('[omni] Happy Pouches could not load: ' .. tostring(mod)); end
+end
+
+-- Happy Chests: Abyssea Sturdy Pyxis opener, /py (Abyssea > Chests). Based on Pyxis by Integrity.
+do
+    local ok, mod = pcall(require, 'omni_pyxis');
+    if (ok) then omni.pyxis = mod; else print('[omni] Happy Chests could not load: ' .. tostring(mod)); end
+end
+
 -- Returns the height of the bar it drew, or 0 if there is no target.
 local function draw_target(ox, ow, oh)
     local target = AshitaCore:GetMemoryManager():GetTarget();
@@ -1613,7 +1627,7 @@ do
     tabs[#tabs + 1] = tab;
 end
 
--- Items: Sell It (omni_sell.lua, from the Sparks screen) (+ Happy Pouches in the personal copy).
+-- Items: Sell It (omni_sell.lua, from the Sparks screen) and Happy Pouches (omni_pouches.lua).
 do
     local tab = { label = 'Items', width = 620, height = 300 };
     tab.render = function ()
@@ -1750,6 +1764,8 @@ do
     local tab = { label = 'Happy Healer', width = 800, height = 420 };
     tab.render = function ()
         imgui.TextColored({ 0.95, 0.80, 0.45, 1.0 }, 'Happy Healer is Sneaky\'s Sidekick, just easier to use.');
+        imgui.SameLine(0, 10);
+        imgui.TextColored({ 0.55, 0.57, 0.66, 0.85 }, '(Based on Sidekick by seekey13, MIT.)');
         if (not hh.is_on() or not hh.loaded) then
             imgui.TextColored({ 0.62, 0.66, 0.80, 1.0 }, 'Happy Healer is off.');
             imgui.SameLine(0, 12);
@@ -2227,6 +2243,21 @@ local TAB_ROWS = {
 };
 local TAB_PAD, TAB_GAP = 8, 4;
 
+-- "Based on ..." line at the bottom of each tab built from someone else's addon.
+local BASED_ON = {
+    ['Abyssea']   = 'Based on Abyssea Tracker - CatsEyeXI Edition by IntegReady and Abystagger by Laudout. Chests based on Pyxis by Integrity.',
+    ['Sea']       = 'Based on Trove by Loxley (MIT). AV page based on AVHelper by ClutchHawks (MIT).',
+    ['Ventures']  = 'VNM Armor based on Trove by Loxley (MIT).',
+    ['Dailies']   = 'Based on Trove by Loxley (MIT).',
+    ['Codex']     = 'Based on Trove by Loxley (MIT).',
+    ['Quests']    = 'Based on FFXI Journal by AndreYMods (MIT).',
+    ['Character'] = 'Based on Trove by Loxley (MIT). Craftbook recipes from LandSandBoat (GPL v3).',
+    ['Currency']  = 'Based on Trove by Loxley (MIT). Points based on points by Shinzaku / Pointwatch by Byrthnoth.',
+    ['Items']     = 'Happy Pouches based on Pouches by Omnys (BSD).',
+    ['Combat']    = 'TH based on easyTH by Arielfy.',
+    ['Options']   = 'Party job pictures from HXUI (MIT). Training counter based on trainmon by onimitch (MIT). Happy Talks based on chatmon by atom0s (GPL v3).',
+};
+
 local function tab_rows()
     local by = {};
     for _, t in ipairs(tabs) do by[t.label] = t; end
@@ -2627,7 +2658,7 @@ local function draw_panel()
             -- Black & Gold: no grey behind the page, the black panel shows through.
             local bt = cr and theme() ~= nil and sel.bg == nil;
             if (bt) then imgui.PushStyleColor(ImGuiCol_ChildBg, { 0, 0, 0, 0 }); end
-            imgui.BeginChild('##omni_tab_' .. sel.label, { 0, sel.height or 300 }, false);
+            imgui.BeginChild('##omni_tab_' .. sel.label, { 0, (sel.height or 300) + (BASED_ON[sel.label] and 24 or 0) }, false);
             if (bt) then imgui.PopStyleColor(1); end
             -- A painted background behind some tabs (Crystal look), dimmed so the text stays easy to read.
             if (cr and sel.bg ~= nil and trove.fileHandle ~= nil) then
@@ -2648,6 +2679,12 @@ local function draw_panel()
             local okr, err = pcall(sel.render);
             crystal_end();
             if (not okr) then imgui.TextColored({ 1, 0.45, 0.45, 1 }, tostring(err)); end
+            -- Where this tab comes from (addons it's based on; licences in the omni folder).
+            local based = BASED_ON[sel.label];
+            if (based ~= nil) then
+                imgui.Spacing();
+                imgui.TextColored({ 0.55, 0.57, 0.66, 0.85 }, based);
+            end
             imgui.EndChild();
         end
 

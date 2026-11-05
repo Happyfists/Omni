@@ -15,6 +15,8 @@ It also draws spell animations on the field (fireballs, lightning, rocks, cures.
 - **Gear > Blue Magic** - Blue Mage click-to-set spells with set points and traits, ready sets (Cleave, Magic Burst, Physical TP, Tank, Healer, Debuff / Sleep, Solo), "Auto: max a trait", and your blusets files. Only the changes are sent.
 - **Happy Healer** - Sneaky's Sidekick, just easier to use. Back in omni as a tab with an On/Off switch (off: not loaded).
 - **Abyssea** - Atma and Empyrean pages, weapon filters, a stagger popup, and the Discernment weakness in /p with everything that procs it.
+- **Happy Chests (Abyssea > Chests)** - Abyssea Sturdy Pyxis opener: pick Blue / Gold / Red, `/py` opens the nearest one with a Forbidden Key, Open all, skip Red lights, Auto, and an Augments page. Based on Pyxis by Integrity.
+- **Happy Pouches (Items > Pouches)** - open a whole stack of pouches / coffers one after another (`/pouches <item>`). Based on Pouches by Omnys.
 - **Training counter** - Fields of Valor / Grounds of Tome kill counts under the buff box ("Goblin 2/4"), from trainmon by onimitch. Options > Bars, `/tmon`.
 - **Sky > Map** - the real Ru'Aun Gardens map (Remapster) with every god's ??? marked.
 - **Happy Pops** - pick an HNM, type its time of death, and get 2 min / 1 min / 30 s / 10 s warnings and OPEN for every window (CatsEyeXI windows; 7 per HNM, the last one forced). Press Killed when it dies to start the next timer; L1 / L2 buttons announce a ToD to your linkshells when you press them. An hour before the first window it tells the linkshell (tick box). When it pops (seen near you, or the Up button) the window countdown stops. `/pops`, `/pops kill <hnm>`

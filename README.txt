@@ -121,6 +121,10 @@ with a drop-down panel of tabs underneath it for everything else.
     Atma page        every atma, what it gives and where it comes from; abyssites.
     Weapons page     Abyssea weapons with All / Active / Done filters.
     Empyrean page    Empyrean armour: what each piece needs and where to get it.
+    Chests page      Happy Chests - Sturdy Pyxis opener: pick Blue / Gold / Red, /py opens the nearest
+                     one with a Forbidden Key; Open all, skip Red lights, Auto (/py help in the file).
+                     Based on Pyxis by Integrity.
+    Augments page    what each gold-chest item can roll, and which rolls you want kept.
 
   SEA         Sea armour, Jailers (pop items, ??? spots, drops) and the AV (Absolute Virtue) helper.
   SKY         Sky / Sky 2.0 / Pops and a Map of Ru'Aun Gardens with every god's ??? marked.
@@ -151,7 +155,8 @@ with a drop-down panel of tabs underneath it for everything else.
                  and your blusets files (config\addons\blusets\*.txt) to load and save.
 
   CURRENCY    Currency, Points, and the Sparks shop (buy N / buy all).
-  ITEMS       Sell It.
+  ITEMS       Sell It, and Happy Pouches: open a whole stack of pouches / coffers (/pouches <item>,
+              /pouches stop). Based on Pouches by Omnys (BSD).
   COMBAT      Damage (Simple / Advanced; /ddr, /ddp [n]) and TH (Treasure Hunter on your target,
               "Happyfists lands TH3 on Ogre Beetle" in party; Announce / Only mine switches).
   MULTISEND   Follow Me, sim-cast, quick Assist / Attack / Stop / Follow, a command box.
@@ -219,6 +224,8 @@ with a drop-down panel of tabs underneath it for everything else.
     /hh                  Happy Healer commands (when it's on)
     /pops                Happy Pops (HNMs tab)   (/pops add <hnm> [21:35], kill, del, list, ls <hnm>, ls2 <hnm>,
                          warn, party, ls)
+    /py                  Happy Chests (Abyssea chest opener: /py all <colour>, auto, skip, peek, status)
+    /pouches <item>      Happy Pouches (open a whole stack; /pouches stop)
     /tmon                training regime counter (status, reset, show, show always, hide)
     /translate           Happy Translate on/off  (status, learn, test, window)
     /zl /zl2 /zp /zs /zsh /zt <name> /zr   send a message translated into pinyin
@@ -271,6 +278,9 @@ with a drop-down panel of tabs underneath it for everything else.
     * Craftbook by Happys; recipes from the LandSandBoat database (GNU GPL v3)
     * Sidekick by Seekey (MIT, SIDEKICK_LICENSE) - the engine behind Happy Healer
     * trainmon by onimitch (MIT, trainmon\LICENSE_trainmon) - the training regime counter
+    * Pouches by Omnys (BSD, notice in omni_pouches.lua) - Happy Pouches
+    * Pyxis by Integrity - Happy Chests (rewritten; its chest pictures aren't included)
+    * Windower libs/extdata.lua - augment names for the Augments page
     * Sky map: Ru'Aun Gardens by the Remapster project (remapster.com, CC BY-SA 4.0, REMAPSTER_LICENSE)
     * Automaton / Blue Magic: equip method as in atom0s' blusets and pupsets; blue spell facts as in
       bludex's CatsEyeXI data and LandSandBoat; PUP click-to-equip idea from puphq by QB1985
