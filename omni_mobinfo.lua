@@ -68,28 +68,79 @@ local ELEM_COL = {
 -- The strip. x, y: top-left on screen; w: width. c: omni's colours. Returns its height.
 mi.HEIGHT = 20;
 mi.open = { true };
-mi.draw = function (x, y, w, r, c, bg, border)
+-- top: extra room above the text (so it lines up with the training strip beside it, whose top part
+-- holds the buff times). id / index: the monster's server id and target index, shown on the right.
+mi.draw = function (x, y, w, r, c, bg, border, top, id, index)
+    top = top or 0;
     local job = '';
     if r.Job and r.Job > 0 then
         pcall(function () job = AshitaCore:GetResourceManager():GetString('jobs.names_abbr', r.Job) or ''; end);
     end
     imgui.SetNextWindowPos({ x, y }, ImGuiCond_Always);
-    imgui.SetNextWindowSize({ w, mi.HEIGHT }, ImGuiCond_Always);
-    imgui.PushStyleColor(ImGuiCol_WindowBg, bg);
-    imgui.PushStyleColor(ImGuiCol_Border, border);
+    imgui.SetNextWindowSize({ w, mi.HEIGHT + top }, ImGuiCond_Always);
+    -- Same frame as the bars above (the crystal / themed looks draw their own border).
+    local orn = mi.look ~= nil and mi.look.crystal();
+    imgui.PushStyleColor(ImGuiCol_WindowBg, orn and { 0, 0, 0, 0 } or bg);
+    imgui.PushStyleColor(ImGuiCol_Border, orn and { 0, 0, 0, 0 } or border);
     imgui.PushStyleVar(ImGuiStyleVar_WindowPadding, { 10, 2 });
+    if orn then imgui.PushStyleVar(ImGuiStyleVar_WindowRounding, 0); end
     imgui.PushStyleVar(ImGuiStyleVar_ItemSpacing, { 0, 0 });
     local flags = bit.bor(ImGuiWindowFlags_NoDecoration, ImGuiWindowFlags_NoMove, ImGuiWindowFlags_NoSavedSettings,
         ImGuiWindowFlags_NoFocusOnAppearing, ImGuiWindowFlags_NoScrollbar);
     if imgui.Begin('OmniMobInfo', mi.open, flags) then
+        if orn then
+            local wx, wy = imgui.GetWindowPos();
+            pcall(mi.look.frame, imgui.GetWindowDrawList(), wx + 1, wy + 1, wx + w - 1, wy + mi.HEIGHT + top - 1);
+        end
         imgui.SetWindowFontScale(0.85);
-        local first = true;
+        if top > 0 then imgui.SetCursorPosY(imgui.GetCursorPosY() + top); end
+        local line_y = imgui.GetCursorPosY();
+        -- [3.87] The ID always shows: it is worked out first and its room kept free at the right end.
+        -- Anything else that doesn't fit is left off the strip and listed in the hover tooltip.
+        -- [3.65] the entity's ServerId can be empty under VanaCore: read it from memory, or work it out
+        -- (a monster's id is 0x01000000 + zone * 4096 + its target index)
+        if (id == nil or id == 0) and index ~= nil then
+            pcall(function () id = AshitaCore:GetMemoryManager():GetEntity():GetServerId(index); end);
+            if id == nil or id == 0 then
+                pcall(function ()
+                    local z = AshitaCore:GetMemoryManager():GetParty():GetMemberZone(0);
+                    id = 0x01000000 + z * 4096 + index;
+                end);
+            end
+        end
+        local id_txt, id_w = nil, 0;
+        if id ~= nil and id ~= 0 then
+            id_txt = ('ID %03X (%d)'):format(bit.band(id, 0xFFF), id);   -- e.g. ID 02D (16793645), as the wikis show it
+            id_w = tonumber(imgui.CalcTextSize(id_txt)) or 0;
+        end
+        local limit = w - 10 - (id_txt and (id_w + 12) or 0);
+        local pos = imgui.GetCursorPosX();
+        local dim, text = c.dim, c.text;
+        local first, cut = true, false;
+        local hidden = {};
         local function put(text, col, gap)
+            if cut then hidden[#hidden + 1] = text; return; end
+            local tw = tonumber(imgui.CalcTextSize(text)) or 0;
+            local need = (first and 0 or (gap or 10)) + tw;
+            if pos + need > limit then
+                cut = true;
+                hidden[#hidden + 1] = text;
+                return;
+            end
             if not first then imgui.SameLine(0, gap or 10); end
             first = false;
+            pos = pos + need;
             imgui.TextColored(col, text);
         end
-        local dim, text = c.dim, c.text;
+        -- A label with its words (Weak: Fire Light) goes on whole or not at all.
+        local function group(label, words)
+            if not cut then
+                local tw = tonumber(imgui.CalcTextSize(label .. ' ' .. table.concat(words, ' '))) or 0;
+                if pos + (first and 0 or 10) + tw > limit then cut = true; end
+            end
+            put(label, dim);
+            for _, k in ipairs(words) do put(k, ELEM_COL[k] or text, 4); end
+        end
         -- Level, job, NM
         local lv = (r.MinLevel == r.MaxLevel) and ('Lv ' .. tostring(r.MinLevel)) or ('Lv %d-%d'):format(r.MinLevel or 0, r.MaxLevel or 0);
         put(lv, text);
@@ -131,14 +182,8 @@ mi.draw = function (x, y, w, r, c, bg, border)
                 if v and v > 1.05 then weak[#weak + 1] = k; elseif v and v <= 0.55 then res[#res + 1] = k; end
             end
         end
-        if #weak > 0 then
-            put('Weak:', dim);
-            for _, k in ipairs(weak) do put(k, ELEM_COL[k] or text, 4); end
-        end
-        if #res > 0 then
-            put('Resists:', dim);
-            for _, k in ipairs(res) do put(k, ELEM_COL[k] or text, 4); end
-        end
+        if #weak > 0 then group('Weak:', weak); end
+        if #res > 0 then group('Resists:', res); end
         -- Immunities
         if r.Immunities and r.Immunities > 0 then
             local im = {};
@@ -149,9 +194,16 @@ mi.draw = function (x, y, w, r, c, bg, border)
         if r.Respawn and r.Respawn > 0 then
             put(('Respawn %d:%02d'):format(math.floor(r.Respawn / 60), r.Respawn % 60), dim);
         end
+        -- The monster's ID, always at the right end (its room was kept free above).
+        if id_txt then
+            if not first then imgui.SameLine(0, 0); end
+            imgui.SetCursorPos({ math.max(w - 10 - id_w, pos + 12), line_y });
+            imgui.TextColored(dim, id_txt);
+        end
         -- Hover: drops and spells counts
         if imgui.IsWindowHovered() then
             local lines = { r.Name or '' };
+            if #hidden > 0 then lines[#lines + 1] = 'Not shown (no room): ' .. table.concat(hidden, ' '); end
             local dn = {};
             pcall(function ()
                 local res2 = AshitaCore:GetResourceManager();
@@ -162,14 +214,17 @@ mi.draw = function (x, y, w, r, c, bg, border)
             end);
             lines[#lines + 1] = 'Drops: ' .. (#dn > 0 and table.concat(dn, ', ') or 'none listed');
             if r.Spells and #r.Spells > 0 then lines[#lines + 1] = ('Casts %d spells'):format(#r.Spells); end
+            if id ~= nil and id ~= 0 then
+                lines[#lines + 1] = ('ID %d  (0x%X)   index %d  (0x%X)'):format(id, id, index or 0, index or 0);
+            end
             lines[#lines + 1] = '(from the mobdb database)';
             imgui.SetTooltip(table.concat(lines, '\n'));
         end
     end
     imgui.End();
-    imgui.PopStyleVar(2);
+    imgui.PopStyleVar(orn and 3 or 2);
     imgui.PopStyleColor(2);
-    return mi.HEIGHT;
+    return mi.HEIGHT + top;
 end
 
 return mi;

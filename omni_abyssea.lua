@@ -134,9 +134,123 @@ local function on_status(d)
     end
 end
 
+-- [3.97] Stagger popup. The game says "<Name>'s attack staggers the fiend!" (or "Your attack...")
+-- and then what it did: "frozen in its tracks" = red, "unable to cast magic" = yellow,
+-- "unable to use special attacks" = blue. A big coloured line shows for 4 seconds.
+local stagger = { who = nil, at = -100, colour = nil, shown_at = -100 };
+local STAGGER = {
+    red    = { text = 'RED STAGGER',    col = { 1.00, 0.35, 0.30, 1.0 }, what = 'frozen in its tracks (terror)' },
+    yellow = { text = 'YELLOW STAGGER', col = { 1.00, 0.88, 0.30, 1.0 }, what = 'can\'t cast magic (silence)' },
+    blue   = { text = 'BLUE STAGGER',   col = { 0.40, 0.70, 1.00, 1.0 }, what = 'can\'t use TP moves (amnesia)' },
+    white  = { text = 'STAGGER',        col = { 0.95, 0.95, 0.95, 1.0 }, what = 'weakness hit' },
+};
+local function stagger_text(t, raw)
+    if t:find('staggers the fiend', 1, true) then
+        local who = (raw or t):match('^%s*(.-)\'s attack staggers') or 'you';
+        stagger.who, stagger.at, stagger.colour, stagger.shown_at = who, os.clock(), 'white', os.clock();
+        return true;
+    end
+    if os.clock() - stagger.at < 2 then
+        local c = nil;
+        if t:find('frozen in its tracks', 1, true) then c = 'red';
+        elseif t:find('unable to cast magic', 1, true) then c = 'yellow';
+        elseif t:find('unable to use special attacks', 1, true) then c = 'blue'; end
+        if c then stagger.colour, stagger.shown_at = c, os.clock(); return true; end
+    end
+    return false;
+end
+aby.test_stagger = function (c)
+    stagger.who, stagger.at, stagger.colour, stagger.shown_at = 'test', os.clock(), c or 'red', os.clock();
+end
+local function popup_on()
+    local S = aby.get_settings and aby.get_settings() or nil;
+    return not (S and S.aby_stagger_popup == false);
+end
+ashita.events.register('d3d_present', 'omni_abyssea_stagger', function ()
+    if os.clock() - stagger.shown_at > 4 or stagger.colour == nil or not popup_on() then return; end
+    pcall(function ()
+        local info = STAGGER[stagger.colour] or STAGGER.white;
+        local w, h = 1280, 720;
+        pcall(function () local io_ = imgui.GetIO(); w, h = io_.DisplaySize.x, io_.DisplaySize.y; end);
+        imgui.SetNextWindowPos({ w / 2, h * 0.28 }, ImGuiCond_Always, { 0.5, 0.5 });
+        imgui.SetNextWindowBgAlpha(0.55);
+        local flags = bit.bor(ImGuiWindowFlags_NoDecoration, ImGuiWindowFlags_NoInputs, ImGuiWindowFlags_NoMove,
+            ImGuiWindowFlags_NoSavedSettings, ImGuiWindowFlags_NoFocusOnAppearing, ImGuiWindowFlags_AlwaysAutoResize);
+        if imgui.Begin('##omni_stagger_popup', { true }, flags) then
+            imgui.SetWindowFontScale(2.4);
+            imgui.TextColored(info.col, info.text .. '!!');
+            imgui.SetWindowFontScale(1.1);
+            imgui.TextColored({ 0.92, 0.92, 0.95, 1.0 }, info.what .. ((stagger.who and stagger.who ~= '') and ('  -  ' .. stagger.who) or ''));
+            imgui.SetWindowFontScale(1.0);
+        end
+        imgui.End();
+    end);
+end);
+
+-- [3.99] Abyssite of Discernment: "The fiend appears vulnerable to ice elemental magic!" (and "... elemental
+-- weapon skills!" / "... great sword weapon skills!"). Said in /p so the party knows what to use.
+-- The same hint isn't repeated for 30 seconds; a different one (the game sometimes corrects itself) is.
+local weak = { last = nil, at = -100 };
+local function party_on()
+    local S = aby.get_settings and aby.get_settings() or nil;
+    return not (S and S.aby_weak_party == false);
+end
+local function target_name()
+    local n = nil;
+    pcall(function ()
+        local mm = AshitaCore:GetMemoryManager();
+        local t = mm:GetTarget();
+        local idx = t:GetTargetIndex(t:GetIsSubTargetActive() == 1 and 1 or 0);
+        if idx and idx > 0 then n = mm:GetEntity():GetName(idx); end
+    end);
+    return n;
+end
+local function weakness_text(raw)
+    -- Someone else in the party (another omni) already said it: don't say it again.
+    local said = raw:match('%[Weakness%] (.-) %->');
+    if said then
+        said = (said:match('.*: (.+)$') or said):lower();
+        weak.last, weak.at = said, os.clock();
+        return false;
+    end
+    local what = raw:match('[Tt]he fiend appears.-vulnerable to ([^!]+)!');
+    if not what then return false; end
+    what = what:gsub('^%s+', ''):gsub('%s+$', '');
+    local lw = what:lower();
+    local col, fx;
+    if lw:find('elemental magic', 1, true) then col, fx = 'Yellow', 'silence';
+    elseif lw:find('elemental weapon skill', 1, true) then col, fx = 'Red', 'terror';
+    else col, fx = 'Blue', 'amnesia'; end
+    aby.last_weakness = { what = what, colour = col, at = os.clock() };
+    if not party_on() then return true; end
+    if weak.last == lw and os.clock() - weak.at < 30 then return true; end
+    weak.last, weak.at = lw, os.clock();
+    local mob = target_name();
+    local lines = { string.format('/p [Weakness] %s%s -> %s stagger (%s)', mob and (mob .. ': ') or '', what, col, fx) };
+    -- What procs it (the server's own lists), as many /p lines as it takes.
+    local list = aby.weak_list and aby.weak_list(lw) or nil;
+    if list and #list > 0 then
+        local cur = '/p   Procs with: ';
+        for i, n in ipairs(list) do
+            local add = n .. (i < #list and ', ' or '');
+            if #cur + #add > 95 then lines[#lines + 1] = cur; cur = '/p   '; end
+            cur = cur .. add;
+        end
+        lines[#lines + 1] = cur;
+    end
+    for i, l in ipairs(lines) do
+        pcall(function () AshitaCore:GetChatManager():QueueCommand(1, l); end);
+    end
+    return true;
+end
+
 local function on_text(msg)
-    if not st.inside or type(msg) ~= 'string' then return; end
-    local t = msg:gsub('[\30\31].', ''):lower();
+    if type(msg) ~= 'string' then return; end
+    local raw = msg:gsub('[\30\31].', ''):gsub('\127.', '');
+    local t = raw:lower();
+    if stagger_text(t, raw) then return; end
+    if weakness_text(raw) then return; end
+    if not st.inside then return; end
     local n, unit = t:match('visitant status will wear off in (%d+) (%a+)');
     if n then
         set_minutes(unit:sub(1, 3) == 'min' and tonumber(n) or tonumber(n) / 60);
@@ -282,6 +396,53 @@ local YELLOW = {
     Lightsday    = { 'Banish II', 'Banish III', 'Banishga II', 'Holy', 'Flash', 'Dark Threnody', 'Radiant Breath' },
     Darksday     = { 'Drain', 'Aspir', 'Dispel', 'Bio II', 'Kurayami: Ni', 'Light Threnody', 'Eyes On Me' },
 };
+
+-- [3.99] For the Discernment hint: which of these the hint points at.
+YELLOW.Lightsday = { 'Banish II', 'Banish III', 'Banishga', 'Banishga II', 'Holy', 'Flash', 'Dark Threnody', 'Radiant Breath' };
+local ELEMENT_DAY = { fire = 'Firesday', ice = 'Iceday', wind = 'Windsday', earth = 'Earthsday', lightning = 'Lightningday',
+    thunder = 'Lightningday', water = 'Watersday', light = 'Lightsday', darkness = 'Darksday', dark = 'Darksday' };
+local RED_ELEMENT = {
+    ['Cyclone'] = 'wind', ['Energy Drain'] = 'dark', ['Red Lotus Blade'] = 'fire', ['Seraph Blade'] = 'light',
+    ['Freezebite'] = 'ice', ['Shadow of Death'] = 'dark', ['Raiden Thrust'] = 'lightning', ['Blade: Ei'] = 'dark',
+    ['Tachi: Jinpu'] = 'wind', ['Tachi: Koki'] = 'light', ['Seraph Strike'] = 'light', ['Earth Crusher'] = 'earth',
+    ['Sunburst'] = 'light dark',
+};
+local WS_WEAPON = {
+    ['Shadowstitch'] = 'dagger', ['Dancing Edge'] = 'dagger', ['Shark Bite'] = 'dagger', ['Evisceration'] = 'dagger',
+    ['Skewer'] = 'polearm', ['Wheeling Thrust'] = 'polearm', ['Impulse Drive'] = 'polearm',
+    ['Sidewinder'] = 'archery', ['Blast Arrow'] = 'archery', ['Arching Arrow'] = 'archery', ['Empyreal Arrow'] = 'archery',
+    ['Slug Shot'] = 'marksmanship', ['Blast Shot'] = 'marksmanship', ['Heavy Shot'] = 'marksmanship', ['Detonator'] = 'marksmanship',
+    ['Vorpal Blade'] = 'sword', ['Swift Blade'] = 'sword', ['Savage Blade'] = 'sword',
+    ['Spinning Slash'] = 'great sword', ['Ground Strike'] = 'great sword',
+    ['Mistral Axe'] = 'axe', ['Decimation'] = 'axe', ['Full Break'] = 'great axe', ['Steel Cyclone'] = 'great axe',
+    ['Cross Reaper'] = 'scythe', ['Spiral Hell'] = 'scythe', ['Blade: Ten'] = 'katana', ['Blade: Ku'] = 'katana',
+    ['Tachi: Gekko'] = 'great katana', ['Tachi: Kasha'] = 'great katana',
+    ['Raging Fists'] = 'hand-to-hand', ['Spinning Attack'] = 'hand-to-hand', ['Howling Fist'] = 'hand-to-hand',
+    ['Dragon Kick'] = 'hand-to-hand', ['Asuran Fists'] = 'hand-to-hand',
+    ['Skullbreaker'] = 'club', ['True Strike'] = 'club', ['Judgment'] = 'club', ['Hexa Strike'] = 'club', ['Black Halo'] = 'club',
+    ['Heavy Swing'] = 'staff', ['Shell Crusher'] = 'staff', ['Full Swing'] = 'staff', ['Spirit Taker'] = 'staff', ['Retribution'] = 'staff',
+};
+-- hint (lower case, e.g. "light elemental magic", "fire elemental weapon skills", "great sword weapon skills") -> names
+aby.weak_list = function (hint)
+    local out = {};
+    if hint:find('elemental magic', 1, true) then
+        local el = hint:match('^(%a+) elemental magic');
+        local day = el and ELEMENT_DAY[el];
+        for _, n in ipairs(day and YELLOW[day] or {}) do out[#out + 1] = n; end
+    elseif hint:find('elemental weapon skill', 1, true) then
+        local el = hint:match('^(%a+) elemental weapon skill');
+        if el == 'darkness' then el = 'dark'; elseif el == 'thunder' then el = 'lightning'; end
+        for _, n in ipairs(RED) do
+            if el and (' ' .. (RED_ELEMENT[n] or '') .. ' '):find(' ' .. el .. ' ', 1, true) then out[#out + 1] = n; end
+        end
+    else
+        local wt = hint:match('^(.-) weapon skill');
+        for _, b in ipairs(BLUE) do
+            for _, n in ipairs(b.ws) do if wt and WS_WEAPON[n] == wt then out[#out + 1] = n; end end
+        end
+    end
+    return out;
+end
 
 local SKILL = { [1] = 'Hand-to-Hand', [2] = 'Dagger', [3] = 'Sword', [4] = 'Great Sword', [5] = 'Axe', [6] = 'Great Axe',
     [7] = 'Scythe', [8] = 'Polearm', [9] = 'Katana', [10] = 'Great Katana', [11] = 'Club', [12] = 'Staff',
@@ -542,6 +703,19 @@ aby.render_procs = function (opts)
         S.aby_only_usable = not (S.aby_only_usable == true);
         if opts.save then pcall(opts.save); end
     end
+    imgui.SameLine(0, 6);
+    if head_button('Stagger popup##aby_stg', S.aby_stagger_popup ~= false, 130) then
+        S.aby_stagger_popup = (S.aby_stagger_popup == false);
+        if opts.save then pcall(opts.save); end
+        if S.aby_stagger_popup ~= false then aby.test_stagger('red'); end
+    end
+    if imgui.IsItemHovered() then imgui.SetTooltip('A big coloured line on screen when a stagger lands (red / yellow / blue).\nTurning it on shows a test one.'); end
+    imgui.SameLine(0, 6);
+    if head_button('Weakness to /p##aby_wp', S.aby_weak_party ~= false, 140) then
+        S.aby_weak_party = (S.aby_weak_party == false);
+        if opts.save then pcall(opts.save); end
+    end
+    if imgui.IsItemHovered() then imgui.SetTooltip('With the Abyssite of Discernment, says what the fiend is weak to in /p,\ne.g. "[Weakness] Amphitrite: ice elemental magic -> Yellow stagger (silence)".'); end
     imgui.SameLine(0, 6);
     if head_button('Clear on new target##aby_ac', S.aby_autoclear ~= false, 170) then
         S.aby_autoclear = (S.aby_autoclear == false);

@@ -97,11 +97,10 @@ with a drop-down panel of tabs underneath it for everything else.
  3. THE TABS
 ------------------------------------------------------------------------------------------
 
-  Top row:     Abyssea  Quests  Multisend  Damage
-  Second row:  Character  Currency  Dailies  Codex  Sky  Sea  Ventures  Sparks  Options  TH
-
-  (Happy Healer used to be a tab here. It is now its own addon - happyhealer - so omni has
-   no healing automation in it at all.)
+  Grouped by subject (version 4.01):
+  Top row (places and content):  Abyssea  Sea  Sky  HNMs  Ventures  Dailies  Codex  Quests
+  Second row (you and tools):    Happy Healer  Character  Gear  Currency  Items  Combat
+                                 Multisend  Happy Translate  Options
 
   ABYSSEA
     Procs page
@@ -109,57 +108,57 @@ with a drop-down panel of tabs underneath it for everything else.
         and your target.
       * Red / Blue / Yellow cards: everything that procs right now, the ones YOU can use first
         (green). Click a row to tick it off once tried. Ticks clear on a new target.
+      * Stagger popup: a big coloured line on screen when a stagger lands.
+      * Weakness to /p: with the Abyssite of Discernment, says in party what the fiend is weak to,
+        which stagger it gives, and every spell / weapon skill that procs it.
       * Pop-out button for a small always-on-top version.
     NM Pops page
       * Buttons for the nine Abyssea zones - opens on the zone you are in (marked *).
       * Every NM in the zone with:  Ready (you have all pops) / 2/3 (some) / Timed, Roams...
       * Filters: All NMs, Need pops, Ready to pop.
-      * Click an NM:
-          To pop  - tick or cross for each item / key item; if you have it, which bag it's in;
-                    if not, which monster drops it (click the name to jump to that NM), and
-                    whether a gold Pyxis can give it.
-          Gives   - key items it drops and which NM they pop (clickable).
-          Drops   - coloured by the proc needed (red / blue / yellow).
-      * Key items: read from the list the game sends when you change zone. If one shows a
-        cross but you have it, change zone once - it is then saved for that character.
+      * Click an NM: what pops it (and where you have it / who drops it), what it gives, and its
+        drops coloured by the proc needed.
+    Atma page        every atma, what it gives and where it comes from; abyssites.
+    Weapons page     Abyssea weapons with All / Active / Done filters.
+    Empyrean page    Empyrean armour: what each piece needs and where to get it.
 
-  QUESTS
-    Journey (what you have in progress, and progress per area / storyline), Quests by region
-    with search and filters, Missions by storyline with cover pictures.
-    Your quest log is read when you change zone and saved per character.
+  SEA         Sea armour, Jailers (pop items, ??? spots, drops) and the AV (Absolute Virtue) helper.
+  SKY         Sky / Sky 2.0 / Pops and a Map of Ru'Aun Gardens with every god's ??? marked.
+  HNMS        Happy Pops (HNM time of death and window timers) and the Roll Tracker (/random order).
+  VENTURES    !ventures areas, HELM, fishing, and VNM armour.
+  DAILIES     Your dailies.
+  CODEX       Odious Codex with pictures; which you have and how many in your bags.
+  QUESTS      Journey, Quests by region with search and filters, Missions by storyline.
 
-  MULTISEND
-    Follow Me, sim-cast (your other characters cast the same spell; optionally WS / JA),
-    quick Assist / Attack / Stop / Follow, and a free command box. Needs /load multisend.
-
-  DAMAGE
-    Simple: damage list for you and your party.  Advanced: full breakdown for one person.
-    /ddr resets it,  /ddp [n] posts the top n in party chat.
+  HAPPY HEALER
+    Sneaky's Sidekick, just easier to use. A Cure Please style auto-healer for WHM, RDM, BRD,
+    COR, SCH and GEO, with an On/Off switch beside the tab (off: not loaded at all). Pick who to
+    heal, or a Monitored Player on another of your characters to heal their party too
+    (it shares statuses, so it can wake / cure them as well). Sleepers are woken with Cure I.
 
   CHARACTER
-    Jobs (with an Armor button per job: Artifact / Relic pieces, their rank, and what is
-    needed to cap them; Vision storage from !vision), Magic (spells learned and still to get;
-    Corsair rolls; Summoner avatars including quested ones), Crafts (skills and Craftbook
-    recipes), Weapon Skills, Combat Skills, Magic Skills.
+    Jobs (with an Armor button per job), Magic (spells learned and still to get; Corsair rolls;
+    Summoner avatars), Crafts (skills and Craftbook recipes), Weapon / Combat / Magic Skills.
 
-  CURRENCY      Currency and Points (Sparks, Unity Accolades and more).
-  DAILIES       Your dailies.
-  CODEX         Odious Codex with pictures; which you have and how many in your bags.
-  SKY           Sky / Sky 2.0 / Pops: pop items, god drops, Kirin checklist.
-  SEA           Sea armour, and the AV (Absolute Virtue) helper: fight timer, 2-hour clock,
-                party call-outs, and an optional "use my 2-hour to lock it" tick box
-                (uses yours by itself within 14 yalms; off by default).
-  VENTURES      !ventures areas, HELM, fishing, and VNM armour.
-  SPARKS        Sparks shop (buy N / buy all) and Sell It.
-  OPTIONS       AV helper (Only in Al'Taieu / Everywhere / Off), Look (Crystal & Gold, Black & Gold or
-                Classic), Abyssea bar, hide the game's own buff icons, brighter chat colours,
-                spell lines, party job pictures (size and spacing per party, move, show when
-                solo), pop-outs, Follow Me.
-  TH            Treasure Hunter on your target, monsters being fought, and defeated ones with
-                their final TH. When TH goes up it says in party chat (on by default):
-                    Happyfists lands TH3 on Ogre Beetle
-                Switches: Announce to party (/p), and Only mine.
-                (If two of your characters are in the party, turn one of them off.)
+  GEAR
+    Ultimates    every ultimate weapon / weapon skill with a % bar.
+    Automaton    Puppetmaster: click-to-equip attachments. Shows what's on now, a plan you build
+                 by clicking (it refuses what won't fit and says why), capacity bars, ready builds
+                 (Melee, Tank, Ranged, Nuker, Healer, Enfeebler) fitted to what you've learned,
+                 what each maneuver does for your attachments, and five save slots.
+    Blue Magic   Blue Mage: click-to-set spells, set points and traits, ready sets (Cleave, Magic
+                 Burst, Physical TP, Tank, Healer, Debuff / Sleep, Solo), "Auto: max a trait",
+                 and your blusets files (config\addons\blusets\*.txt) to load and save.
+
+  CURRENCY    Currency, Points, and the Sparks shop (buy N / buy all).
+  ITEMS       Sell It.
+  COMBAT      Damage (Simple / Advanced; /ddr, /ddp [n]) and TH (Treasure Hunter on your target,
+              "Happyfists lands TH3 on Ogre Beetle" in party; Announce / Only mine switches).
+  MULTISEND   Follow Me, sim-cast, quick Assist / Attack / Stop / Follow, a command box.
+              Needs /load multisend.
+  HAPPY TRANSLATE  Translated chat and a reply box (On/Off slider next to the tab).
+  OPTIONS     General (AV helper, Look, Abyssea bar, buff icons, chat colours, spell lines,
+              party job pictures, pop-outs, Follow Me) and Happy Talks (spoken alerts).
 
 
 ------------------------------------------------------------------------------------------
@@ -217,7 +216,8 @@ with a drop-down panel of tabs underneath it for everything else.
     /ddr                 reset the damage meter
     /ddp [n]             post the top n damage dealers in party chat
     /avh help            AV helper commands
-    /pops                Happy Pops tab   (/pops add <hnm> [21:35], kill, del, list, ls <hnm>, ls2 <hnm>,
+    /hh                  Happy Healer commands (when it's on)
+    /pops                Happy Pops (HNMs tab)   (/pops add <hnm> [21:35], kill, del, list, ls <hnm>, ls2 <hnm>,
                          warn, party, ls)
     /translate           Happy Translate on/off  (status, learn, test, window)
     /zl /zl2 /zp /zs /zsh /zt <name> /zr   send a message translated into pinyin
@@ -268,6 +268,10 @@ with a drop-down panel of tabs underneath it for everything else.
       Classic voice pack is chatmon's clips. Other voices made with Kokoro TTS.
     * targetlines by Jyouya - the line idea, world-to-screen maths and bone lookup (spell lines)
     * Craftbook by Happys; recipes from the LandSandBoat database (GNU GPL v3)
+    * Sidekick by Seekey (MIT, SIDEKICK_LICENSE) - the engine behind Happy Healer
+    * Sky map: Ru'Aun Gardens by the Remapster project (remapster.com, CC BY-SA 4.0, REMAPSTER_LICENSE)
+    * Automaton / Blue Magic: equip method as in atom0s' blusets and pupsets; blue spell facts as in
+      bludex's CatsEyeXI data and LandSandBoat; PUP click-to-equip idea from puphq by QB1985
     * Spell art (assets/fx/) and tab backgrounds made with Canva's AI image generator.
     * HNM windows from bg-wiki "CatsEyeXI Content/HNMs"; Sea data from bg-wiki "CatsEyeXI
       Content/Sea", the HorizonXI wiki and Allakhazam.

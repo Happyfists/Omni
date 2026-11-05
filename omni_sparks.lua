@@ -517,8 +517,9 @@ sparks.render = function (host)
     -- Buy It box: type a name, pick how many, buy.
     pcall(buy_box, ui, host, slots);
 
-    -- Sell It box and the saved sell list (omni_sell.lua).
-    pcall(sell.render, host);
+    -- Sell It box and the saved sell list (omni_sell.lua). omni draws it on its Items tab instead
+    -- (sparks.show_sell = false).
+    if (sparks.show_sell ~= false) then pcall(sell.render, host); end
 
     sparks.height = imgui.GetCursorPosY() + 8;
 end

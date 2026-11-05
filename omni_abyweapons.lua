@@ -357,21 +357,54 @@ weapons.render = function (opts)
     imgui.PopTextWrapPos();
     imgui.Dummy({ 1, 2 });
 
-    -- Weapon picker: one button each, wrapping to fit.
-    local x = 0;
-    for i, w in ipairs(weapons.LIST) do
-        local label = w.name;
-        local bw = imgui.CalcTextSize(label) + 18;
-        if i > 1 then
-            if x + 6 + bw <= W then imgui.SameLine(0, 6); x = x + 6; else x = 0; end
-        end
-        local on = (st.weapon == w.name);
-        imgui.PushStyleColor(ImGuiCol_Button, on and { 0.55, 0.45, 0.18, 1.0 } or { 0.16, 0.17, 0.26, 1.0 });
-        if imgui.Button(label .. '##abyw' .. i, { bw, 0 }) then st.weapon = w.name; save(); end
-        imgui.PopStyleColor(1);
-        if imgui.IsItemHovered() then imgui.SetTooltip(w.type .. '  -  starts from ' .. w.base); end
-        x = x + bw;
+    -- [3.97] How far along each weapon is: done (you have the Empyrean), active (you have one of
+    -- its stage weapons, or set a trial by hand), or not started. Filter: All / Active / Done.
+    local function status(w)
+        if have(w.name) > 0 then return 'done'; end
+        if guess_step(w) ~= nil or st.step[w.name] ~= nil then return 'active'; end
+        return 'none';
     end
+    local n_done, n_active = 0, 0;
+    for _, w in ipairs(weapons.LIST) do
+        local s = status(w);
+        if s == 'done' then n_done = n_done + 1; elseif s == 'active' then n_active = n_active + 1; end
+    end
+    st.filter = st.filter or 'all';
+    for i, f in ipairs({ { 'all', 'All' }, { 'active', 'Active' }, { 'done', 'Done' } }) do
+        if i > 1 then imgui.SameLine(0, 10); end
+        if imgui.RadioButton(f[2] .. '##abywf' .. i, st.filter == f[1]) then st.filter = f[1]; end
+    end
+    imgui.SameLine(0, 18);
+    imgui.TextColored(C.green, ('%d done'):format(n_done));
+    imgui.SameLine(0, 10);
+    imgui.TextColored(C.yellow, ('%d in progress'):format(n_active));
+    imgui.SameLine(0, 10);
+    imgui.TextColored(C.faint, ('of %d'):format(#weapons.LIST));
+
+    -- Weapon picker: one button each, wrapping to fit (green = done, yellow = in progress).
+    local x, first = 0, true;
+    for i, w in ipairs(weapons.LIST) do
+        local s = status(w);
+        if st.filter == 'all' or st.filter == s then
+            local label = w.name;
+            local bw = imgui.CalcTextSize(label) + 18;
+            if not first then
+                if x + 6 + bw <= W then imgui.SameLine(0, 6); x = x + 6; else x = 0; end
+            end
+            first = false;
+            local on = (st.weapon == w.name);
+            imgui.PushStyleColor(ImGuiCol_Button, on and { 0.55, 0.45, 0.18, 1.0 } or { 0.16, 0.17, 0.26, 1.0 });
+            imgui.PushStyleColor(ImGuiCol_Text, (s == 'done') and C.green or ((s == 'active') and C.yellow or C.text));
+            if imgui.Button(label .. '##abyw' .. i, { bw, 0 }) then st.weapon = w.name; save(); end
+            imgui.PopStyleColor(2);
+            if imgui.IsItemHovered() then
+                imgui.SetTooltip(w.type .. '  -  starts from ' .. w.base .. ((s == 'done') and '\nYou have it.'
+                    or ((s == 'active') and ('\nIn progress - trial ' .. tostring(st.step[w.name] or guess_step(w) or 1) .. ' of 10.') or '')));
+            end
+            x = x + bw;
+        end
+    end
+    if first then imgui.TextColored(C.faint, (st.filter == 'done') and 'No Empyrean weapons finished yet.' or 'None in progress.'); end
     imgui.Dummy({ 1, 4 });
 
     local w = find_weapon(st.weapon);

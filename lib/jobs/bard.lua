@@ -1,0 +1,900 @@
+--[[
+    Bard job definition
+    Defines abilities, validators, and configuration for Bard automation
+    - Buff songs (Minuets, Paeons, Madrigals, etc.)
+]]--
+
+
+return {
+    job_id = 10,
+    job_name = 'Bard',
+    resource_type = 'mp',
+    
+    abilities = {
+        -- Buff songs
+        buff = {
+            -- Merit JAs (BRD group 2 merits, main job only at 75). Self-only
+            -- string commands, so they render as plain checkboxes rather than
+            -- ME/P1-P5 buttons, and no Pianissimo is involved. buff.lua reads
+            -- both: Nightingale suspends the Pianissimo fast-cast trick (it
+            -- already shortens song casts), Troubadour doubles the stamped
+            -- song timers.
+            {
+                name = 'Nightingale',
+                level = 75,
+                cost = 0,
+                recast_id = 109,
+                ability_id = 163,  -- merit-unlocked: gated on HasAbility
+                command = '/ja "Nightingale" <me>',
+                priority = 100,
+                buff_id = 347,
+            },
+            {
+                name = 'Troubadour',
+                level = 75,
+                cost = 0,
+                recast_id = 110,
+                ability_id = 164,  -- merit-unlocked: gated on HasAbility
+                command = '/ja "Troubadour" <me>',
+                priority = 100,
+                buff_id = 348,
+            },
+            -- Minne
+            {
+                name = "Knight's Minne IV (++++DEF)",
+                level = 61,
+                cost = 0,
+                spell_id = 392,
+                magic = 'song',
+                command = function(target)
+                    return '/ma "Knight\'s Minne IV" '..target
+                end,
+                element = 'Earth',
+                buff_id = 197,
+                group = 'minne',
+                target_modifier = true,
+            },
+            {
+                name = "Knight's Minne III (+++DEF)",
+                level = 41,
+                cost = 0,
+                spell_id = 391,
+                magic = 'song',
+                command = function(target)
+                    return '/ma "Knight\'s Minne III" '..target
+                end,
+                element = 'Earth',
+                buff_id = 197,
+                group = 'minne',
+                target_modifier = true,
+            },
+            {
+                name = "Knight's Minne II (++DEF)",
+                level = 21,
+                cost = 0,
+                spell_id = 390,
+                magic = 'song',
+                command = function(target)
+                    return '/ma "Knight\'s Minne II" '..target
+                end,
+                element = 'Earth',
+                buff_id = 197,
+                group = 'minne',
+                target_modifier = true,
+            },
+            {
+                name = "Knight's Minne (+DEF)",
+                level = 1,
+                cost = 0,
+                spell_id = 389,
+                magic = 'song',
+                command = function(target)
+                    return '/ma "Knight\'s Minne" '..target
+                end,
+                element = 'Earth',
+                buff_id = 197,
+                group = 'minne',
+                target_modifier = true,
+            },
+            -- Minuet
+            {
+                name = 'Valor Minuet IV (++++ATK)',
+                level = 63,
+                cost = 0,
+                spell_id = 397,
+                magic = 'song',
+                command = function(target)
+                    return '/ma "Valor Minuet IV" '..target
+                end,
+                element = 'Fire',
+                buff_id = 198,
+                group = 'minuet',
+                target_modifier = true,
+            },
+            {
+                name = 'Valor Minuet III (+++ATK)',
+                level = 43,
+                cost = 0,
+                spell_id = 396,
+                magic = 'song',
+                command = function(target)
+                    return '/ma "Valor Minuet III" '..target
+                end,
+                element = 'Fire',
+                buff_id = 198,
+                group = 'minuet',
+                target_modifier = true,
+            },
+            {
+                name = 'Valor Minuet II (++ATK)',
+                level = 23,
+                cost = 0,
+                spell_id = 395,
+                magic = 'song',
+                command = function(target)
+                    return '/ma "Valor Minuet II" '..target
+                end,
+                element = 'Fire',
+                buff_id = 198,
+                group = 'minuet',
+                target_modifier = true,
+            },
+            {
+                name = 'Valor Minuet (+ATK)',
+                level = 3,
+                cost = 0,
+                spell_id = 394,
+                magic = 'song',
+                command = function(target)
+                    return '/ma "Valor Minuet" '..target
+                end,
+                element = 'Fire',
+                buff_id = 198,
+                group = 'minuet',
+                target_modifier = true,
+            },
+            -- Paeon
+            {
+                name = "Army's Paeon V (+++++Regen)",
+                level = 65,
+                cost = 0,
+                spell_id = 382,
+                magic = 'song',
+                command = function(target)
+                    return '/ma "Army\'s Paeon V" '..target
+                end,
+                element = 'Light',
+                buff_id = 195,
+                group = 'paeon',
+                target_modifier = true,
+            },
+            {
+                name = "Army's Paeon IV (++++Regen)",
+                level = 45,
+                cost = 0,
+                spell_id = 381,
+                magic = 'song',
+                command = function(target)
+                    return '/ma "Army\'s Paeon IV" '..target
+                end,
+                element = 'Light',
+                buff_id = 195,
+                group = 'paeon',
+                target_modifier = true,
+            },
+            {
+                name = "Army's Paeon III (+++Regen)",
+                level = 35,
+                cost = 0,
+                spell_id = 380,
+                magic = 'song',
+                command = function(target)
+                    return '/ma "Army\'s Paeon III" '..target
+                end,
+                element = 'Light',
+                buff_id = 195,
+                group = 'paeon',
+                target_modifier = true,
+            },
+            {
+                name = "Army's Paeon II (++Regen)",
+                level = 15,
+                cost = 0,
+                spell_id = 379,
+                magic = 'song',
+                command = function(target)
+                    return '/ma "Army\'s Paeon II" '..target
+                end,
+                element = 'Light',
+                buff_id = 195,
+                group = 'paeon',
+                target_modifier = true,
+            },
+            {
+                name = "Army's Paeon (+Regen)",
+                level = 5,
+                cost = 0,
+                spell_id = 378,
+                magic = 'song',
+                command = function(target)
+                    return '/ma "Army\'s Paeon" '..target
+                end,
+                element = 'Light',
+                buff_id = 195,
+                group = 'paeon',
+                target_modifier = true,
+            },
+            -- Madrigal
+            {
+                name = 'Blade Madrigal (++ACC)',
+                level = 51,
+                cost = 0,
+                spell_id = 400,
+                magic = 'song',
+                command = function(target)
+                    return '/ma "Blade Madrigal" '..target
+                end,
+                element = 'Lightning',
+                buff_id = 199,
+                group = 'madrigal',
+                target_modifier = true,
+            },
+            {
+                name = 'Sword Madrigal (+ACC)',
+                level = 11,
+                cost = 0,
+                spell_id = 399,
+                magic = 'song',
+                command = function(target)
+                    return '/ma "Sword Madrigal" '..target
+                end,
+                element = 'Lightning',
+                buff_id = 199,
+                group = 'madrigal',
+                target_modifier = true,
+            },
+            -- Prelude
+            {
+                name = "Archer's Prelude (++Rng Acc.)",
+                level = 71,
+                cost = 0,
+                spell_id = 402,
+                magic = 'song',
+                command = function(target)
+                    return '/ma "Archer\'s Prelude" '..target
+                end,
+                element = 'Lightning',
+                buff_id = 200,
+                target_modifier = true,
+                group = 'prelude',
+            },
+            {
+                name = "Hunter's Prelude (+Rng Acc.)",
+                level = 31,
+                cost = 0,
+                spell_id = 401,
+                magic = 'song',
+                command = function(target)
+                    return '/ma "Hunter\'s Prelude" '..target
+                end,
+                element = 'Lightning',
+                buff_id = 200,
+                target_modifier = true,
+                group = 'prelude',
+            },
+            -- Mambo
+            {
+                name = 'Dragonfoe Mambo (++EVA)',
+                level = 53,
+                cost = 0,
+                spell_id = 404,
+                magic = 'song',
+                command = function(target)
+                    return '/ma "Dragonfoe Mambo" '..target
+                end,
+                element = 'Wind',
+                buff_id = 201,
+                target_modifier = true,
+                group = 'mambo',
+            },
+            {
+                name = 'Sheepfoe Mambo (+EVA)',
+                level = 13,
+                cost = 0,
+                spell_id = 403,
+                magic = 'song',
+                command = function(target)
+                    return '/ma "Sheepfoe Mambo" '..target
+                end,
+                element = 'Wind',
+                buff_id = 201,
+                target_modifier = true,
+                group = 'mambo',
+            },
+            -- Ballad
+            {
+                name = "Mage's Ballad II (++Refresh)",
+                level = 55,
+                cost = 0,
+                spell_id = 387,
+                magic = 'song',
+                command = function(target)
+                    return '/ma "Mage\'s Ballad II" '..target
+                end,
+                element = 'Light',
+                buff_id = 196,
+                group = 'ballad',
+                target_modifier = true,
+            },
+            {
+                name = "Mage's Ballad (+Refresh)",
+                level = 25,
+                cost = 0,
+                spell_id = 386,
+                magic = 'song',
+                command = function(target)
+                    return '/ma "Mage\'s Ballad" '..target
+                end,
+                element = 'Light',
+                buff_id = 196,
+                group = 'ballad',
+                target_modifier = true,
+            },
+            -- March
+            {
+                name = 'Victory March (++Haste)',
+                level = 60,
+                cost = 0,
+                spell_id = 420, 
+                magic = 'song',
+                command = function(target)
+                    return '/ma "Victory March" '..target
+                end,
+                element = 'Lightning',
+                buff_id = 214,
+                group = 'march',
+                target_modifier = true,
+            },
+            {
+                name = 'Advancing March (+Haste)',
+                level = 29,
+                cost = 0,
+                spell_id = 419,
+                magic = 'song',
+                command = function(target)
+                    return '/ma "Advancing March" '..target
+                end,
+                element = 'Lightning',
+                buff_id = 214,
+                group = 'march',
+                target_modifier = true,
+            },
+            -- Etude
+            {
+                name = 'Herculean Etude (++STR)',
+                level = 74,
+                cost = 0,
+                spell_id = 431,
+                magic = 'song',
+                command = function(target)
+                    return '/ma "Herculean Etude" '..target
+                end,
+                element = 'Fire',
+                buff_id = 215,
+                group = 'etude',
+                target_modifier = true,
+            },
+            {
+                name = 'Uncanny Etude (++DEX)',
+                level = 72,
+                cost = 0,
+                spell_id = 432,
+                magic = 'song',
+                command = function(target)
+                    return '/ma "Uncanny Etude" '..target
+                end,
+                element = 'Lightning',
+                buff_id = 215,
+                group = 'etude',
+                target_modifier = true,
+            },
+            {
+                name = 'Vital Etude (++VIT)',
+                level = 70,
+                cost = 0,
+                spell_id = 433,
+                magic = 'song',
+                command = function(target)
+                    return '/ma "Vital Etude" '..target
+                end,
+                element = 'Earth',
+                buff_id = 215,
+                group = 'etude',
+                target_modifier = true,
+            },
+            {
+                name = 'Swift Etude (++AGI)',
+                level = 68,
+                cost = 0,
+                spell_id = 434,
+                magic = 'song',
+                command = function(target)
+                    return '/ma "Swift Etude" '..target
+                end,
+                element = 'Wind',
+                buff_id = 215,
+                group = 'etude',
+                target_modifier = true,
+            },
+            {
+                name = 'Sage Etude (++INT)',
+                level = 66,
+                cost = 0,
+                spell_id = 435,
+                magic = 'song',
+                command = function(target)
+                    return '/ma "Sage Etude" '..target
+                end,
+                element = 'Ice',
+                buff_id = 215,
+                group = 'etude',
+                target_modifier = true,
+            },
+            {
+                name = 'Logical Etude (++MND)',
+                level = 64,
+                cost = 0,
+                spell_id = 436,
+                magic = 'song',
+                command = function(target)
+                    return '/ma "Logical Etude" '..target
+                end,
+                element = 'Water',
+                buff_id = 215,
+                group = 'etude',
+                target_modifier = true,
+            },
+            {
+                name = 'Bewitching Etude (++CHR)',
+                level = 62,
+                cost = 0,
+                spell_id = 437,
+                magic = 'song',
+                command = function(target)
+                    return '/ma "Bewitching Etude" '..target
+                end,
+                element = 'Light',
+                buff_id = 215,
+                group = 'etude',
+                target_modifier = true,
+            },
+            {
+                name = 'Sinewy Etude (+STR)',
+                level = 34,
+                cost = 0,
+                spell_id = 424,
+                magic = 'song',
+                command = function(target)
+                    return '/ma "Sinewy Etude" '..target
+                end,
+                element = 'Fire',
+                buff_id = 215,
+                group = 'etude',
+                target_modifier = true,
+            },
+            {
+                name = 'Dextrous Etude (+DEX)',
+                level = 32,
+                cost = 0,
+                spell_id = 425,
+                magic = 'song',
+                command = function(target)
+                    return '/ma "Dextrous Etude" '..target
+                end,
+                element = 'Lightning',
+                buff_id = 215,
+                group = 'etude',
+                target_modifier = true,
+            },
+            {
+                name = 'Vivacious Etude (+VIT)',
+                level = 30,
+                cost = 0,
+                spell_id = 426,
+                magic = 'song',
+                command = function(target)
+                    return '/ma "Vivacious Etude" '..target
+                end,
+                element = 'Earth',
+                buff_id = 215,
+                group = 'etude',
+                target_modifier = true,
+            },
+            {
+                name = 'Quick Etude (+AGI)',
+                level = 28,
+                cost = 0,
+                spell_id = 427,
+                magic = 'song',
+                command = function(target)
+                    return '/ma "Quick Etude" '..target
+                end,
+                element = 'Wind',
+                buff_id = 215,
+                group = 'etude',
+                target_modifier = true,
+            },
+            {
+                name = 'Learned Etude (+INT)',
+                level = 26,
+                cost = 0,
+                spell_id = 428,
+                magic = 'song',
+                command = function(target)
+                    return '/ma "Learned Etude" '..target
+                end,
+                element = 'Ice',
+                buff_id = 215,
+                group = 'etude',
+                target_modifier = true,
+            },
+            {
+                name = 'Spirited Etude (+MND)',
+                level = 24,
+                cost = 0,
+                spell_id = 429,
+                magic = 'song',
+                command = function(target)
+                    return '/ma "Spirited Etude" '..target
+                end,
+                element = 'Water',
+                buff_id = 215,
+                group = 'etude',
+                target_modifier = true,
+            },
+            {
+                name = 'Enchanting Etude (+CHR)',
+                level = 22,
+                cost = 0,
+                spell_id = 430,
+                magic = 'song',
+                command = function(target)
+                    return '/ma "Enchanting Etude" '..target
+                end,
+                element = 'Light',
+                buff_id = 215,
+                group = 'etude',
+                target_modifier = true,
+            },
+            -- Carols
+            {
+                name = 'Dark Carol (+Dark Res.)',
+                level = 50,
+                cost = 0,
+                spell_id = 445,
+                magic = 'song',
+                command = function(target)
+                    return '/ma "Dark Carol" '..target
+                end,
+                element = 'Light',
+                buff_id = 216,
+                group = 'carol',
+                target_modifier = true,
+            },
+            {
+                name = 'Lightning Carol (+Lightning Res.)',
+                level = 48,
+                cost = 0,
+                spell_id = 442,
+                magic = 'song',
+                command = function(target)
+                    return '/ma "Lightning Carol" '..target
+                end,
+                element = 'Earth',
+                buff_id = 216,
+                group = 'carol',
+                target_modifier = true,
+            },
+            {
+                name = 'Ice Carol (+Ice Res.)',
+                level = 46,
+                cost = 0,
+                spell_id = 439,
+                magic = 'song',
+                command = function(target)
+                    return '/ma "Ice Carol" '..target
+                end,
+                element = 'Fire',
+                buff_id = 216,
+                group = 'carol',
+                target_modifier = true,
+            },
+            {
+                name = 'Fire Carol (+Fire Res.)',
+                level = 44,
+                cost = 0,
+                spell_id = 438,
+                magic = 'song',
+                command = function(target)
+                    return '/ma "Fire Carol" '..target
+                end,
+                element = 'Water',
+                buff_id = 216,
+                group = 'carol',
+                target_modifier = true,
+            },
+            {
+                name = 'Wind Carol (+Wind Res.)',
+                level = 42,
+                cost = 0,
+                spell_id = 440,
+                magic = 'song',
+                command = function(target)
+                    return '/ma "Wind Carol" '..target
+                end,
+                element = 'Ice',
+                buff_id = 216,
+                group = 'carol',
+                target_modifier = true,
+            },
+            {
+                name = 'Water Carol (+Water Res.)',
+                level = 40,
+                cost = 0,
+                spell_id = 443,
+                magic = 'song',
+                command = function(target)
+                    return '/ma "Water Carol" '..target
+                end,
+                element = 'Lightning',
+                buff_id = 216,
+                group = 'carol',
+                target_modifier = true,
+            },
+            {
+                name = 'Earth Carol (+Earth Res.)',
+                level = 38,
+                cost = 0,
+                spell_id = 441,
+                magic = 'song',
+                command = function(target)
+                    return '/ma "Earth Carol" '..target
+                end,
+                element = 'Wind',
+                buff_id = 216,
+                group = 'carol',
+                target_modifier = true,
+            },
+            {
+                name = 'Light Carol (+Light Res.)',
+                level = 36,
+                cost = 0,
+                spell_id = 444,
+                magic = 'song',
+                command = function(target)
+                    return '/ma "Light Carol" '..target
+                end,
+                element = 'Dark',
+                buff_id = 216,
+                group = 'carol',
+                target_modifier = true,
+            },
+            -- Mazurkas
+            {
+                name = 'Chocobo Mazurka (+Move Spd.)',
+                level = 73,
+                cost = 0,
+                spell_id = 465,
+                magic = 'song',
+                command = function(target)
+                    return '/ma "Chocobo Mazurka" '..target
+                end,
+                element = 'Wind',
+                buff_id = 219,
+                group = 'mazurka',
+                target_modifier = true,
+            },
+            {
+                name = 'Raptor Mazurka (+Move Spd.)',
+                level = 37,
+                cost = 0,
+                spell_id = 467,
+                magic = 'song',
+                command = function(target)
+                    return '/ma "Raptor Mazurka" '..target
+                end,
+                element = 'Wind',
+                buff_id = 219,
+                group = 'mazurka',
+                target_modifier = true,
+            },
+            -- Resistance
+            {
+                name = 'Warding Round(+Curse Res.)',
+                level = 73,
+                cost = 0,
+                spell_id = 414,
+                magic = 'song',
+                command = function(target)
+                    return '/ma "Warding Round" '..target
+                end,
+                element = 'Light',
+                buff_id = 209,
+                target_modifier = true,
+                group = 'resistance',
+            },
+            {
+                name = "Puppet's Operetta (+Silence Res.)",
+                level = 69,
+                cost = 0,
+                spell_id = 410,
+                magic = 'song',
+                command = function(target)
+                    return '/ma "Puppet\'s Operetta" '..target
+                end,
+                element = 'Ice',
+                buff_id = 206,
+                target_modifier = true,
+                group = 'resistance',
+            },
+            {
+                name = 'Shining Fantasia (+Blind Res.)',
+                level = 56,
+                cost = 0,
+                spell_id = 408,
+                magic = 'song',
+                command = function(target)
+                    return '/ma "Shining Fantasia" '..target
+                end,
+                element = 'Light',
+                buff_id = 205,
+                target_modifier = true,
+                group = 'resistance',
+            },
+            {
+                name = 'Gold Capriccio (+Pet. Res.)',
+                level = 54,
+                cost = 0,
+                spell_id = 412,
+                magic = 'song',
+                command = function(target)
+                    return '/ma "Gold Capriccio" '..target
+                end,
+                element = 'Wind',
+                buff_id = 207,
+                target_modifier = true,
+                group = 'resistance',
+            },
+            {
+                name = 'Goblin Gavotte (+Bind Res.)',
+                level = 49,
+                cost = 0,
+                spell_id = 415,
+                magic = 'song',
+                command = function(target)
+                    return '/ma "Goblin Gavotte" '..target
+                end,
+                element = 'Fire',
+                buff_id = 210,
+                target_modifier = true,
+                group = 'resistance',
+            },
+            {
+                name = 'Fowl Aubade (+Slow Res.)',
+                level = 33,
+                cost = 0,
+                spell_id = 405,
+                magic = 'song',
+                command = function(target)
+                    return '/ma "Fowl Aubade" '..target
+                end,
+                element = 'Light',
+                buff_id = 202,
+                target_modifier = true,
+                group = 'resistance',
+            },
+            {
+                name = "Scop's Operetta (+Silence Res.)",
+                level = 19,
+                cost = 0,
+                spell_id = 409,
+                magic = 'song',
+                command = function(target)
+                    return '/ma "Scop\'s Operetta" '..target
+                end,
+                element = 'Ice',
+                buff_id = 206,
+                target_modifier = true,
+                group = 'resistance',
+            },
+
+            {
+                name = 'Herb Pastoral (+Poison Res.)',
+                level = 9,
+                cost = 0,
+                spell_id = 406,
+                magic = 'song',
+                command = function(target)
+                    return '/ma "Herb Pastoral" '..target
+                end,
+                element = 'Lightning',
+                buff_id = 203,
+                target_modifier = true,
+                group = 'resistance',
+            },
+            -- Others
+            {
+                name = "Goddess's Hymnus (Reraise)",
+                level = 71,
+                cost = 0,
+                spell_id = 464,
+                magic = 'song',
+                command = function(target)
+                    return '/ma "Goddess\'s Hymnus" '..target
+                end,
+                element = 'Light',
+                buff_id = 218,
+                target_modifier = true,
+            },
+            {
+                name = 'Foe Sirvente (+Emnity)',
+                level = 75,
+                cost = 0,
+                spell_id = 468,
+                magic = 'song',
+                command = function(target)
+                    return '/ma "Foe Sirvente" '..target
+                end,
+                element = 'Light',
+                buff_id = 220,
+                target_modifier = true,
+            },
+            {
+                name = "Adventurer's Dirge (-Emnity)",
+                level = 75,
+                cost = 0,
+                spell_id = 469,
+                magic = 'song',
+                command = function(target)
+                    return '/ma "Adventurer\'s Dirge" '..target
+                end,
+                element = 'Light',
+                buff_id = 221,
+                target_modifier = true,
+            },
+        },
+        
+        -- Target modifier abilities
+        target_modifier = {
+            {
+                name = 'Pianissimo',
+                level = 20,
+                cost = 0,
+                recast_id = 112,
+                command = '/ja "Pianissimo" <me>',
+                buff_id = 409,
+            },
+        },
+    },
+
+    -- Default settings for UI
+    default_settings = {
+        buff_enabled = true,
+        pianissimo_fast_casting = false,  -- see lib/actions/buff.lua area phase
+        song_duration = 0,  -- seconds; >0 at BRD75 = manual song timers (see buff.lua)
+        -- Off by default: neither JA is gated to combat (Troubadour is normally
+        -- popped before a pull, so combat_only would be wrong), so left on they
+        -- would fire on cooldown anywhere -- and a stray Nightingale suspends
+        -- Pianissimo Fast Casting for its whole duration. Opt in per character.
+        disabled_Nightingale = true,
+        disabled_Troubadour = true,
+    },
+    
+    -- Action priority order
+    priority_order = {
+        'item',
+        'buff',
+        'rest',
+    }, 
+}
+

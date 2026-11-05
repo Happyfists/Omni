@@ -7,13 +7,19 @@
     Saved to config\addons\omni\rollorder.txt, so it survives a reload or a crash.
 
     Commands: /rolls new | next | post | lock   (/rolls on its own says whose turn it is)
+
+    Corsair rolls (3.90/3.91): every roll and Double-Up you do is said in party chat with the number
+    rolled (and the new total for a Double-Up) and the roll's lucky / unlucky numbers, e.g.
+    "Chaos Roll: rolled 3 - Lucky 4 / Unlucky 8 (Attack)", "Chaos Roll Double-Up: rolled 1, total 4 LUCKY! - ...".
+    Tick box on this page, or /rolls cor on|off.  Lucky / unlucky numbers from the RollTracker addon
+    by Daniel_H (Ashita v4 port by sippius / Lumaro).
 ]]
 
 local imgui = require('imgui');
 
 local rolls = {};
 
-local st = { locked = false, turn = 1, rolls = {}, title = '' };
+local st = { locked = false, turn = 1, rolls = {}, title = '', corp = true };   -- corp: say my Corsair rolls in /p
 
 local function base() return string.format('%s\\config\\addons\\', AshitaCore:GetInstallPath()); end
 local function path() return base() .. 'omni\\rollorder.txt'; end
@@ -25,6 +31,7 @@ local function save()
         f:write('turn ', st.turn, '\n');
         f:write('locked ', st.locked and 1 or 0, '\n');
         f:write('title ', st.title, '\n');
+        f:write('corp ', st.corp and 1 or 0, '\n');
         for _, r in ipairs(st.rolls) do
             f:write(string.format('roll %s %d %d %d %d\n', r.name, r.value, r.t, r.order, r.rerolls or 0));
         end
@@ -41,6 +48,7 @@ local function read(file)
             local v = line:match('^turn (%d+)$'); if v then st.turn = tonumber(v); end
             v = line:match('^locked (%d)$'); if v then st.locked = (v == '1'); end
             v = line:match('^title (.*)$'); if v then st.title = v; end
+            v = line:match('^corp (%d)$'); if v then st.corp = (v == '1'); end
             local n, val, t, o, rr = line:match('^roll (%S+) (%d+) (%d+) (%d+) (%d+)$');
             if n then st.rolls[#st.rolls + 1] = { name = n, value = tonumber(val), t = tonumber(t), order = tonumber(o), rerolls = tonumber(rr) }; end
         end
@@ -123,6 +131,146 @@ local function on_text(e)
 end
 ashita.events.register('text_in', 'omni_rolls_text', function (e) if not e.injected then pcall(on_text, e); end end);
 
+----------------------------------------------------------------------------------------------------
+-- Corsair rolls: say the roll and its lucky / unlucky numbers in party chat.
+----------------------------------------------------------------------------------------------------
+-- [job ability id] = { name, lucky, unlucky, what it boosts }
+local COR_ROLLS = {
+    [98] = { "Fighter's Roll", 5, 9, "Double Attack" },
+    [99] = { "Monk's Roll", 3, 7, "Subtle Blow" },
+    [100] = { "Healer's Roll", 3, 7, "Cure Potency" },
+    [101] = { "Wizard's Roll", 5, 9, "Magic Attack Bonus" },
+    [102] = { "Warlock's Roll", 4, 8, "Magic Accuracy" },
+    [103] = { "Rogue's Roll", 5, 9, "Critical Hit Rate" },
+    [104] = { "Gallant's Roll", 3, 7, "Defense" },
+    [105] = { 'Chaos Roll', 4, 8, "Attack" },
+    [106] = { 'Beast Roll', 4, 8, "Pet: Attack / Ranged Attack" },
+    [107] = { 'Choral Roll', 2, 6, "Spell Interruption Rate down" },
+    [108] = { "Hunter's Roll", 4, 8, "Accuracy" },
+    [109] = { 'Samurai Roll', 2, 6, "Store TP" },
+    [110] = { 'Ninja Roll', 4, 8, "Evasion" },
+    [111] = { 'Drachen Roll', 4, 8, "Pet: Accuracy / Ranged Accuracy" },
+    [112] = { "Evoker's Roll", 5, 9, "Refresh" },
+    [113] = { "Magus's Roll", 2, 6, "Magic Defense Bonus" },
+    [114] = { "Corsair's Roll", 5, 9, "Experience / Capacity Points" },
+    [115] = { 'Puppet Roll', 3, 7, "Pet: Magic Accuracy / Magic Attack Bonus" },
+    [116] = { "Dancer's Roll", 3, 7, "Regen" },
+    [117] = { "Scholar's Roll", 2, 6, "Conserve MP" },
+    [118] = { "Bolter's Roll", 3, 9, "Movement Speed" },
+    [119] = { "Caster's Roll", 2, 7, "Fast Cast" },
+    [120] = { "Courser's Roll", 3, 9, "Snapshot" },
+    [121] = { "Blitzer's Roll", 4, 9, "Haste" },
+    [122] = { "Tactician's Roll", 5, 8, "Regain" },
+    [302] = { "Allies' Roll", 3, 10, "Skillchain Damage / Accuracy" },
+    [303] = { "Miser's Roll", 5, 7, "Save TP" },
+    [304] = { "Companion's Roll", 2, 10, "Pet: Regain / Regen" },
+    [305] = { "Avenger's Roll", 4, 8, "Counter Rate" },
+    [390] = { "Naturalist's Roll", 3, 7, "Enhancing Magic Duration" },
+    [391] = { "Runeist's Roll", 4, 8, "Magic Evasion" },
+};
+local COR_BY_NAME = {};
+for id, r in pairs(COR_ROLLS) do COR_BY_NAME[r[1]:lower()] = id; end
+
+-- The roll an ability id stands for: our table first, then the game's own ability name (in case
+-- CatsEyeXI numbers a roll differently).
+local function cor_roll(id)
+    if COR_ROLLS[id] then return COR_ROLLS[id]; end
+    local found = nil;
+    pcall(function ()
+        local res = AshitaCore:GetResourceManager();
+        for _, rid in ipairs({ id + 0x200, id }) do
+            local a = res:GetAbilityById(rid);
+            local n = a and a.Name and a.Name[1];
+            if n and COR_BY_NAME[n:lower()] then found = COR_ROLLS[COR_BY_NAME[n:lower()]]; return; end
+        end
+    end);
+    return found;
+end
+
+-- Every job ability you use goes to config\addons\omni\cor_debug.txt (id, number, roll found),
+-- so a roll that doesn't post can be looked up.
+local function cor_log(id, n, r)
+    pcall(function ()
+        local f = io.open(base() .. 'omni\\cor_debug.txt', 'a');
+        if f == nil then return; end
+        f:write(string.format('%s  ability %d  number %d  %s\n', os.date('%Y-%m-%d %H:%M:%S'), id, n or -1, r and r[1] or '(not a roll)'));
+        f:close();
+    end);
+end
+
+local cor_last, cor_zoning = '', false;
+local cor_last_t = 0;
+local cor_total = {};          -- cor_total[roll ability id] = { total, when }: for working out a Double-Up's die
+local cor_dbl_at = -100;       -- when you last sent Double-Up (os.clock)
+local DOUBLE_UP = 123;
+
+local function tag(n, r)
+    if n > 11 then return 'BUST'; end
+    if n == 11 then return '11!'; end
+    if n == r[2] then return n .. ' LUCKY!'; end
+    if n == r[3] then return n .. ' (unlucky)'; end
+    return tostring(n);
+end
+
+-- id: the roll's ability id. n: the roll total the game reports.
+local function cor_post(id, n)
+    local r = cor_roll(id);
+    cor_log(id, n, r);
+    if r == nil or n == nil then return; end
+    local key = id .. ':' .. tostring(n);
+    local now = os.clock();
+    if key == cor_last and now - cor_last_t < 2 then return; end   -- the same packet seen twice
+    cor_last, cor_last_t = key, now;
+    local prev = cor_total[id];
+    local is_double = (now - cor_dbl_at < 6) and prev ~= nil and (now - prev[2] < 60) and n > prev[1];
+    local line;
+    if n > 11 then
+        line = string.format('%s%s: BUST - Lucky %d / Unlucky %d (%s)', r[1], is_double and ' Double-Up' or '', r[2], r[3], r[4]);
+    elseif is_double then
+        line = string.format('%s Double-Up: rolled %d, total %s - Lucky %d / Unlucky %d (%s)',
+            r[1], n - prev[1], tag(n, r), r[2], r[3], r[4]);
+    else
+        line = string.format('%s: rolled %s - Lucky %d / Unlucky %d (%s)', r[1], tag(n, r), r[2], r[3], r[4]);
+    end
+    cor_total[id] = { n, now };
+    cor_dbl_at = -100;
+    pcall(function () AshitaCore:GetChatManager():QueueCommand(1, '/p ' .. line); end);
+end
+-- Your own commands: notice Double-Up (job ability action packet, category 9, param = ability id).
+ashita.events.register('packet_out', 'omni_rolls_cor_out', function (e)
+    if e.id ~= 0x01A or not st.corp then return; end
+    pcall(function ()
+        local cat = struct.unpack('H', e.data, 0x0A + 1);
+        local param = struct.unpack('H', e.data, 0x0C + 1);
+        if cat == 9 and param == DOUBLE_UP then cor_dbl_at = os.clock(); end
+    end);
+end);
+ashita.events.register('packet_in', 'omni_rolls_cor', function (e)
+    if e.id == 0x00B then cor_zoning = true; return; end
+    if e.id == 0x00A then cor_zoning = false; return; end
+    if e.id ~= 0x028 or cor_zoning or not st.corp then return; end
+    pcall(function ()
+        local actor = struct.unpack('I', e.data, 0x05 + 1);
+        if actor ~= AshitaCore:GetMemoryManager():GetParty():GetMemberServerId(0) then return; end
+        local category = ashita.bits.unpack_be(e.data_raw, 82, 4);
+        if category ~= 6 then return; end               -- 6 = job ability used (a Double-Up comes as the roll it adds to)
+        local id = ashita.bits.unpack_be(e.data_raw, 86, 10);
+        local n = ashita.bits.unpack_be(e.data_raw, 213, 17);   -- the roll total
+        cor_post(id, n);
+    end);
+end);
+-- For checking: the game's own roll lines go into cor_debug.txt too.
+ashita.events.register('text_in', 'omni_rolls_cor_text', function (e)
+    if not st.corp then return; end
+    pcall(function ()
+        local m = (e.message or ''):gsub('[\30\31].', ''):gsub('\x7F.', '');
+        if m:find('Roll', 1, true) or m:find('Double%-Up') or m:find('[Bb]ust') then
+            local f = io.open(base() .. 'omni\\cor_debug.txt', 'a');
+            if f then f:write(os.date('%Y-%m-%d %H:%M:%S'), '  chat: ', m, '\n'); f:close(); end
+        end
+    end);
+end);
+
 ashita.events.register('command', 'omni_rolls_cmd', function (e)
     local a = e.command:args();
     if #a == 0 or a[1]:lower() ~= '/rolls' then return; end
@@ -132,8 +280,13 @@ ashita.events.register('command', 'omni_rolls_cmd', function (e)
     elseif c == 'next' then next_turn();
     elseif c == 'post' then post();
     elseif c == 'lock' then st.locked = not st.locked; save(); msg(st.locked and 'locked.' or 'taking rolls.');
+    elseif c == 'cor' then
+        local v = (a[3] or ''):lower();
+        if v == 'on' then st.corp = true; elseif v == 'off' then st.corp = false; else st.corp = not st.corp; end
+        save();
+        msg('Corsair rolls in party chat: ' .. (st.corp and 'ON' or 'OFF') .. '.');
     elseif c == '' then say_turn();
-    else msg('/rolls  |  /rolls new  |  /rolls next  |  /rolls post  |  /rolls lock   (window: omni Options > Roll Tracker)'); end
+    else msg('/rolls  |  /rolls new  |  /rolls next  |  /rolls post  |  /rolls lock  |  /rolls cor on|off   (window: omni Options > Roll Tracker)'); end
 end);
 
 ----------------------------------------------------------------------------------------------------
@@ -221,6 +374,11 @@ rolls.render = function ()
     if imgui.Button('New##omni_rt_new', { bw, 0 }) then new_round(); end
     if imgui.IsItemHovered() then imgui.SetTooltip('Start a new round - clears the list.'); end
     imgui.TextColored(DIM, '/rolls next  -  /rolls post  -  /rolls new  -  /rolls lock');
+
+    imgui.Separator();
+    local cv = { st.corp };
+    if imgui.Checkbox('Say my Corsair rolls in party (roll, lucky / unlucky)##omni_rt_cor', cv) then st.corp = cv[1]; save(); end
+    if imgui.IsItemHovered() then imgui.SetTooltip('Every roll and Double-Up you do goes to /p:\n  Chaos Roll: rolled 3 - Lucky 4 / Unlucky 8 (Attack)\n  Chaos Roll Double-Up: rolled 1, total 4 LUCKY! - ...\n/rolls cor on|off'); end
 end
 
 return rolls;

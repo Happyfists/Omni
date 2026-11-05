@@ -1,0 +1,1010 @@
+--[[
+    White Mage job definition
+    Defines abilities, validators, and configuration for White Mage automation
+    - Healing (Cure, Curaga spells)
+    - Debuff removal (Poisona, Paralyna, Blindna, Silena, Cursna, Erase, Viruna, Stona)
+    - Buffs (Auspice, Haste, Regen, Protect, Shell, bar spells, Aquaveil, Blink, Stoneskin, Reraise)
+]]--
+
+local common = require('lib.core.common')
+
+return {
+    job_id = 3,
+    job_name = 'White Mage',
+    resource_type = 'mp',
+    
+    abilities = {
+        -- Single-target healing
+        heal = {
+            {
+                name = 'Cure V',
+                level = 61,
+                cost = 135,
+                spell_id = 5,
+                magic = 'white',
+                magic_type = 'healing',
+                command = function(target)
+                    return '/ma "Cure V" '..target
+                end,
+                range = 20,
+                value = 700,
+                wakes = true,
+                target_outside = true,
+            },
+            {
+                name = 'Cure IV',
+                level = 41,
+                cost = 88,
+                spell_id = 4,
+                magic = 'white',
+                magic_type = 'healing',
+                command = function(target)
+                    return '/ma "Cure IV" '..target
+                end,
+                range = 20,
+                value = 400,
+                wakes = true,
+                target_outside = true,
+            },
+            {
+                name = 'Cure III',
+                level = 21,
+                cost = 46,
+                spell_id = 3,
+                magic = 'white',
+                magic_type = 'healing',
+                command = function(target)
+                    return '/ma "Cure III" '..target
+                end,
+                range = 20,
+                value = 200,
+                wakes = true,
+                target_outside = true,
+            },
+            {
+                name = 'Cure II',
+                level = 11,
+                cost = 24,
+                spell_id = 2,
+                magic = 'white',
+                magic_type = 'healing',
+                command = function(target)
+                    return '/ma "Cure II" '..target
+                end,
+                range = 20,
+                value = 90,
+                wakes = true,
+                target_outside = true,
+            },
+            {
+                name = 'Cure',
+                level = 1,
+                cost = 8,
+                spell_id = 1,
+                magic = 'white',
+                magic_type = 'healing',
+                command = function(target)
+                    return '/ma "Cure" '..target
+                end,
+                range = 20,
+                value = 30,
+                wakes = true,
+                target_outside = true,
+            },
+        },
+        
+        -- AOE healing. Aimed at the hurt party's lowest member (heal.execute_aoe);
+        -- Curaga is self/party only (validTargets 3), so no target_outside.
+        heal_aoe = {
+            {
+                name = 'Curaga IV',
+                level = 71,
+                cost = 260,
+                spell_id = 10,
+                magic = 'white',
+                magic_type = 'healing',
+                command = function(target)
+                    return '/ma "Curaga IV" '..target
+                end,
+                range = 20,
+                wakes = true,
+            },
+            {
+                name = 'Curaga III',
+                level = 51,
+                cost = 180,
+                spell_id = 9,
+                magic = 'white',
+                magic_type = 'healing',
+                command = function(target)
+                    return '/ma "Curaga III" '..target
+                end,
+                range = 20,
+                wakes = true,
+            },
+            {
+                name = 'Curaga II',
+                level = 31,
+                cost = 120,
+                spell_id = 8,
+                magic = 'white',
+                magic_type = 'healing',
+                command = function(target)
+                    return '/ma "Curaga II" '..target
+                end,
+                range = 20,
+                wakes = true,
+            },
+            {
+                name = 'Curaga',
+                level = 16,
+                cost = 60,
+                spell_id = 7,
+                magic = 'white',
+                magic_type = 'healing',
+                command = function(target)
+                    return '/ma "Curaga" '..target
+                end,
+                range = 20,
+                wakes = true,
+            },
+        },
+        
+        -- Debuff removal
+        debuff_removal = {
+            {
+                name = 'Esuna', -- AOE debuff removal
+                level = 61,
+                cost = 24,
+                spell_id = 95,
+                range = 10,
+                magic = 'white',
+                magic_type = 'healing',
+                debuff_id = {3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 20, 21, 30, 31},  -- Multiple debuffs
+                command = '/ma "Esuna" <me>',
+                self_only = true,
+            },
+            {
+                name = 'Stona',
+                level = 39,
+                cost = 40,
+                spell_id = 18,
+                magic = 'white',
+                magic_type = 'healing',
+                debuff_id = 7,
+                command = function(target)
+                    return '/ma "Stona" '..target
+                end,
+                range = 20,
+                target_outside = true,
+            },
+            {
+                name = 'Viruna',
+                level = 34,
+                cost = 48,
+                spell_id = 19,
+                magic = 'white',
+                magic_type = 'healing',
+                debuff_id = {8, 31},  -- Disease & Plague
+                command = function(target)
+                    return '/ma "Viruna" '..target
+                end,
+                range = 20,
+                target_outside = true,
+            },
+            {
+                name = 'Erase',
+                level = 32,
+                cost = 18,
+                spell_id = 143,
+                magic = 'white',
+                magic_type = 'healing',
+                debuff_id = common.ERASABLE_DEBUFFS,
+                command = function(target)
+                    return '/ma "Erase" '..target
+                end,
+                range = 20,
+            },
+            {
+                name = 'Cursna',
+                level = 29,
+                cost = 30,
+                spell_id = 20,
+                magic = 'white',
+                magic_type = 'healing',
+                debuff_id = common.CURSE_DEBUFFS,  -- Curse, Doom & Bane
+                command = function(target)
+                    return '/ma "Cursna" '..target
+                end,
+                range = 20,
+                target_outside = true,
+            },
+            {
+                name = 'Silena',
+                level = 19,
+                cost = 24,
+                spell_id = 17, 
+                magic = 'white',
+                magic_type = 'healing',
+                debuff_id = 6,
+                command = function(target)
+                    return '/ma "Silena" '..target
+                end,
+                range = 20,
+                target_outside = true,
+            },
+            {
+                name = 'Blindna',
+                level = 14,
+                cost = 16,
+                spell_id = 16,
+                magic = 'white',
+                magic_type = 'healing',
+                debuff_id = 5,
+                command = function(target)
+                    return '/ma "Blindna" '..target
+                end,
+                range = 20,
+                target_outside = true,
+            },
+            {
+                name = 'Paralyna',
+                level = 9,
+                cost = 12,
+                spell_id = 15,
+                magic = 'white',
+                magic_type = 'healing',
+                debuff_id = 4,
+                command = function(target)
+                    return '/ma "Paralyna" '..target
+                end,
+                range = 20,
+                target_outside = true,
+            },
+            {
+                name = 'Poisona',
+                level = 6,
+                cost = 8,
+                spell_id = 14, 
+                magic = 'white',
+                magic_type = 'healing',
+                debuff_id = 3,
+                command = function(target)
+                    return '/ma "Poisona" '..target
+                end,
+                range = 20,
+                target_outside = true,
+            },
+        },
+
+        -- Buffs
+        buff = {
+            {
+                name = 'Afflatus Solace',
+                level = 40,
+                cost = 0,
+                recast_id = 29,
+                command = '/ja "Afflatus Solace" <me>',
+                buff_id = 417,
+                group = 'afflatus',
+            },
+            {
+                name = 'Afflatus Misery',
+                level = 40,
+                cost = 0,
+                recast_id = 30,
+                command = '/ja "Afflatus Misery" <me>',
+                buff_id = 418,
+                group = 'afflatus',
+            },
+            {
+                name = 'Haste',
+                level = 40,
+                cost = 40,
+                spell_id = 57,
+                magic = 'white',
+                magic_type = 'enhancing',
+                command = function(target)
+                    return '/ma "Haste" '..target
+                end,
+                buff_id = 33,
+                duration = 180,
+                target_outside = true,
+                priority = 25,
+            },
+            {
+                name = 'Regen III',
+                level = 66,
+                cost = 64,
+                spell_id = 111,
+                magic = 'white',
+                magic_type = 'enhancing',
+                command = function(target)
+                    return '/ma "Regen III" '..target
+                end,
+                buff_id = 42,
+                duration = 60,
+                group = 'regen',
+            },
+            {
+                name = 'Regen II',
+                level = 44,
+                cost = 36,
+                spell_id = 110,
+                magic = 'white',
+                magic_type = 'enhancing',
+                command = function(target)
+                    return '/ma "Regen II" '..target
+                end,
+                buff_id = 42,
+                duration = 60,
+                group = 'regen',
+            },
+            {
+                name = 'Regen',
+                level = 21,
+                cost = 15,
+                spell_id = 108,
+                magic = 'white',
+                magic_type = 'enhancing',
+                command = function(target)
+                    return '/ma "Regen" '..target
+                end,
+                buff_id = 42,
+                duration = 75,
+                group = 'regen',
+            },
+            {
+                name = 'Protectra V',
+                level = 75,
+                cost = 84,
+                spell_id = 129,
+                magic = 'white',
+                magic_type = 'enhancing',
+                command = '/ma "Protectra V" <me>',
+                buff_id = 40,
+                group = 'protectra',
+                aoe = true,  -- <me> self-cast that hits the party (Hold AOE for Group)
+            },
+            {
+                name = 'Protectra IV',
+                level = 63,
+                cost = 65,
+                spell_id = 128,
+                magic = 'white',
+                magic_type = 'enhancing',
+                command = '/ma "Protectra IV" <me>',
+                buff_id = 40,
+                group = 'protectra',
+                aoe = true,  -- <me> self-cast that hits the party (Hold AOE for Group)
+            },
+            {
+                name = 'Protectra III',
+                level = 47,
+                cost = 46,
+                spell_id = 127,
+                magic = 'white',
+                magic_type = 'enhancing',
+                command = '/ma "Protectra III" <me>',
+                buff_id = 40,
+                group = 'protectra',
+                aoe = true,  -- <me> self-cast that hits the party (Hold AOE for Group)
+            },
+            {
+                name = 'Protectra II',
+                level = 27,
+                cost = 28,
+                spell_id = 126,
+                magic = 'white',
+                magic_type = 'enhancing',
+                command = '/ma "Protectra II" <me>',
+                buff_id = 40,
+                group = 'protectra',
+                aoe = true,  -- <me> self-cast that hits the party (Hold AOE for Group)
+            },
+            {
+                name = 'Protectra',
+                level = 7,
+                cost = 9,
+                spell_id = 125,
+                magic = 'white',
+                magic_type = 'enhancing',
+                command = '/ma "Protectra" <me>',
+                buff_id = 40,
+                group = 'protectra',
+                aoe = true,  -- <me> self-cast that hits the party (Hold AOE for Group)
+            },
+            {
+                name = 'Protect IV',
+                level = 63,
+                cost = 65,
+                spell_id = 46,
+                magic = 'white',
+                magic_type = 'enhancing',
+                command = function(target)
+                    return '/ma "Protect IV" '..target
+                end,
+                buff_id = 40,
+                group = 'protect',
+                target_outside = true,
+            },
+            {
+                name = 'Protect III',
+                level = 47,
+                cost = 46,
+                spell_id = 45,
+                magic = 'white',
+                magic_type = 'enhancing',
+                command = function(target)
+                    return '/ma "Protect III" '..target
+                end,
+                buff_id = 40,
+                group = 'protect',
+                target_outside = true,
+            },
+            {
+                name = 'Protect II',
+                level = 27,
+                cost = 28,
+                spell_id = 44,
+                magic = 'white',
+                magic_type = 'enhancing',
+                command = function(target)
+                    return '/ma "Protect II" '..target
+                end,
+                buff_id = 40,
+                group = 'protect',
+                target_outside = true,
+            },
+            {
+                name = 'Protect',
+                level = 7,
+                cost = 9,
+                spell_id = 43,
+                magic = 'white',
+                magic_type = 'enhancing',
+                command = function(target)
+                    return '/ma "Protect" '..target
+                end,
+                buff_id = 40,
+                group = 'protect',
+                target_outside = true,
+            },
+            {
+                name = 'Shellra V',
+                level = 75,
+                cost = 93,
+                spell_id = 134,
+                magic = 'white',
+                magic_type = 'enhancing',
+                command = '/ma "Shellra V" <me>',
+                buff_id = 41,
+                group = 'shellra',
+                aoe = true,  -- <me> self-cast that hits the party (Hold AOE for Group)
+            },
+            {
+                name = 'Shellra IV',
+                level = 68,
+                cost = 75,
+                spell_id = 133,
+                magic = 'white',
+                magic_type = 'enhancing',
+                command = '/ma "Shellra IV" <me>',
+                buff_id = 41,
+                group = 'shellra',
+                aoe = true,  -- <me> self-cast that hits the party (Hold AOE for Group)
+            },
+            {
+                name = 'Shellra III',
+                level = 57,
+                cost = 56,
+                spell_id = 132,
+                magic = 'white',
+                magic_type = 'enhancing',
+                command = '/ma "Shellra III" <me>',
+                buff_id = 41,
+                group = 'shellra',
+                aoe = true,  -- <me> self-cast that hits the party (Hold AOE for Group)
+            },
+            {
+                name = 'Shellra II',
+                level = 37,
+                cost = 37,
+                spell_id = 131,
+                magic = 'white',
+                magic_type = 'enhancing',
+                command = '/ma "Shellra II" <me>',
+                buff_id = 41,
+                group = 'shellra',
+                aoe = true,  -- <me> self-cast that hits the party (Hold AOE for Group)
+            },
+            {
+                name = 'Shellra',
+                level = 17,
+                cost = 18,
+                spell_id = 130,
+                magic = 'white',
+                magic_type = 'enhancing',
+                command = '/ma "Shellra" <me>',
+                buff_id = 41,
+                group = 'shellra',
+                aoe = true,  -- <me> self-cast that hits the party (Hold AOE for Group)
+            },
+            {
+                name = 'Shell IV',
+                level = 68,
+                cost = 75,
+                spell_id = 51,
+                magic = 'white',
+                magic_type = 'enhancing',
+                command = function(target)
+                    return '/ma "Shell IV" '..target
+                end,
+                buff_id = 41,
+                group = 'shell',
+                target_outside = true,
+            },
+            {
+                name = 'Shell III',
+                level = 57,
+                cost = 56,
+                spell_id = 50,
+                magic = 'white',
+                magic_type = 'enhancing',
+                command = function(target)
+                    return '/ma "Shell III" '..target
+                end,
+                buff_id = 41,
+                group = 'shell',
+                target_outside = true,
+            },
+            {
+                name = 'Shell II',
+                level = 37,
+                cost = 37,
+                spell_id = 49,
+                magic = 'white',
+                magic_type = 'enhancing',
+                command = function(target)
+                    return '/ma "Shell II" '..target
+                end,
+                buff_id = 41,
+                group = 'shell',
+                target_outside = true,
+            },
+            {
+                name = 'Shell',
+                level = 17,
+                cost = 18,
+                spell_id = 48,
+                magic = 'white',
+                magic_type = 'enhancing',
+                command = function(target)
+                    return '/ma "Shell" '..target
+                end,
+                buff_id = 41,
+                group = 'shell',
+                target_outside = true,
+            },
+            -- Bar Element spells
+            {
+                name = 'Barthundra',
+                level = 25,
+                cost = 12,
+                spell_id = 70,
+                magic = 'white',
+                magic_type = 'enhancing',
+                command = '/ma "Barthundra" <me>',
+                buff_id = 104,
+                group = 'barelement',
+                aoe = true,  -- <me> self-cast that hits the party (Hold AOE for Group)
+            },
+            {
+                name = 'Barblizzara',
+                level = 21,
+                cost = 12,
+                spell_id = 67,
+                magic = 'white',
+                magic_type = 'enhancing',
+                command = '/ma "Barblizzara" <me>',
+                buff_id = 101,
+                group = 'barelement',
+                aoe = true,  -- <me> self-cast that hits the party (Hold AOE for Group)
+            },
+            {
+                name = 'Barfira',
+                level = 17,
+                cost = 12,
+                spell_id = 66,
+                magic = 'white',
+                magic_type = 'enhancing',
+                command = '/ma "Barfira" <me>',
+                buff_id = 100,
+                group = 'barelement',
+                aoe = true,  -- <me> self-cast that hits the party (Hold AOE for Group)
+            },
+            {
+                name = 'Baraera',
+                level = 13,
+                cost = 12,
+                spell_id = 68,
+                magic = 'white',
+                magic_type = 'enhancing',
+                command = '/ma "Baraera" <me>',
+                buff_id = 102,
+                group = 'barelement',
+                aoe = true,  -- <me> self-cast that hits the party (Hold AOE for Group)
+            },
+            {
+                name = 'Barwatera',
+                level = 9,
+                cost = 12,
+                spell_id = 71,
+                magic = 'white',
+                magic_type = 'enhancing',
+                command = '/ma "Barwatera" <me>',
+                buff_id = 105,
+                group = 'barelement',
+                aoe = true,  -- <me> self-cast that hits the party (Hold AOE for Group)
+            },
+            {
+                name = 'Barstonra',
+                level = 5,
+                cost = 12,
+                spell_id = 69,
+                magic = 'white',
+                magic_type = 'enhancing',
+                command = '/ma "Barstonra" <me>',
+                buff_id = 103,
+                group = 'barelement',
+                aoe = true,  -- <me> self-cast that hits the party (Hold AOE for Group)
+            },
+            -- Bar Status spells
+            {
+                name = 'Baramnesra',
+                level = 65,
+                cost = 60,
+                spell_id = 85,
+                magic = 'white',
+                magic_type = 'enhancing',
+                command = '/ma "Baramnesra" <me>',
+                buff_id = 286,
+                group = 'barstatus',
+                aoe = true,  -- <me> self-cast that hits the party (Hold AOE for Group)
+            },
+            {
+                name = 'Barpetra',
+                level = 43,
+                cost = 40,
+                spell_id = 91,
+                magic = 'white',
+                magic_type = 'enhancing',
+                command = '/ma "Barpetra" <me>',
+                buff_id = 111,
+                group = 'barstatus',
+                aoe = true,  -- <me> self-cast that hits the party (Hold AOE for Group)
+            },
+            {
+                name = 'Barvira',
+                level = 39,
+                cost = 50,
+                spell_id = 92,
+                magic = 'white',
+                magic_type = 'enhancing',
+                command = '/ma "Barvira" <me>',
+                buff_id = 112,
+                group = 'barstatus',
+                aoe = true,  -- <me> self-cast that hits the party (Hold AOE for Group)
+            },
+            {
+                name = 'Barsilencera',
+                level = 23,
+                cost = 30,
+                spell_id = 90,
+                magic = 'white',
+                magic_type = 'enhancing',
+                command = '/ma "Barsilencera" <me>',
+                buff_id = 110,
+                group = 'barstatus',
+                aoe = true,  -- <me> self-cast that hits the party (Hold AOE for Group)
+            },
+            {
+                name = 'Barblindra',
+                level = 18,
+                cost = 26,
+                spell_id = 89,
+                magic = 'white',
+                magic_type = 'enhancing',
+                command = '/ma "Barblindra" <me>',
+                buff_id = 109,
+                group = 'barstatus',
+                aoe = true,  -- <me> self-cast that hits the party (Hold AOE for Group)
+            },
+            {
+                name = 'Barparalyzra',
+                level = 12,
+                cost = 22,
+                spell_id = 88,
+                magic = 'white',
+                magic_type = 'enhancing',
+                command = '/ma "Barparalyzra" <me>',
+                buff_id = 108,
+                group = 'barstatus',
+                aoe = true,  -- <me> self-cast that hits the party (Hold AOE for Group)
+            },
+            {
+                name = 'Barpoisonra',
+                level = 10,
+                cost = 18,
+                spell_id = 87,
+                magic = 'white',
+                magic_type = 'enhancing',
+                command = '/ma "Barpoisonra" <me>',
+                buff_id = 107,
+                group = 'barstatus',
+                aoe = true,  -- <me> self-cast that hits the party (Hold AOE for Group)
+            },
+            {
+                name = 'Barsleepra',
+                level = 7,
+                cost = 14,
+                spell_id = 86,
+                magic = 'white',
+                magic_type = 'enhancing',
+                command = '/ma "Barsleepra" <me>',
+                buff_id = 106,
+                group = 'barstatus',
+                aoe = true,  -- <me> self-cast that hits the party (Hold AOE for Group)
+            },
+            {
+                name = 'Aquaveil',
+                level = 10,
+                cost = 12,
+                spell_id = 55,
+                magic = 'white',
+                magic_type = 'enhancing',
+                command = '/ma "Aquaveil" <me>',
+                buff_id = 39,
+            },
+            {
+                name = 'Blink',
+                level = 19,
+                cost = 20,
+                spell_id = 53,
+                magic = 'white',
+                magic_type = 'enhancing',
+                command = '/ma "Blink" <me>',
+                buff_id = 36,
+            },
+            {
+                name = 'Stoneskin',
+                level = 28,
+                cost = 29,
+                spell_id = 54,
+                magic = 'white',
+                magic_type = 'enhancing',
+                command = '/ma "Stoneskin" <me>',
+                buff_id = 37,
+            },
+            {
+                name = 'Reraise III',
+                level = 70,
+                cost = 150,
+                spell_id = 142,
+                magic = 'white',
+                magic_type = 'healing',
+                command = '/ma "Reraise III" <me>',
+                buff_id = 113,
+                group = 'reraise',
+            },
+            {
+                name = 'Reraise II',
+                level = 56,
+                cost = 150,
+                spell_id = 141,
+                magic = 'white',
+                magic_type = 'healing',
+                command = '/ma "Reraise II" <me>',
+                buff_id = 113,
+                group = 'reraise',
+            },
+            {
+                name = 'Reraise',
+                level = 25,
+                cost = 150,
+                spell_id = 135,
+                magic = 'white',
+                magic_type = 'healing',
+                command = '/ma "Reraise" <me>',
+                buff_id = 113,
+                group = 'reraise',
+            },
+            {
+                name = 'Enlight',
+                level = 75,
+                cost = 24,
+                spell_id = 310,
+                magic = 'white',
+                magic_type = 'divine',
+                command = '/ma "Enlight" <me>',
+                buff_id = 274,
+            },
+            {
+                name = 'Auspice',
+                level = 55,
+                cost = 48,
+                spell_id = 96,
+                magic = 'white',
+                magic_type = 'enhancing',
+                command = '/ma "Auspice" <me>',
+                buff_id = 275,
+            },
+            {
+                name = 'Invisible',
+                level = 25,
+                cost = 15,
+                spell_id = 136,
+                magic = 'white',
+                magic_type = 'enhancing',
+                command = function(target)
+                    return '/ma "Invisible" '..target
+                end,
+                buff_id = 69,
+                idle_only = true,
+                priority = -20,      -- travel buff, sorts after Sneak (-10); see ARCHITECTURE.md
+                travel_buff = true,
+            },
+            {
+                name = 'Sneak',
+                level = 20,
+                cost = 12,
+                spell_id = 137,
+                magic = 'white',
+                magic_type = 'enhancing',
+                command = function(target)
+                    return '/ma "Sneak" '..target
+                end,
+                buff_id = 71,
+                idle_only = true,
+                priority = -10,      -- travel buff, whole party before Invisible (-20) starts
+                travel_buff = true,
+            },
+            {
+                name = 'Deodorize',
+                level = 15,
+                cost = 10,
+                spell_id = 138,
+                magic = 'white',
+                magic_type = 'enhancing',
+                command = function(target)
+                    return '/ma "Deodorize" '..target
+                end,
+                idle_only = true,
+                buff_id = 70,
+            },
+        },
+
+        -- Critical
+        critical = {
+            {
+                name = 'Martyr',
+                level = 75,
+                cost = 0,
+                recast_id = 27,
+                ability_id = 153,  -- merit-unlocked: gated on HasAbility
+                command = function(target)
+                    return '/ja "Martyr" '..target
+                end,
+                range = 18,
+            },
+            {
+                name = 'Divine Seal',
+                level = 15,
+                cost = 0,
+                recast_id = 26,
+                command = '/ja "Divine Seal" <me>',
+            },
+        },
+
+        -- Revive
+        revive = {
+            {
+                name = 'Arise',
+                level = 75,
+                cost = 300,
+                spell_id = 494,
+                command = function(target)
+                    return '/ma "Arise" '..target
+                end,
+                range = 18,
+                magic_type = 'healing',
+                idle_only = true,
+                target_outside = true,
+            },
+            {
+                name = 'Raise III',
+                level = 70,
+                cost = 150,
+                spell_id = 140,
+                command = function(target)
+                    return '/ma "Raise III" '..target
+                end,
+                range = 18,
+                magic_type = 'healing',
+                idle_only = true,
+                target_outside = true,
+            },
+            {
+                name = 'Raise II',
+                level = 56,
+                cost = 150,
+                spell_id = 13,
+                command = function(target)
+                    return '/ma "Raise II" '..target
+                end,
+                range = 18,
+                magic_type = 'healing',
+                idle_only = true,
+                target_outside = true,
+            },
+            {
+                name = 'Raise',
+                level = 25,
+                cost = 150,
+                spell_id = 12,
+                command = function(target)
+                    return '/ma "Raise" '..target
+                end,
+                range = 18,
+                magic_type = 'healing',
+                idle_only = true,
+                target_outside = true,
+            },
+        },
+
+
+        recover_party_mp = {
+            {
+                name = 'Devotion',
+                level = 75,
+                cost = 0,
+                recast_id = 28,
+                ability_id = 154,  -- merit-unlocked: gated on HasAbility
+                command = function(target)
+                    return '/ja "Devotion" '..target -- Cannot target self
+                end,
+            },
+        },
+    },
+
+    -- Default settings for UI
+    default_settings = {
+        heal_enabled = true,
+        heal_threshold = 75,
+        critical_threshold = 30,
+        heal_aoe_enabled = true,
+        heal_aoe_threshold = 70,
+        wake_enabled = true,
+        buff_enabled = true,
+        debuff_removal_enabled = true,
+        recover_enabled = true,
+        focus_enabled = false,
+        focus_threshold = 85,
+        focus_recovery_threshold = 30,  -- Devotion on the recovery target below 30% MP
+        revive_enabled = true,
+    },
+    
+    -- Action priority order
+    priority_order = {
+        'item',
+        'recover',
+        'critical',
+        'heal_aoe',
+        'heal',
+        'debuff_removal',
+        'wake',
+        'revive',
+        'buff',
+        'rest',
+    },
+}

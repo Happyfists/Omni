@@ -16,34 +16,40 @@
         (omni_talks.lua, assets/alerts/; Options > Happy Talks). Based on chatmon by atom0s.
       * Spell lines: targetlines-style lines with an animation per element - lightning, fireballs,
         ice shards, cures... (omni_fx.lua, maths from Jyouya's targetlines; Options, /omni fx).
-      * Pop-out: the Abyssea proc tracker.
-      * Happy Healer is now its own addon (happyhealer) - not part of omni.
+      * Pop-outs: Happy Healer Start/Pause and the Abyssea proc tracker.
       * Panel (drops down under the bars): tabs in two rows, then the chosen tab's page.
 
-    Panel tabs (and the file that draws each one)
-      Top row
-        Abyssea    - Procs (+ pop-out), NM Pops and Weapons (omni_abyssea.lua, omni_abypops.lua, omni_abyweapons.lua, abydata/)
-        Quests     - Journey overview, quests by region, mission storylines (omni_quests.lua, qdata/)
-        Multisend  - Follow Me, sim-cast and quick commands (omni_multisend.lua)
-        Damage     - Simple meter and Advanced breakdown (this file, omni_damage.lua, omni_action.lua)
-      Second row
-        Character  - Trove's Profile (jobs + AF/Relic armour, crafts, skills), its Magic screen, and Craftbook under Crafts
-                     (plugins/profile.lua, plugins/scrolls.lua, omni_craftbook.lua + craft_recipes.lua)
-        Currency   - Currency and Points (Trove: core/currency.lua, core/points.lua)
-        Dailies, Codex - Trove screens (trove_host.lua, plugins/)
-        Sky        - Sky / Sky 2.0 / Pops: pop items, god drops, the server's !pops list (omni_sky.lua)
-        Sea        - Sea (Lumoria) and AV, the Absolute Virtue helper (plugins/lumoria.lua, omni_av.lua)
+    Panel tabs (and the file that draws each one) - grouped by subject (3.98)
+      Top row: places and content
+        Abyssea    - Procs (+ pop-out), NM Pops, Atma, Weapons and Empyrean armor
+                     (omni_abyssea.lua, omni_abypops.lua, omni_abyatma.lua, omni_abyweapons.lua, omni_abyempy.lua, abydata/)
+        Sea        - Sea (Lumoria), Jailers and AV, the Absolute Virtue helper (plugins/lumoria.lua, omni_jailers.lua, omni_av.lua)
+        Sky        - Sky / Sky 2.0 / Pops / Map: pop items, god drops, the server's !pops list (omni_sky.lua)
+        HNMs       - Happy Pops (HNM ToD and window timers, omni_pops.lua) and Roll Tracker (/random order, omni_rolls.lua)
         Ventures   - Ventures and VNM Armor (omni_ventures.lua, plugins/vnm.lua)
-        Sparks     - Sparks shop and Sell It (omni_sparks.lua, omni_sell.lua)
-        Options    - AV helper (Al'Taieu only / everywhere / off), bars, native buff icons, party job pictures,
-                     pop-outs, Follow Me
-        TH         - Treasure Hunter per monster ("NAME lands THn on MOB" in party), TH on the target bar (omni_th.lua)
+        Dailies, Codex - Trove screens (trove_host.lua, plugins/)
+        Quests     - Journey overview, quests by region, mission storylines (omni_quests.lua, qdata/)
+      Second row: you, your gear and tools
+        Happy Healer - Sneaky's Sidekick, just easier to use: a Cure Please style auto-healer, with an On/Off switch beside the
+                       tab; off it is not loaded at all (omni_healer_ui.lua, omni_sidekick.lua, lib/)
+        Character  - Trove's Profile (jobs + AF/Relic armour, crafts, skills), its Magic screen, and under Crafts the
+                     Craftbook (plugins/profile.lua, plugins/scrolls.lua, omni_craftbook.lua)
+        Gear       - Ultimates: every ultimate weapon / weapon skill with a % bar (omni_ultimates.lua); Automaton:
+                     click-to-equip PUP attachments, best builds, maneuver guide (omni_pup.lua); Blue Magic:
+                     click-to-set BLU spells, ready sets, your blusets files, traits (omni_blu.lua)
+        Currency   - Currency, Points and the Sparks shop (Trove: core/currency.lua, core/points.lua; omni_sparks.lua)
+        Items      - Sell It (omni_sell.lua)
+        Combat     - Damage (Simple / Advanced) and TH, Treasure Hunter per monster (this file, omni_damage.lua, omni_th.lua)
+        Multisend  - Follow Me, sim-cast and quick commands (omni_multisend.lua)
+        Happy Translate - translated chat and a reply box (omni_translate.lua)
+        Options    - General (bars, looks, pop-outs...) and Happy Talks
       The row layout is TAB_ROWS in this file.
 
     Credits (licences in this folder)
       * Bar style and job icon sheet adapted from the points addon by Shinzaku, based on Pointwatch by
         Byrthnoth (BSD-style licence, POINTS_LICENSE).
       * Trove by Loxley (TROVE_LICENSE).
+      * Sidekick by Seekey, the engine behind Happy Healer (SIDEKICK_LICENSE).
       * AVHelper by ClutchHawks (AVHELPER_LICENSE).
       * Quest / mission data and storyline pictures from FFXI Journal by AndreYMods (JOURNAL_LICENSE).
       * TH helper idea from easyTH by Arielfy. Spell lines based on targetlines by Jyouya.
@@ -51,11 +57,16 @@
         IntegReady, and Abystagger by Laudout.
       * FFXI job pictures (assets/jobs/) from HXUI by Team HXUI (MIT, HXUI_LICENSE).
       * Craftbook by Happys (github.com/Happyfists/Craftbook); recipes from the LandSandBoat database (GNU GPL v3).
+      * Sky map (images/sky_map.png): Ru'Aun Gardens by the Remapster project (remapster.com, CC BY-SA 4.0,
+        REMAPSTER_LICENSE), with the god markers added.
+      * Automaton and Blue Magic pages: omni's own code. They set attachments / spells the way atom0s' blusets and
+        the pupsets addon do (the game's own equip function); blue spell facts match bludex's CatsEyeXI data and
+        LandSandBoat's tables; the idea for click-to-equip PUP came from puphq by QB1985.
 ]]
 
 addon.name    = 'omni';
 addon.author  = 'Happyfists';
-addon.version = '3.39';
+addon.version = '4.01';
 addon.desc    = 'All-in-one addon.';
 
 require('common');
@@ -620,6 +631,8 @@ local abyssea = nil;
 do
     local ok, mod = pcall(require, 'omni_abyssea');
     if (ok) then abyssea = mod; else print('[omni] Abyssea could not load: ' .. tostring(mod)); end
+    -- The stagger popup reads its on/off switch from omni's settings.
+    if (abyssea ~= nil) then abyssea.get_settings = function () return omni.settings; end; end
 end
 
 -- Dynamis on the bar: time left and the five time extensions (omni_dynamis.lua).
@@ -743,7 +756,7 @@ local function draw_bar(player, job)
         if (not s.minimal and toggle_button('bar')) then
             omni.expanded = not omni.expanded;
         end
-        -- Hide / show everything else (XP strip, target bar, panel, pop-outs).
+        -- Hide / show everything else (XP strip, target bar, panel, Happy Healer pop-out).
         if (not s.minimal) then imgui.SameLine(0, 4); end
         imgui.SetCursorPosY(5);
         imgui.PushStyleColor(ImGuiCol_Button, s.minimal and s.colors.tab_active or (cb and { 0, 0, 0, 0 } or s.colors.button));
@@ -900,6 +913,16 @@ local function draw_exp(player, job, ox, ow, oh)
     return height;
 end
 
+-- The same frame as the buff and target bars, for the thin strips under them (monster info, training).
+omni.strip_look = {
+    crystal = function () return crystal(); end,
+    frame = function (dl, x1, y1, x2, y2)
+        if (not crystal()) then return; end
+        if (theme() ~= nil) then pcall(theme_frame, dl, x1, y1, x2, y2);
+        else pcall(ornate, dl, x1, y1, x2, y2, 'bevel', nil, 5); end
+    end,
+};
+
 ----------------------------------------------------------------------------------------------------
 -- The target bar (hangs under the main bar while you have something targeted)
 ----------------------------------------------------------------------------------------------------
@@ -939,7 +962,7 @@ end
 local mobinfo = nil;
 do
     local ok, mod = pcall(require, 'omni_mobinfo');
-    if (ok) then mobinfo = mod; else print('[omni] Monster info could not load: ' .. tostring(mod)); end
+    if (ok) then mobinfo = mod; mod.look = omni.strip_look; else print('[omni] Monster info could not load: ' .. tostring(mod)); end
 end
 
 -- Returns the height of the bar it drew, or 0 if there is no target.
@@ -1085,7 +1108,7 @@ local function draw_target(ox, ow, oh)
         local okr, r = pcall(mobinfo.lookup, index, entity.Name);
         if (okr and r ~= nil) then
             local okd, mh = pcall(mobinfo.draw, s.bar_x + (ox or 0), s.bar_y + BAR_HEIGHT - 1 + height - 1, W, r,
-                s.colors, s.colors.bg, s.colors.border);
+                s.colors, s.colors.bg, s.colors.border, omni.under_pad or 0, entity.ServerId, index);
             if (okd and type(mh) == 'number') then omni.mob_h = mh - 1; end
         end
     end
@@ -1372,6 +1395,10 @@ local PANEL_HEADING = 'Omni';
 
 local tabs = {};
 
+-- Sparks shop (omni_sparks.lua): a page of the Currency tab. Its Sell It box lives on the Items tab.
+local sparks = require('omni_sparks');
+sparks.show_sell = false;
+
 for _, section in ipairs(trove.sections) do
   if (not section.hidden) then
     tabs[#tabs + 1] = {
@@ -1382,7 +1409,7 @@ for _, section in ipairs(trove.sections) do
         render  = function () trove.render(section); end,
     };
     if (section.label == 'Currency') then
-        -- Two tabs inside: Currency and Points (Trove's Points screen).
+        -- Three tabs inside: Currency, Points (Trove's Points screen) and the Sparks shop.
         local tab = tabs[#tabs];
         local points = nil;
         for _, x in ipairs(trove.sections) do if (x.label == 'Points') then points = x; end end
@@ -1400,6 +1427,12 @@ for _, section in ipairs(trove.sections) do
                     if (layout ~= nil and layout.rows > 0) then
                         tab.height = math.max(200, math.min(900, 94 + layout.groups * 40 + layout.rows * 27));
                     end
+                    imgui.EndTabItem();
+                end
+                if (imgui.BeginTabItem('Sparks##omni_cursub')) then
+                    local ok, err = pcall(sparks.render, trove);
+                    if (not ok) then imgui.TextColored({ 1.0, 0.45, 0.45, 1.0 }, 'Sparks: ' .. tostring(err)); end
+                    tab.height = math.max(160, math.min(900, math.floor(sparks.height) + 30));
                     imgui.EndTabItem();
                 end
                 imgui.EndTabBar();
@@ -1427,7 +1460,14 @@ for _, section in ipairs(trove.sections) do
                 local ok, mod = pcall(require, 'omni_craftbook');
                 if (ok and section.plugin.setCraftbook ~= nil) then
                     craftbook = mod;
-                    section.plugin.setCraftbook(function () craftbook.render(540); end);
+                    section.plugin.setCraftbook(function ()
+                        -- Happy Crafter (personal copy only) on top, when it's there, then the Craftbook.
+                        if (omni.craft ~= nil and omni.craft.render_inline ~= nil) then
+                            pcall(omni.craft.render_inline);
+                            imgui.Separator();
+                        end
+                        craftbook.render(540);
+                    end);
                 elseif (not ok) then
                     print('[omni] Craftbook could not load: ' .. tostring(mod));
                 end
@@ -1502,14 +1542,16 @@ do
     local sky_tab = { label = 'Sky', width = 680, height = 500, bg = 'bg_sky.png' };
     sky_tab.render = function ()
         if (imgui.BeginTabBar('##omni_sky_sub')) then
-            if (imgui.BeginTabItem('Sky##omni_skysub')) then sky.render(trove); imgui.EndTabItem(); end
-            if (imgui.BeginTabItem('Sky 2.0##omni_skysub')) then sky.render_sky2(trove); imgui.EndTabItem(); end
-            if (imgui.BeginTabItem('Pops##omni_skysub')) then sky.render_pops(trove); imgui.EndTabItem(); end
+            if (imgui.BeginTabItem('Sky##omni_skysub')) then sky_tab.height = 500; sky.render(trove); imgui.EndTabItem(); end
+            if (imgui.BeginTabItem('Sky 2.0##omni_skysub')) then sky_tab.height = 500; sky.render_sky2(trove); imgui.EndTabItem(); end
+            if (imgui.BeginTabItem('Pops##omni_skysub')) then sky_tab.height = 500; sky.render_pops(trove); imgui.EndTabItem(); end
             if (imgui.BeginTabItem('Map##omni_skysub')) then
-                -- Ru'Aun Gardens: where each god's ??? is (images/sky_map.png, a drawn guide map).
+                -- Ru'Aun Gardens with each god's ??? marked (images/sky_map.png). The map is Remapster's
+                -- (remapster.com, CC BY-SA 4.0, see REMAPSTER_LICENSE); the god markers were added for omni.
                 local h = (trove.fileHandle ~= nil) and trove.fileHandle('sky_map.png') or nil;
                 local avail = imgui.GetContentRegionAvail();
-                local size = math.min(avail, 410);
+                local size = math.min(avail, 600);
+                sky_tab.height = math.floor(size) + 110;
                 if (h ~= nil) then
                     imgui.SetCursorPosX(imgui.GetCursorPosX() + math.max(0, (avail - size) / 2));
                     imgui.Image(h, { size, size });
@@ -1517,6 +1559,7 @@ do
                     imgui.TextColored({ 1, 0.45, 0.45, 1 }, 'Map picture missing (images/sky_map.png).');
                 end
                 imgui.TextColored({ 0.62, 0.66, 0.80, 1.0 }, "Trade the god's gem and stone to its ???. Kirin: all four seals to the ??? in the Shrine of Ru'Avitau (F-8).");
+                imgui.TextDisabled('Map by Remapster (remapster.com), CC BY-SA 4.0. God markers added.');
                 imgui.EndTabItem();
             end
             imgui.EndTabBar();
@@ -1561,13 +1604,25 @@ do
     tabs[#tabs + 1] = tab;
 end
 
--- Sparks shop (omni_sparks.lua).
-local sparks = require('omni_sparks');
+-- Items: Sell It (omni_sell.lua, from the Sparks screen) (+ Happy Pouches in the personal copy).
 do
-    local tab = { label = 'Sparks', width = 560, height = 300 };
+    local tab = { label = 'Items', width = 620, height = 300 };
     tab.render = function ()
-        sparks.render(trove);
-        tab.height = math.max(160, math.min(900, math.floor(sparks.height)));
+        if (imgui.BeginTabBar('##omni_items_sub')) then
+            if (imgui.BeginTabItem('Sell It##omni_itemsub')) then
+                local ok, err = pcall(sparks.sell.render, trove);
+                if (not ok) then imgui.TextColored({ 1.0, 0.45, 0.45, 1.0 }, 'Sell It: ' .. tostring(err)); end
+                tab.height = math.max(160, math.min(900, math.floor(imgui.GetCursorPosY()) + 12));
+                imgui.EndTabItem();
+            end
+            if (omni.pouches ~= nil and imgui.BeginTabItem('Pouches##omni_itemsub')) then
+                local ok, err = pcall(omni.pouches.render);
+                if (not ok) then imgui.TextColored({ 1.0, 0.45, 0.45, 1.0 }, 'Happy Pouches: ' .. tostring(err)); end
+                tab.height = math.max(160, math.min(900, math.floor(imgui.GetCursorPosY()) + 12));
+                imgui.EndTabItem();
+            end
+            imgui.EndTabBar();
+        end
     end;
     tabs[#tabs + 1] = tab;
 end
@@ -1576,13 +1631,148 @@ end
 do
     local ok, ultm = pcall(require, 'omni_ultimates');
     if (not ok) then print('[omni] Ultimates could not load: ' .. tostring(ultm)); end
-    local tab = { label = 'Ultimates', width = 780, height = 400 };
+    -- The Gear tab: Ultimates and Automaton.
+    local pup_mod, pup_err = nil, nil;
+    local blu_mod, blu_err = nil, nil;
+    local tab = { label = 'Gear', width = 780, height = 400 };
     tab.render = function ()
-        if (not ok) then imgui.TextColored({ 1.0, 0.45, 0.45, 1.0 }, 'Ultimates could not load: ' .. tostring(ultm)); return; end
-        ultm.render({});
-        tab.height = math.max(160, math.min(900, math.floor(ultm.height)));
+        if (imgui.BeginTabBar('##omni_gear_sub')) then
+            if (imgui.BeginTabItem('Ultimates##omni_gearsub')) then
+                if (not ok) then
+                    imgui.TextColored({ 1.0, 0.45, 0.45, 1.0 }, 'Ultimates could not load: ' .. tostring(ultm));
+                else
+                    ultm.render({});
+                    tab.height = math.max(160, math.min(900, math.floor(ultm.height) + 30));
+                end
+                imgui.EndTabItem();
+            end
+            -- Automaton: click-to-equip attachments, ready builds and a maneuver guide (omni_pup.lua).
+            if (imgui.BeginTabItem('Automaton##omni_gearsub')) then
+                if (pup_mod == nil) then
+                    local okp, m = pcall(require, 'omni_pup');
+                    pup_mod = okp and m or false;
+                    pup_err = (not okp) and tostring(m) or nil;
+                    if (pup_mod) then pup_mod.get_settings = function () return omni.settings; end; end
+                end
+                if (not pup_mod) then
+                    imgui.TextColored({ 1.0, 0.45, 0.45, 1.0 }, 'Automaton could not load: ' .. tostring(pup_err));
+                else
+                    local okr, err = pcall(pup_mod.render);
+                    if (not okr) then imgui.TextColored({ 1.0, 0.45, 0.45, 1.0 }, 'Automaton: ' .. tostring(err)); end
+                    tab.height = math.max(200, math.min(900, math.floor(pup_mod.height) + 30));
+                end
+                imgui.EndTabItem();
+            end
+            -- Blue Magic: click-to-set BLU spells, ready sets, blusets files and traits (omni_blu.lua).
+            if (imgui.BeginTabItem('Blue Magic##omni_gearsub')) then
+                if (blu_mod == nil) then
+                    local okb, m = pcall(require, 'omni_blu');
+                    blu_mod = okb and m or false;
+                    blu_err = (not okb) and tostring(m) or nil;
+                    if (blu_mod) then blu_mod.get_settings = function () return omni.settings; end; end
+                end
+                if (not blu_mod) then
+                    imgui.TextColored({ 1.0, 0.45, 0.45, 1.0 }, 'Blue Magic could not load: ' .. tostring(blu_err));
+                else
+                    local okr, err = pcall(blu_mod.render);
+                    if (not okr) then imgui.TextColored({ 1.0, 0.45, 0.45, 1.0 }, 'Blue Magic: ' .. tostring(err)); end
+                    tab.height = math.max(200, math.min(900, math.floor(blu_mod.height) + 30));
+                end
+                imgui.EndTabItem();
+            end
+            imgui.EndTabBar();
+        end
     end;
     tabs[#tabs + 1] = tab;
+end
+
+-- Happy Healer: support-job automation (built on Sidekick by Seekey, MIT) for WHM, RDM, BRD, COR, SCH and GEO (omni_sidekick.lua).
+-- A tab on the top row with an On/Off switch beside it. Off (the default) it is not loaded at all,
+-- so no chat lines; switching it on loads it there and then and starts it.
+do
+    local RED = { 1.00, 0.45, 0.45, 1.0 };
+    local hui = require('omni_healer_ui');   -- laid out like Cure Please's main window
+    local hh = { loaded = false, ok = false, sk = nil, start_at = nil };
+    omni.hh = hh;
+
+    local function load_hh()
+        if (hh.loaded) then return; end
+        hh.loaded = true;
+        -- Loaded after omni's own start: its "load" step would never run, so run it straight after.
+        local real, late = ashita.events.register, {};
+        if (omni.started) then
+            ashita.events.register = function (ev, name, fn)
+                if (ev == 'load') then late[#late + 1] = fn; return; end
+                return real(ev, name, fn);
+            end;
+        end
+        hh.ok, hh.sk = pcall(require, 'omni_sidekick');
+        ashita.events.register = real;
+        for _, fn in ipairs(late) do pcall(fn); end
+        if (not hh.ok) then print('[omni] Happy Healer could not start: ' .. tostring(hh.sk)); end
+    end
+    if (omni.settings.hh_on == true) then load_hh(); end
+
+    hh.is_on = function () return omni.settings.hh_on == true; end;
+    hh.set_on = function (on)
+        omni.settings.hh_on = on;
+        settings.save('omni');
+        if (on) then
+            load_hh();
+            hh.start_at = os.clock() + 1.0;   -- give it a moment to read your job first
+        else
+            hh.start_at = nil;
+            if (hh.ok and hh.sk.is_running()) then AshitaCore:GetChatManager():QueueCommand(-1, '/hh stop'); end
+            print('[omni] Happy Healer off.');
+        end
+    end;
+    -- Called every frame: the delayed start after turning it on.
+    hh.tick = function ()
+        if (hh.start_at == nil or os.clock() < hh.start_at) then return; end
+        hh.start_at = nil;
+        if (not hh.ok) then return; end
+        if (hh.sk.has_job()) then
+            if (not hh.sk.is_running()) then AshitaCore:GetChatManager():QueueCommand(-1, '/hh start'); end
+        else
+            print('[omni] Happy Healer is on, but has nothing to do on this job (it works on WHM, RDM, BRD, COR, SCH and GEO).');
+        end
+    end;
+
+    local tab = { label = 'Happy Healer', width = 800, height = 420 };
+    tab.render = function ()
+        imgui.TextColored({ 0.95, 0.80, 0.45, 1.0 }, 'Happy Healer is Sneaky\'s Sidekick, just easier to use.');
+        if (not hh.is_on() or not hh.loaded) then
+            imgui.TextColored({ 0.62, 0.66, 0.80, 1.0 }, 'Happy Healer is off.');
+            imgui.SameLine(0, 12);
+            imgui.PushStyleColor(ImGuiCol_Button, { 0.24, 0.62, 0.30, 1.0 });
+            if (imgui.Button('Turn it on##hh_page_on', { imgui.CalcTextSize('Turn it on') + 22, 0 })) then hh.set_on(true); end
+            imgui.PopStyleColor(1);
+            tab.height = 64;
+            return;
+        end
+        if (not hh.ok) then
+            imgui.TextColored(RED, 'Happy Healer could not start: ' .. tostring(hh.sk));
+            return;
+        end
+        hui.icons = omni.icons;   -- job pictures on each party row
+        hui.dark = (omni.crystal ~= nil) and omni.crystal() or false;
+        hui.render(hh.sk);
+        local hp = { omni.settings.hh_popout ~= false };
+        if (imgui.Checkbox('Start / Pause pop-out button##hh_tab_pop', hp)) then omni.settings.hh_popout = hp[1]; settings.save('omni'); end
+        if (imgui.IsItemHovered()) then imgui.SetTooltip('A small Start / Pause button on screen while this page is closed.'); end
+        tab.height = math.max(200, math.min(900, math.floor(hui.height) + 30));
+    end;
+    omni.side_tab = tab;   -- placed on the top row by TAB_ROWS
+    -- Pop-out Start/Pause button, drawn while the Happy Healer page is not open.
+    omni.healer_popout = function ()
+        if (not hh.is_on() or not hh.ok) then return; end
+        hui.dark = (omni.crystal ~= nil) and omni.crystal() or false;
+        pcall(hui.render_popout, hh.sk, {
+            settings = omni.settings,
+            save = function () settings.save('omni'); end,
+            open = function () omni.expanded = true; omni.sel = 'Happy Healer'; end,
+        });
+    end;
 end
 
 -- Multisend: Follow Me, sim-cast and quick commands for your other characters (omni_multisend.lua).
@@ -1625,6 +1815,15 @@ do
     local okw, abyweapons = pcall(require, 'omni_abyweapons');
     local abyweapons_err = nil;
     if (not okw) then abyweapons_err = abyweapons; abyweapons = nil; print('[omni] Abyssea Weapons could not load: ' .. tostring(abyweapons_err)); end
+    -- Atma: every atma and abyssite, by zone, with effects and which you have (omni_abyatma.lua).
+    local oka2, abyatma = pcall(require, 'omni_abyatma');
+    local abyatma_err = nil;
+    if (not oka2) then abyatma_err = abyatma; abyatma = nil; print('[omni] Atma could not load: ' .. tostring(abyatma_err));
+    else abyatma.pops = abypops; end
+    -- Empyrean: Empyrean armor for every job, upgrades and where to farm (omni_abyempy.lua).
+    local oke, abyempy = pcall(require, 'omni_abyempy');
+    local abyempy_err = nil;
+    if (not oke) then abyempy_err = abyempy; abyempy = nil; print('[omni] Empyrean could not load: ' .. tostring(abyempy_err)); end
     local tab = { label = 'Abyssea', width = 900, height = 600 };
     local opts = { settings = nil, save = function () settings.save('omni'); end };
     tab.render = function ()
@@ -1646,11 +1845,39 @@ do
                 end
                 imgui.EndTabItem();
             end
+            if (imgui.BeginTabItem('Empyrean##omni_abysub')) then
+                if (abyempy ~= nil) then
+                    local oke2, erre2 = pcall(abyempy.render, opts);
+                    if (not oke2) then imgui.TextColored({ 1.0, 0.45, 0.45, 1.0 }, 'Empyrean: ' .. tostring(erre2)); end
+                else
+                    imgui.TextColored({ 1.0, 0.45, 0.45, 1.0 }, 'Empyrean could not load: ' .. tostring(abyempy_err));
+                end
+                imgui.EndTabItem();
+            end
+            if (omni.pyxis ~= nil and imgui.BeginTabItem('Chests##omni_abysub')) then
+                local okc, errc = pcall(omni.pyxis.render);
+                if (not okc) then imgui.TextColored({ 1.0, 0.45, 0.45, 1.0 }, 'Chests: ' .. tostring(errc)); end
+                imgui.EndTabItem();
+            end
+            if (omni.pyxis ~= nil and omni.pyxis.render_augs ~= nil and imgui.BeginTabItem('Augments##omni_abysub')) then
+                local oka, erra = pcall(omni.pyxis.render_augs);
+                if (not oka) then imgui.TextColored({ 1.0, 0.45, 0.45, 1.0 }, 'Augments: ' .. tostring(erra)); end
+                imgui.EndTabItem();
+            end
             if (imgui.BeginTabItem('NM Pops##omni_abysub')) then
                 if (abypops ~= nil) then
                     abypops.render(opts);
                 else
                     imgui.TextColored({ 1.0, 0.45, 0.45, 1.0 }, 'NM Pops could not load: ' .. tostring(abypops_err));
+                end
+                imgui.EndTabItem();
+            end
+            if (imgui.BeginTabItem('Atma##omni_abysub')) then
+                if (abyatma ~= nil) then
+                    local oka3, erra3 = pcall(abyatma.render, opts);
+                    if (not oka3) then imgui.TextColored({ 1.0, 0.45, 0.45, 1.0 }, 'Atma: ' .. tostring(erra3)); end
+                else
+                    imgui.TextColored({ 1.0, 0.45, 0.45, 1.0 }, 'Atma could not load: ' .. tostring(abyatma_err));
                 end
                 imgui.EndTabItem();
             end
@@ -1678,7 +1905,7 @@ do
         thmod.render(opts);
         tab.height = math.max(120, math.min(900, math.floor(thmod.height)));
     end;
-    tabs[#tabs + 1] = tab;
+    omni.th_tab = tab;   -- a page of the Combat tab
     if (ok) then thmod.settings = omni.settings; end
 end
 
@@ -1694,7 +1921,7 @@ do
     if (ok) then omni.talks = mod; mod.settings = omni.settings; else print('[omni] Happy Talks could not load: ' .. tostring(mod)); end
 end
 
--- Roll Tracker: the /random order for NM pops (omni_rolls.lua; Options > Roll Tracker).
+-- Roll Tracker: the /random order for NM pops (omni_rolls.lua; HNMs > Roll Tracker).
 do
     local ok, mod = pcall(require, 'omni_rolls');
     if (ok) then omni.rolls = mod; else print('[omni] Roll Tracker could not load: ' .. tostring(mod)); end
@@ -1797,6 +2024,7 @@ do
             toggle('Abyssea time and lights', 'aby_bar', true, 'In Abyssea zones the bar shows Visitant time and lights instead of XP.');
             toggle('Dynamis time and time extensions', 'dyna_bar', true, 'In Dynamis the bar shows the time left and which of the five\ntime extensions (granules of time) you have, instead of XP.');
             toggle('Monster info under the target bar', 'mob_info', true, 'Level, job, NM, aggro (sight / sound / scent...), links, weaknesses,\nresistances, immunities and respawn of the monster you target.\nHover it for its drops. Needs the mobdb addon in your addons folder\n(it reads mobdb\'s database; mobdb itself does not need to be loaded).');
+            toggle('Training regime kills under the buffs', 'train_bar', true, 'Your Field Manual / Grounds Tome training: the zone and each monster\'s kills\n(e.g. Worker Crawler 1/3), under the buff box. Shows in the training\'s zone.\n/tmon status | reset | show always | hide');
             toggle('Nyzul Isle floor, objective and time', 'nyzul_bar', true, 'On Nyzul Isle the bar shows the floor, the floor\'s objective (hover it for a tip)\nand the time left, instead of XP.');
             toggle('Sneak / Invisible buttons', 'stealth_bar', true, 'Magic, ninjutsu, Spectral Jig or oils and powders.');
             local hide = { not s.show_native };
@@ -1859,7 +2087,8 @@ do
 
         tab.height = math.max(160, math.floor(imgui.GetCursorPosY()) + 10);
     end
-    -- Three pages: General, Happy Talks (spoken alerts, omni_talks.lua) and Roll Tracker (omni_rolls.lua).
+    -- Two pages: General and Happy Talks (spoken alerts, omni_talks.lua).
+    -- (Roll Tracker is on the HNMs tab and Pouches on the Items tab.)
     local talks_opts = { settings = nil, save = save };
     tab.render = function ()
         if (imgui.BeginTabBar('##omni_opt_sub')) then
@@ -1870,15 +2099,6 @@ do
                     omni.talks.render(talks_opts);
                 else
                     imgui.TextColored({ 1.0, 0.45, 0.45, 1.0 }, 'Happy Talks could not load.');
-                end
-                tab.height = math.max(160, math.floor(imgui.GetCursorPosY()) + 10);
-                imgui.EndTabItem();
-            end
-            if (imgui.BeginTabItem('Roll Tracker##omni_optsub')) then
-                if (omni.rolls ~= nil) then
-                    omni.rolls.render();
-                else
-                    imgui.TextColored({ 1.0, 0.45, 0.45, 1.0 }, 'Roll Tracker could not load.');
                 end
                 tab.height = math.max(160, math.floor(imgui.GetCursorPosY()) + 10);
                 imgui.EndTabItem();
@@ -1908,16 +2128,50 @@ deeps_tab.render = function ()
         imgui.EndTabBar();
     end
 end;
-tabs[#tabs + 1] = deeps_tab;
+
+-- Combat: Damage (Simple / Advanced) and TH, the Treasure Hunter helper.
+do
+    local tab = { label = 'Combat', width = 620, height = 200 };
+    tab.render = function ()
+        if (imgui.BeginTabBar('##omni_combat_sub')) then
+            if (imgui.BeginTabItem('Damage##omni_combatsub')) then
+                deeps_tab.render();
+                tab.width, tab.height = deeps_tab.width, deeps_tab.height + 30;
+                imgui.EndTabItem();
+            end
+            if (omni.th_tab ~= nil and imgui.BeginTabItem('TH##omni_combatsub')) then
+                omni.th_tab.render();
+                tab.width, tab.height = math.max(560, omni.th_tab.width), omni.th_tab.height + 30;
+                imgui.EndTabItem();
+            end
+            imgui.EndTabBar();
+        end
+    end;
+    tabs[#tabs + 1] = tab;
+end
 
 -- Happy Pops: HNM time of death and window timers (omni_pops.lua), as its own tab.
-if (omni.pops ~= nil) then
-    local pops_tab = { label = 'Happy Pops', width = 1040, height = 460 };
+-- HNMs: Happy Pops (HNM time of death and window timers) and the Roll Tracker (/random order for pops).
+if (omni.pops ~= nil or omni.rolls ~= nil) then
+    local pops_tab = { label = 'HNMs', width = 1040, height = 460 };
     pops_tab.render = function ()
-        omni.pops.render();
-        pops_tab.height = math.max(160, math.min(900, math.floor(imgui.GetCursorPosY()) + 10));
+        if (imgui.BeginTabBar('##omni_hnm_sub')) then
+            if (omni.pops ~= nil and imgui.BeginTabItem('Happy Pops##omni_hnmsub')) then
+                omni.pops.render();
+                pops_tab.width = 1040;
+                pops_tab.height = math.max(160, math.min(900, math.floor(imgui.GetCursorPosY()) + 10));
+                imgui.EndTabItem();
+            end
+            if (omni.rolls ~= nil and imgui.BeginTabItem('Roll Tracker##omni_hnmsub')) then
+                omni.rolls.render();
+                pops_tab.width = 600;
+                pops_tab.height = math.max(160, math.min(900, math.floor(imgui.GetCursorPosY()) + 10));
+                imgui.EndTabItem();
+            end
+            imgui.EndTabBar();
+        end
     end;
-    omni.pops.open_panel = function () omni.expanded = true; omni.sel = 'Happy Pops'; end;
+    if (omni.pops ~= nil) then omni.pops.open_panel = function () omni.expanded = true; omni.sel = 'HNMs'; end; end
     tabs[#tabs + 1] = pops_tab;
 end
 
@@ -1956,10 +2210,11 @@ local function target_need()
     return need;
 end
 
--- Tab layout: two rows. Anything not named here goes on the second row, before TH.
+-- Tab layout: two rows. Anything not named here goes on the second row, before Options.
+-- [3.98] Grouped by subject: places and content on top; you, your gear and tools below.
 local TAB_ROWS = {
-    { 'Abyssea', 'Happy Pops', 'Happy Translate', 'Quests', 'Multisend', 'Damage' },
-    { 'Character', 'Ultimates', 'Currency', 'Dailies', 'Codex', 'Sky', 'Sea', 'Ventures', 'Sparks', 'Options', 'TH' },
+    { 'Abyssea', 'Sea', 'Sky', 'HNMs', 'Ventures', 'Dailies', 'Codex', 'Quests' },
+    { 'Happy Healer', 'Character', 'Gear', 'Currency', 'Items', 'Combat', 'Multisend', 'Happy Translate', 'Options' },
 };
 local TAB_PAD, TAB_GAP = 8, 4;
 
@@ -1973,9 +2228,9 @@ local function tab_rows()
             if (by[n] ~= nil) then rows[r][#rows[r] + 1] = by[n]; used[n] = true; end
         end
     end
-    -- Extras: second row, just before TH.
+    -- Extras: second row, just before Options.
     local last = rows[2][#rows[2]];
-    local th_last = last ~= nil and last.label == 'TH';
+    local th_last = last ~= nil and last.label == 'Options';
     if (th_last) then rows[2][#rows[2]] = nil; end
     for _, t in ipairs(tabs) do
         if (not used[t.label]) then rows[2][#rows[2] + 1] = t; end
@@ -1995,6 +2250,51 @@ local function tab_rows()
     end
     omni.tab_rows_width = math.floor(wmax + 22);
     return rows;
+end
+
+-- A small On / Off slider (the Happy Healer one): green pill with a white knob. Returns true if clicked.
+local function pill_switch(id, on, tip)
+    local x, y = imgui.GetCursorScreenPos();
+    local _, th = imgui.CalcTextSize('Ag');
+    local h = math.floor(th or 14);
+    local w = h * 2;
+    local bh = h + 6;                      -- same height as the tab buttons
+    y = y + math.floor((bh - h) / 2);
+    local clicked = imgui.InvisibleButton(id, { w, bh });
+    local dl = imgui.GetWindowDrawList();
+    dl:AddRectFilled({ x, y }, { x + w, y + h }, imgui.GetColorU32(on and { 0.24, 0.62, 0.30, 1.0 } or { 0.22, 0.23, 0.32, 1.0 }), h / 2);
+    local cx = on and (x + w - h / 2) or (x + h / 2);
+    dl:AddCircleFilled({ cx, y + h / 2 }, h / 2 - 2, imgui.GetColorU32({ 0.95, 0.95, 0.97, 1.0 }), 16);
+    if (tip ~= nil and imgui.IsItemHovered()) then imgui.SetTooltip(tip); end
+    return clicked;
+end
+omni.pill_switch = pill_switch;
+
+-- Happy Translate's On / Off switch, right after its tab.
+local function tr_switch()
+    local on = omni.translate.enabled();
+    if (pill_switch('##tr_switch', on, on and 'Happy Translate is on - click to turn it off.' or 'Happy Translate is off - click to turn it on.')) then
+        omni.translate.set(not on);
+    end
+end
+
+-- Happy Healer's On / Off switch: a small pill, green when on.
+local function hh_switch()
+    local hon = omni.hh.is_on();
+    local x, y = imgui.GetCursorScreenPos();
+    local _, th = imgui.CalcTextSize('Ag');
+    local h = math.floor(th or 14);
+    local w = h * 2;
+    local bh = h + 6;                      -- same height as the tab buttons
+    y = y + math.floor((bh - h) / 2);
+    if (imgui.InvisibleButton('##hh_switch', { w, bh })) then omni.hh.set_on(not hon); end
+    local dl = imgui.GetWindowDrawList();
+    dl:AddRectFilled({ x, y }, { x + w, y + h }, imgui.GetColorU32(hon and { 0.24, 0.62, 0.30, 1.0 } or { 0.22, 0.23, 0.32, 1.0 }), h / 2);
+    local cx = hon and (x + w - h / 2) or (x + h / 2);
+    dl:AddCircleFilled({ cx, y + h / 2 }, h / 2 - 2, imgui.GetColorU32({ 0.95, 0.95, 0.97, 1.0 }), 16);
+    if (imgui.IsItemHovered()) then
+        imgui.SetTooltip(hon and 'Happy Healer is on - click to turn it off.' or 'Happy Healer is off - click to turn it on and start it.');
+    end
 end
 
 -- Crystal look for everything drawn inside the panel and the pop-outs: square corners, thin gold
@@ -2196,32 +2496,6 @@ local function popout_end(n)
     if (n.cols > 0) then imgui.PopStyleColor(n.cols); end
     if (n.vars > 0) then imgui.PopStyleVar(n.vars); end
 end
--- A small On / Off slider (the Happy Healer one): green pill with a white knob. Returns true if clicked.
-local function pill_switch(id, on, tip)
-    local x, y = imgui.GetCursorScreenPos();
-    local _, th = imgui.CalcTextSize('Ag');
-    local h = math.floor(th or 14);
-    local w = h * 2;
-    local bh = h + 6;                      -- same height as the tab buttons
-    y = y + math.floor((bh - h) / 2);
-    local clicked = imgui.InvisibleButton(id, { w, bh });
-    local dl = imgui.GetWindowDrawList();
-    dl:AddRectFilled({ x, y }, { x + w, y + h }, imgui.GetColorU32(on and { 0.24, 0.62, 0.30, 1.0 } or { 0.22, 0.23, 0.32, 1.0 }), h / 2);
-    local cx = on and (x + w - h / 2) or (x + h / 2);
-    dl:AddCircleFilled({ cx, y + h / 2 }, h / 2 - 2, imgui.GetColorU32({ 0.95, 0.95, 0.97, 1.0 }), 16);
-    if (tip ~= nil and imgui.IsItemHovered()) then imgui.SetTooltip(tip); end
-    return clicked;
-end
-omni.pill_switch = pill_switch;
-
--- Happy Translate's On / Off switch, right after its tab.
-local function tr_switch()
-    local on = omni.translate.enabled();
-    if (pill_switch('##tr_switch', on, on and 'Happy Translate is on - click to turn it off.' or 'Happy Translate is off - click to turn it on.')) then
-        omni.translate.set(not on);
-    end
-end
-
 package.loaded['omni_style'] = { begin = popout_begin, finish = popout_end, theme = theme, switch = pill_switch };
 
 local function draw_panel()
@@ -2281,8 +2555,14 @@ local function draw_panel()
         -- Tabs in two rows of buttons (see TAB_ROWS), then the chosen tab's page.
         local rows = tab_rows();
         local sel = nil;
+        -- [3.98] tabs that moved into a group open the group instead
+        local moved = { ['Happy Pops'] = 'HNMs', ['Sparks'] = 'Currency', ['Ultimates'] = 'Gear', ['TH'] = 'Combat', ['Damage'] = 'Combat' };
+        if (moved[omni.sel] ~= nil) then omni.sel = moved[omni.sel]; end
         for _, row in ipairs(rows) do for _, t in ipairs(row) do if (t.label == omni.sel) then sel = t; end end end
-        if (sel == nil) then sel = rows[2][1] or rows[1][1]; omni.sel = sel and sel.label; end
+        if (sel == nil) then
+            for _, t in ipairs(rows[2]) do if (t.label == 'Character') then sel = t; end end
+            sel = sel or rows[2][1] or rows[1][1]; omni.sel = sel and sel.label;
+        end
         imgui.PushStyleVar(ImGuiStyleVar_FramePadding, { TAB_PAD, 3 });
         imgui.PushStyleVar(ImGuiStyleVar_ItemSpacing, { TAB_GAP, 4 });
         for r, row in ipairs(rows) do
@@ -2317,6 +2597,11 @@ local function draw_panel()
                     end
                 end
                 imgui.PopStyleColor(cr and 4 or 1);
+                -- Happy Healer's On / Off switch sits right after its tab.
+                if (t == omni.side_tab and omni.hh ~= nil) then
+                    imgui.SameLine(0, 4);
+                    hh_switch();
+                end
                 -- Happy Translate's On / Off switch sits right after its tab.
                 if (t.label == 'Happy Translate' and omni.translate ~= nil) then
                     imgui.SameLine(0, 4);
@@ -2383,7 +2668,7 @@ ashita.events.register('load', 'omni_load', function ()
         omni.settings.fx_art = false;
         pcall(settings.save, 'omni');
     end
-    omni.started = true;   -- the game is up
+    omni.started = true;   -- anything loaded after this (Happy Healer switched on) runs its own load step itself
 end);
 
 ashita.events.register('unload', 'omni_unload', function ()
@@ -2398,6 +2683,13 @@ ashita.events.register('command', 'omni_command', function (e)
         return;
     end
     local cmd = args[1]:lower();
+
+    -- /hh while Happy Healer is off.
+    if (cmd == '/hh' and (omni.hh == nil or not omni.hh.loaded)) then
+        e.blocked = true;
+        print('[omni] Happy Healer is off. Click the switch next to the Happy Healer button to turn it on.');
+        return;
+    end
 
     -- /ddr : reset the damage meter.
     if (cmd == '/ddr') then
@@ -2421,6 +2713,12 @@ ashita.events.register('command', 'omni_command', function (e)
         return;
     end
     e.blocked = true;
+    -- /omni updates [seen|list] : check the addons omni is built from for new versions.
+    if (args[2] ~= nil and args[2]:lower() == 'updates') then
+        if (omni.updates == nil) then print('[omni] The update check is not loaded.'); return; end
+        pcall(omni.updates.command, args);
+        return;
+    end
     -- /omni fx [kind] : play a spell-line effect from you to your target (no kind: list them).
     if (args[2] ~= nil and args[2]:lower() == 'fx') then
         if (omni.fx == nil) then print('[omni] Spell lines are not loaded.'); return; end
@@ -2544,6 +2842,7 @@ ashita.events.register('text_in', 'omni_text_in', function (e)
 end);
 
 ashita.events.register('d3d_present', 'omni_present', function ()
+    if (omni.hh ~= nil) then pcall(omni.hh.tick); end
     if (omni.chatcolors ~= nil) then omni.chatcolors.settings = omni.settings; end
     pcall(apply_accent);
     pcall(sparks.tick);
@@ -2597,8 +2896,18 @@ ashita.events.register('d3d_present', 'omni_present', function ()
     local W = omni.bar_width;
     local row = 0;
     omni.mob_h = 0;
+    local lw = W;
+    -- With the training strip showing under the buffs, both strips under the row get the same height:
+    -- room at the top for the buff times, then one line of text level on both sides.
+    local train_on = false;
+    if (omni.training ~= nil) then
+        omni.training.settings = omni.settings;
+        local okv, v = pcall(omni.training.visible);
+        train_on = okv and v == true;
+    end
+    omni.under_pad = (train_on and eh == EXP_HEIGHT_BUFFS) and BUFF_TIME_H or 0;
     if (eh > 0 and th > 0) then
-        local lw = math.floor(W * 0.42);
+        lw = math.floor(W * 0.42);
         row = math.max(eh, th);
         draw_exp(player, job, 0, lw, row);
         draw_target(lw - 1, W - lw + 1, row);
@@ -2609,10 +2918,25 @@ ashita.events.register('d3d_present', 'omni_present', function ()
     end
     omni.exp_h = math.max(0, row - 1) + (omni.mob_h or 0);
     -- Buff times hang under the row: keep the panel clear of them.
-    if (omni.buff_times and eh > 0) then omni.exp_h = omni.exp_h + BUFF_TIME_H; end
+    if (omni.buff_times and eh > 0 and (omni.under_pad or 0) == 0) then omni.exp_h = omni.exp_h + BUFF_TIME_H; end
+    -- Training regime: under the buff box on the left (buff times in its top part), level with the monster strip.
+    if (train_on) then
+        omni.training.save = omni.training.save or function () settings.save('omni'); end;
+        local tw = (eh > 0 and th > 0) and lw or math.floor(W * 0.42);
+        local ty = math.max(0, row - 1);
+        if (eh == 0 and th > 0) then ty = ty + (omni.mob_h or 0); end   -- no buff box: under the monster strip
+        local okt, h = pcall(omni.training.draw, omni.settings.bar_x, omni.settings.bar_y + BAR_HEIGHT - 1 + ty, tw, omni.settings.colors,
+            (eh == 0 and th > 0) and 0 or omni.under_pad);
+        if (okt and type(h) == 'number' and h > 0) then
+            omni.exp_h = math.max(omni.exp_h, ty + h - 1);
+        end
+    end
     omni.target_h = 0;
     if (omni.expanded) then
         draw_panel();
+    end
+    if (not (omni.expanded and omni.sel == 'Happy Healer') and omni.healer_popout ~= nil and omni.settings.hh_popout ~= false) then
+        crystal_begin(); pcall(omni.healer_popout); crystal_end();
     end
     if (omni.abyssea_popout ~= nil) then
         crystal_begin(); pcall(omni.abyssea_popout); crystal_end();

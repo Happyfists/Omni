@@ -783,4 +783,14 @@ ashita.events.register('d3d_present', 'omni_abytrack', function ()
     if sty then sty.finish(ns); end
 end);
 
+-- For the Atma page: do you have this key item (by id)? Same sources as has_ki above.
+pops.has_ki_id = function (id)
+    local live = ki_live[id];
+    if live ~= nil then return live == true; end
+    if ki_pages[math.floor(id / 0x200)] then return ki_bits[id] == true; end
+    local mem = false;
+    pcall(function () mem = AshitaCore:GetMemoryManager():GetPlayer():HasKeyItem(id) == true; end);
+    return mem or ki_saved[id] == true;
+end
+
 return pops;
