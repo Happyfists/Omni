@@ -28,7 +28,10 @@ It also draws spell animations on the field (fireballs, lightning, rocks, cures.
 
 ## Install
 
-Copy the `omni` folder into your addons folder:
+1. On GitHub press **Code > Download ZIP** and unzip it. You get a folder called **`Omni-main`**.
+2. **Rename `Omni-main` to `omni`** (all lower case). The folder name has to be exactly `omni`, or the game can't find it.
+3. Check that `omni.lua` is straight inside it: `...\addons\omni\omni.lua` - not `...\addons\omni\Omni-main\omni.lua` (unzipping often adds an extra folder level).
+4. Put it in your addons folder and load it:
 
 - VanaCore: `catseyexi-client\Vanacore\addons\ashita\omni\` then `/addon load omni ashita`
 - Ashita: `catseyexi-client\Ashita\addons\omni\` then `/addon load omni`

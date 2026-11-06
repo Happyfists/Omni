@@ -11,6 +11,10 @@ with a drop-down panel of tabs underneath it for everything else.
  1. INSTALLING
 ------------------------------------------------------------------------------------------
 
+  0. From GitHub: Code > Download ZIP, unzip, and RENAME the folder "Omni-main" to "omni"
+     (lower case). omni.lua must be straight inside it (addons\omni\omni.lua), not one folder
+     deeper (addons\omni\Omni-main\omni.lua) - unzipping often adds that extra folder.
+
   1. Copy the "omni" folder into BOTH of these (VanaCore runs the first one):
          D:\catseyexi-client\Vanacore\addons\ashita\
          D:\catseyexi-client\Ashita\addons\
