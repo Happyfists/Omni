@@ -2,7 +2,7 @@
     omni_update.lua - /omniupdate: gets the latest omni from GitHub (github.com/Happyfists/Omni) and
     copies it over this omni folder, then reloads omni.
 
-        /omniupdate          update now (does nothing if you already have the latest)
+        /omniupdate          update now (does nothing if nothing changed since your last /omniupdate)
         /omniupdate check    just say whether there is a newer version
 
     The download is done by a hidden PowerShell helper (omni_update.ps1), the same way Happy
@@ -101,7 +101,7 @@ ashita.events.register('d3d_present', 'omni_update_poll', function ()
         say('You already have the latest omni (' .. rest .. ').');
     elseif kind == 'NEWER' then
         local old, new = rest:match('^(%S+)%s+(%S+)');
-        say(('A newer omni is on GitHub: %s (you have %s). Type /omniupdate to get it.'):format(new or '?', old or '?'));
+        say(('There are changes on GitHub (version %s there, you have %s). Type /omniupdate to get them.'):format(new or '?', old or '?'));
     else
         say('Update failed: ' .. (rest ~= '' and rest or line));
     end

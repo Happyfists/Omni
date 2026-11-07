@@ -17,18 +17,24 @@ try {
     $new = '?'
     $m = Select-String -Path (Join-Path $src.FullName 'omni.lua') -Pattern "addon\.version\s*=\s*'([^']+)'" | Select-Object -First 1
     if ($m) { $new = $m.Matches[0].Groups[1].Value }
-    if ($new -eq $Old -and -not $Check) {
+    # Same download as last time? (the version number isn't always bumped, so the zip itself is compared)
+    $hash = (Get-FileHash -Algorithm SHA256 -Path $zip).Hash
+    $stampf = Join-Path $Dest 'omni_update.stamp'
+    $stamp = ''
+    if (Test-Path $stampf) { $stamp = (Get-Content -Path $stampf -TotalCount 1) }
+    if ($hash -eq $stamp) {
         Remove-Item -Recurse -Force $tmp -ErrorAction SilentlyContinue
         Done "SAME $new"
     }
     if ($Check) {
         Remove-Item -Recurse -Force $tmp -ErrorAction SilentlyContinue
-        if ($new -eq $Old) { Done "SAME $new" } else { Done "NEWER $Old $new" }
+        Done "NEWER $Old $new"
     }
     # robocopy merges folders properly (lib, plugins...) and overwrites changed files
     & robocopy $src.FullName $Dest /E /R:1 /W:1 /NFL /NDL /NJH /NJS /NP | Out-Null
     if ($LASTEXITCODE -ge 8) { Done "FAIL copying the files (robocopy $LASTEXITCODE) - is the game holding a file open?" }
     Get-ChildItem -Path $Dest -Recurse -File | Unblock-File -ErrorAction SilentlyContinue
+    Set-Content -Path $stampf -Value $hash -Encoding ASCII
     Remove-Item -Recurse -Force $tmp -ErrorAction SilentlyContinue
     Done "OK $Old $new"
 } catch {
