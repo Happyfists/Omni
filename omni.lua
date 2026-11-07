@@ -976,6 +976,12 @@ do
     if (ok) then omni.training = mod; mod.look = omni.strip_look; else print('[omni] Training could not load: ' .. tostring(mod)); end
 end
 
+-- /omniupdate: get the latest omni from GitHub (omni_update.lua + omni_update.ps1).
+do
+    local ok, mod = pcall(require, 'omni_update');
+    if (ok) then omni.updater = mod; else print('[omni] Updater could not load: ' .. tostring(mod)); end
+end
+
 -- Happy Pouches: open a whole stack of pouches, /pouches (Items > Pouches). Based on Pouches by Omnys (BSD).
 do
     local ok, mod = pcall(require, 'omni_pouches');
@@ -2724,6 +2730,18 @@ ashita.events.register('unload', 'omni_unload', function ()
 end);
 
 ashita.events.register('command', 'omni_command', function (e)
+    -- /omniupdate [check]: the latest omni from GitHub
+    do
+        local a = e.command:args();
+        if (a[1] ~= nil and (a[1]:lower() == '/omniupdate' or (a[1]:lower() == '/omni' and a[2] ~= nil and a[2]:lower() == 'update'))) then
+            e.blocked = true;
+            local sub = (a[1]:lower() == '/omniupdate') and a[2] or a[3];
+            if (omni.updater == nil) then print('[omni] The updater is not loaded (omni_update.lua missing).'); return; end
+            omni.updater.start(sub ~= nil and sub:lower() == 'check');
+            return;
+        end
+    end
+
     local args = e.command:args();
     if (#args == 0) then
         return;

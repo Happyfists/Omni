@@ -26,7 +26,10 @@ with a drop-down panel of tabs underneath it for everything else.
 
   3. To load it every time, add the same line to your load script.
 
-  After any update:  /addon reload omni   then   /omni version   to check the number.
+  Updating: type /omniupdate in game. It downloads the latest omni from GitHub, copies it over
+  your omni folder and reloads it (settings in config\addons\omni are kept).
+  /omniupdate check  only says whether there is a newer version.
+  After a manual update:  /addon reload omni   then   /omni version   to check the number.
 
   Optional:
     * Multisend plugin (/load multisend) - needed for the Multisend tab and Follow button.

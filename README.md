@@ -36,6 +36,8 @@ It also draws spell animations on the field (fireballs, lightning, rocks, cures.
 - VanaCore: `catseyexi-client\Vanacore\addons\ashita\omni\` then `/addon load omni ashita`
 - Ashita: `catseyexi-client\Ashita\addons\omni\` then `/addon load omni`
 
+**Updating:** once it's installed, type `/omniupdate` in game - it downloads the latest from here, copies it over your omni folder and reloads omni (your settings are kept). `/omniupdate check` only tells you if there's a newer one.
+
 See **README.txt** for everything it does, commands and settings.
 
 ## Credits
