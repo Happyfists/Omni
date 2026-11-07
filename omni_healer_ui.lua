@@ -390,7 +390,7 @@ local function render_debuffs(sk, dl, wx, wy, W, pad, top, lineH)
     if c then s.debuff_removal_enabled = v; sk.save(); end
     imgui.SameLine(0, 40);
     c, v = small_check('Wake up anyone asleep##hh_wake_on', s.wake_enabled ~= false);
-    if imgui.IsItemHovered() then imgui.SetTooltip('Wakes sleeping party members with Cure I (even if Cure I is off for healing).\nCuraga only when 3 or more in YOUR party are asleep - it can't reach another party,\nso the Monitored Player's party and the alliance always get a Cure I each.'); end
+    if imgui.IsItemHovered() then imgui.SetTooltip('Wakes sleeping party members with Cure I (even if Cure I is off for healing).\nCuraga only when 3 or more in YOUR party are asleep - it cannot reach another party,\nso the Monitored Player party and the alliance always get a Cure I each.'); end
     if c then s.wake_enabled = v; sk.save(); end
     imgui.SetCursorPos({ x0, top + 32 + rowH + 1 });
     imgui.TextColored(C.dim, 'Remove from');
