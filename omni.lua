@@ -1952,6 +1952,12 @@ do
     if (ok) then omni.talks = mod; mod.settings = omni.settings; else print('[omni] Happy Talks could not load: ' .. tostring(mod)); end
 end
 
+-- JA Chat: your own /p line for each job ability (omni_jachat.lua; Options > JA Chat).
+do
+    local ok, mod = pcall(require, 'omni_jachat');
+    if (ok) then omni.jachat = mod; else print('[omni] JA Chat could not load: ' .. tostring(mod)); end
+end
+
 -- Roll Tracker: the /random order for NM pops (omni_rolls.lua; HNMs > Roll Tracker).
 do
     local ok, mod = pcall(require, 'omni_rolls');
@@ -2132,6 +2138,11 @@ do
                     imgui.TextColored({ 1.0, 0.45, 0.45, 1.0 }, 'Happy Talks could not load.');
                 end
                 tab.height = math.max(160, math.floor(imgui.GetCursorPosY()) + 10);
+                imgui.EndTabItem();
+            end
+            if (omni.jachat ~= nil and imgui.BeginTabItem('JA Chat##omni_optsub')) then
+                omni.jachat.render();
+                tab.height = math.max(160, math.min(700, math.floor(imgui.GetCursorPosY()) + 10));
                 imgui.EndTabItem();
             end
             imgui.EndTabBar();
