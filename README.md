@@ -7,7 +7,7 @@ A small bar along the top of the screen (job, XP/LP, wallet, buffs, target with 
 - **Top row (places and content):** Abyssea, Sea, Sky, HNMs (Happy Pops + Roll Tracker), Ventures, Dailies, Codex, Quests
 - **Second row (you and tools):** Happy Healer, Character, Gear (Ultimates, Automaton, Blue Magic), Currency (with Sparks), Items, Combat (Damage + TH), Multisend, Happy Translate, Options
 
-It also draws spell animations on the field (fireballs, lightning, rocks, cures...) and party job pictures.
+It also draws spell animations on the field (fireballs, lightning, rocks, cures...) and party job pictures, with each member's TP beside them (green from 1000) - its own movable column, with size and row spacing per party in Options > General > Party job pictures.
 
 ## Newest pages
 

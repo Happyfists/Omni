@@ -6,6 +6,8 @@
     and it stays there; its bottom edge stays put and it grows upwards as people join, just like
     the game's lists. Picture size and the space between rows are set per party in the Options tab.
     Hover a picture for the member's name and jobs.
+    TP: each party also gets a column of TP numbers (green from 1000), its own window - it starts
+    just left of the pictures, and "Move TP" lets you drag it anywhere, apart from the pictures.
 
     Job pictures (assets/jobs/*.png, the FFXI artifact hats) from HXUI by Team HXUI
     (MIT, see HXUI_LICENSE).
@@ -51,6 +53,7 @@ local function members(n)
                     out[#out + 1] = {
                         name = name, job = p:GetMemberMainJob(i), lvl = p:GetMemberMainJobLevel(i),
                         sub = p:GetMemberSubJob(i), slvl = p:GetMemberSubJobLevel(i),
+                        tp = p:GetMemberTP(i),
                         inzone = p:GetMemberZone(i) == myzone,
                     };
                 end
@@ -134,16 +137,84 @@ local function draw_column(n, list, opts)
     imgui.PopStyleColor(3);
 end
 
+-- TP numbers: one column per party, its own window, so it can be moved apart from the pictures.
+-- Saved as party_tp_x / party_tp_bottom (party2_tp_..., party3_tp_...); until it has been moved it
+-- sits just left of that party's pictures. Rows use the same spacing as the pictures.
+local tp_was_unlocked = {};
+local function draw_tp(n, list, opts)
+    local S = opts.settings;
+    local K = KEYS[n];
+    local pre = (n == 1) and 'party_' or ('party' .. n .. '_');
+    local kx, kb = pre .. 'tp_x', pre .. 'tp_bottom';
+    local size = S[K.size] or S.party_icon_size or 20;
+    -- Its own text size (percent) and row spacing; the spacing starts as the pictures' spacing.
+    local scale = (tonumber(S[pre .. 'tp_scale']) or 100) / 100;
+    local gap = S[pre .. 'tp_gap'] or S[K.gap] or S.party_icon_gap or 22;
+    local unlocked = S.party_tp_unlocked == true;   -- its own Move switch, apart from the pictures
+    local base_lh = 16;
+    local row_h = math.max(size, math.floor(base_lh * scale));
+    local TPW = math.floor(44 * scale);
+    local H = (#list - 1) * gap + row_h + 8;
+    local px = S[K.x] or K.dx;
+    local pb = S[K.b] or ((S[K.y] or K.dy) + H);
+    local x, b = S[kx] or (px - TPW), S[kb] or pb;
+    local y = b - H;
+    if not unlocked then
+        imgui.SetNextWindowPos({ x, y }, ImGuiCond_Always);
+        tp_was_unlocked[n] = false;
+    elseif not tp_was_unlocked[n] then
+        imgui.SetNextWindowPos({ x, y }, ImGuiCond_Always);
+        tp_was_unlocked[n] = true;
+    end
+    imgui.SetNextWindowSize({ TPW, H }, ImGuiCond_Always);
+    imgui.PushStyleColor(ImGuiCol_WindowBg, unlocked and { 0.06, 0.07, 0.12, 0.60 } or { 0, 0, 0, 0 });
+    imgui.PushStyleColor(ImGuiCol_Border, unlocked and { 0.40, 0.90, 0.40, 0.80 } or { 0, 0, 0, 0 });
+    imgui.PushStyleColor(ImGuiCol_BorderShadow, { 0, 0, 0, 0 });
+    imgui.PushStyleVar(ImGuiStyleVar_WindowPadding, { 4, 4 });
+    imgui.PushStyleVar(ImGuiStyleVar_WindowBorderSize, unlocked and 1 or 0);
+    local flags = bit.bor(ImGuiWindowFlags_NoTitleBar, ImGuiWindowFlags_NoResize, ImGuiWindowFlags_NoScrollbar,
+        ImGuiWindowFlags_NoScrollWithMouse, ImGuiWindowFlags_NoCollapse, ImGuiWindowFlags_NoFocusOnAppearing,
+        ImGuiWindowFlags_NoSavedSettings, ImGuiWindowFlags_NoBringToFrontOnFocus);
+    if not unlocked then flags = bit.bor(flags, ImGuiWindowFlags_NoMove, ImGuiWindowFlags_NoBackground, ImGuiWindowFlags_NoInputs); end
+    if imgui.Begin('Party ' .. n .. ' TP##omni_party_tp' .. n, true, flags) then
+        imgui.SetWindowFontScale(scale);
+        local lh = imgui.GetTextLineHeight();
+        for i, m in ipairs(list) do
+            if m.tp ~= nil then
+                local txt = tostring(m.tp);
+                local tw = imgui.CalcTextSize(txt);
+                imgui.SetCursorPos({ TPW - 4 - tw, 4 + (i - 1) * gap + math.max(0, (row_h - lh) / 2) });
+                local col = (not m.inzone) and { 0.6, 0.6, 0.6, 0.6 }
+                    or (m.tp >= 1000 and { 0.35, 1.0, 0.35, 1.0 } or { 1, 1, 1, 1 });
+                imgui.TextColored(col, txt);
+            end
+        end
+        local wx, wy = imgui.GetWindowPos();
+        if unlocked and type(wx) == 'number' and not imgui.IsMouseDown(0)
+            and (math.floor(wx) ~= S[kx] or math.floor(wy + H) ~= S[kb]) then
+            S[kx], S[kb] = math.floor(wx), math.floor(wy + H);
+            if opts.save then pcall(opts.save); end
+        end
+    end
+    imgui.End();
+    imgui.PopStyleVar(2);
+    imgui.PopStyleColor(3);
+end
+
 -- opts = { settings, save, icons }
 party.render = function (opts)
     local S = opts.settings or {};
-    if S.party_icons == false then return; end
+    local pics, tps = S.party_icons ~= false, S.party_tp ~= false;
+    if not pics and not tps then return; end
     opts.settings = S;
     for n = 1, 3 do
         local list = members(n);
         local show = #list > 0;
         if n == 1 and #list <= 1 and S.party_solo ~= true then show = false; end
-        if show then draw_column(n, list, opts); end
+        if show then
+            if pics then draw_column(n, list, opts); end
+            if tps then draw_tp(n, list, opts); end
+        end
     end
 end
 

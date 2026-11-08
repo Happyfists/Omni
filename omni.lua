@@ -2097,28 +2097,60 @@ do
 
         ---------------------------------------------------------------------- full width
         if (section('Party job pictures')) then
-        toggle('Show beside the party lists', 'party_icons', true, 'Job pictures beside your party and alliance lists.');
-        imgui.SameLine(0, 16);
-        toggle('Move them', 'party_icons_unlocked', false, 'Tick, drag each next to its party list, then untick.');
-        imgui.SameLine(0, 16);
-        toggle('Show when solo', 'party_solo', false);
-        -- Size and row spacing for each party (the game draws them at different sizes).
-        local function slider(label, key, default, lo, hi)
+        -- Two rows of switches: the job pictures, then the TP numbers (each moves on its own).
+        local xa = imgui.GetCursorPosX();
+        imgui.AlignTextToFramePadding();
+        imgui.TextColored(DIM, 'Pictures');
+        imgui.SameLine(xa + 80);
+        toggle('Show##pics', 'party_icons', true, 'Job pictures beside your party and alliance lists.');
+        imgui.SameLine(xa + 170);
+        toggle('Move##pics', 'party_icons_unlocked', false, 'Tick, drag each next to its party list, then untick.');
+        imgui.SameLine(xa + 260);
+        toggle('Show when solo', 'party_solo', false, 'Show the pictures and TP when you are not in a party.');
+        imgui.AlignTextToFramePadding();
+        imgui.TextColored(DIM, 'TP');
+        imgui.SameLine(xa + 80);
+        toggle('Show##tp', 'party_tp', true, 'Each member\'s TP number (green from 1000), in its own column.');
+        imgui.SameLine(xa + 170);
+        toggle('Move##tp', 'party_tp_unlocked', false, 'Tick, drag the TP numbers where you want them, then untick.');
+        imgui.Spacing();
+        -- Sizes and row spacing for each party (the game draws them at different sizes).
+        local function slider(key, default, lo, hi, tip)
             local v = { s[key] or default };
-            imgui.PushItemWidth(110);
-            if (imgui.SliderInt(label .. '##opt_' .. key, v, lo, hi)) then s[key] = v[1]; save(); end
+            imgui.PushItemWidth(-1);
+            if (imgui.SliderInt('##opt_' .. key, v, lo, hi)) then s[key] = v[1]; save(); end
             imgui.PopItemWidth();
+            if (tip and imgui.IsItemHovered()) then imgui.SetTooltip(tip); end
         end
-        local names = { 'Your party', 'Alliance 2', 'Alliance 3' };
-        local x0 = imgui.GetCursorPosX();
-        for n = 1, 3 do
-            local pre = (n == 1) and 'party_' or ('party' .. n .. '_');
-            imgui.SetCursorPosX(x0);
-            imgui.TextColored(DIM, names[n]);
-            imgui.SameLine(x0 + 90);
-            slider('Size##p' .. n, pre .. 'icon_size', s.party_icon_size or 20, 12, 40);
-            imgui.SameLine(x0 + 260);
-            slider('Rows##p' .. n, pre .. 'icon_gap', s.party_icon_gap or 22, 12, 60);
+        local tflags = bit.bor(ImGuiTableFlags_SizingStretchSame or 0, ImGuiTableFlags_PadOuterX or 0);
+        if (imgui.BeginTable('##opt_partysizes', 5, tflags)) then
+            imgui.TableSetupColumn('##who', ImGuiTableColumnFlags_WidthFixed or 0, 80);
+            imgui.TableSetupColumn('Picture size');
+            imgui.TableSetupColumn('Picture rows');
+            imgui.TableSetupColumn('TP size');
+            imgui.TableSetupColumn('TP rows');
+            imgui.TableNextRow();
+            for c, h in ipairs({ '', 'Picture size', 'Picture rows', 'TP size', 'TP rows' }) do
+                imgui.TableSetColumnIndex(c - 1);
+                if (h ~= '') then imgui.TextColored(GOLD, h); end
+            end
+            local names = { 'Your party', 'Alliance 2', 'Alliance 3' };
+            for n = 1, 3 do
+                local pre = (n == 1) and 'party_' or ('party' .. n .. '_');
+                imgui.TableNextRow();
+                imgui.TableSetColumnIndex(0);
+                imgui.AlignTextToFramePadding();
+                imgui.TextColored(DIM, names[n]);
+                imgui.TableSetColumnIndex(1);
+                slider(pre .. 'icon_size', s.party_icon_size or 20, 12, 40, 'How big the job pictures are.');
+                imgui.TableSetColumnIndex(2);
+                slider(pre .. 'icon_gap', s.party_icon_gap or 22, 12, 60, 'Space from one picture to the next.');
+                imgui.TableSetColumnIndex(3);
+                slider(pre .. 'tp_scale', 100, 50, 300, 'How big the TP numbers are (100 = normal).');
+                imgui.TableSetColumnIndex(4);
+                slider(pre .. 'tp_gap', s[pre .. 'icon_gap'] or s.party_icon_gap or 22, 8, 80, 'Space from one TP number to the next - match it to your party list rows.');
+            end
+            imgui.EndTable();
         end
         end
 
