@@ -110,6 +110,8 @@ local default_settings = T{
     rest_enabled = false,
     rest_timer = 5,
     rest_distance = 7,
+    rest_mp_start = 15,  -- omni: /heal once MP drops below this %
+    rest_mp_stop = 90,   -- omni: stand up (/heal off) once MP reaches this %
     -- Game client runs in Japanese: quoted spell/ability/item names and the gather
     -- alert are sent in Japanese (lib/core/lang.lua). Set from /sk panel.
     japanese_client = false,

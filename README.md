@@ -13,7 +13,7 @@ It also draws spell animations on the field (fireballs, lightning, rocks, cures.
 
 - **Gear > Automaton** - Puppetmaster click-to-equip: click attachments into a plan, see capacity per element, pick a ready build (Melee, Tank, Ranged, Nuker, Healer, Enfeebler) fitted to what you've learned, see what each maneuver does for your attachments, then Equip (Deactivate, set, Activate). Five save slots.
 - **Gear > Blue Magic** - Blue Mage click-to-set spells with set points and traits, ready sets (Cleave, Magic Burst, Physical TP, Tank, Healer, Debuff / Sleep, Solo), "Auto: max a trait", and your blusets files. Only the changes are sent.
-- **Happy Healer** - Sneaky's Sidekick, just easier to use. Back in omni as a tab with an On/Off switch (off: not loaded).
+- **Happy Healer** - Sneaky's Sidekick, just easier to use. Back in omni as a tab with an On/Off switch (off: not loaded). Program Options has auto rest (/heal below an MP % you pick, stand up at another) and, on SCH or /SCH, Sublimation with a slider for when to use the stored MP. Corsair: every roll and Double-Up shows what the total gives, with the lucky number in green and the unlucky in red; Double-Up is a tick on the Job Abilities page (untick it to Double-Up yourself).
 - **Abyssea** - Atma and Empyrean pages, weapon filters, a stagger popup, and the Discernment weakness in /p with everything that procs it.
 - **Happy Chests (Abyssea > Chests)** - Abyssea Sturdy Pyxis opener: pick Blue / Gold / Red, `/py` opens the nearest one with a Forbidden Key, Open all, skip Red lights, Auto, and an Augments page. Based on Pyxis by Integrity.
 - **Happy Pouches (Items > Pouches)** - open a whole stack of pouches / coffers one after another (`/pouches <item>`). Based on Pouches by Omnys.

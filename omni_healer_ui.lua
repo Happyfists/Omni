@@ -875,6 +875,15 @@ local function render_abilities(sk, dl, wx, wy, W, pad, top, lineH)
     local mainj, subj = sk.main_sub();
     local main, sub = {}, {};
     for _, r in ipairs(rows) do if r.main then main[#main + 1] = r; else sub[#sub + 1] = r; end end
+    -- Double-Up (COR / COR sub): auto-roll sends it itself, so it isn't in the job's
+    -- ability list. This tick is the Auto Double-Up setting.
+    local du = { key = 'Double-Up', label = 'Double-Up', level = 5, special = 'roll_double_up' };
+    local function add_sorted(list, row)
+        list[#list + 1] = row;
+        table.sort(list, function (x, y) return x.label < y.label; end);
+    end
+    if tostring(mainj):upper() == 'COR' then add_sorted(main, du);
+    elseif tostring(subj):upper() == 'COR' then add_sorted(sub, du); end
     local y = top;
     for _, part in ipairs({ { mainj, main, 'm' }, { subj, sub, 's' } }) do
         if #part[2] > 0 then
@@ -887,9 +896,17 @@ local function render_abilities(sk, dl, wx, wy, W, pad, top, lineH)
                 local cx = x0 + ((i - 1) % cols) * colW;
                 local cy = y + 32 + math.floor((i - 1) / cols) * rowH;
                 imgui.SetCursorPos({ cx, cy });
-                local cc, vv = small_check(r.label .. '##hh_ja_' .. part[3] .. i, sk.self_on(r.key, r.group, r.default_off));
+                if r.special then
+                    local cc, vv = small_check(r.label .. '##hh_ja_' .. part[3] .. i, s[r.special] ~= false);
+                    if cc then s[r.special] = vv; sk.save(); end
+                    if imgui.IsItemHovered() then
+                        imgui.SetTooltip('Double-Up  (level 5)\nTicked: Double-Up, Snake Eye and Fold are used for you after each roll.\nUnticked: only your rolls are cast; you Double-Up yourself.');
+                    end
+                end
+                local cc, vv = false, false;
+                if not r.special then cc, vv = small_check(r.label .. '##hh_ja_' .. part[3] .. i, sk.self_on(r.key, r.group, r.default_off)); end
                 if cc then sk.self_set(r.key, r.group, vv); end
-                if imgui.IsItemHovered() then
+                if not r.special and imgui.IsItemHovered() then
                     local how = (r.target == 'enemy') and 'on the monster you are fighting'
                         or (r.target == 'pet') and 'when your pet is out' or 'on yourself';
                     imgui.SetTooltip(string.format('%s  (level %s%s%s)\nTicked: used in battle %s as soon as it is ready.',
@@ -940,7 +957,8 @@ local function render_options(sk, dl, wx, wy, W, pad, top, lineH)
     imgui.SetCursorPos({ x0, y + 32 });
     setting_check(sk, s, 'Raise KO\'d party members##hh_raise', 'revive_enabled', true);
     imgui.SetCursorPos({ x0, y + 32 + rowH });
-    setting_check(sk, s, 'Rest (/heal) when MP is low and nothing needs doing##hh_rest', 'rest_enabled', false);
+    setting_check(sk, s, 'Rest (/heal) when MP is low and nothing needs doing##hh_rest', 'rest_enabled', false,
+        'Set when to rest and stand up on the Program Options page.');
     imgui.SetCursorPos({ x0, y + 32 + rowH * 2 });
     setting_check(sk, s, 'Use MP recovery (Convert, Sublimation, Radial Arcana...)##hh_recover', 'recover_enabled', true);
     return y + h2;
@@ -972,41 +990,40 @@ local function render_program(sk, dl, wx, wy, W, pad, top, lineH)
 
     local fx = pad + half + 8;
     local fx0 = fx + 14;
-    card(dl, wx, wy, fx, top, cw - half - 8, h, 'PL Follow Options');
-    if not follow_loaded then follow_loaded = true; follow_buf[1] = s.follow_target or ''; end
-    imgui.SetCursorPos({ fx0, top + 32 });
-    setting_check(sk, s, 'Auto Follow##hh_follow', 'follow_enabled', false);
-    -- Labels in one column, boxes lined up after the longest one.
     local fw = cw - half - 8;
-    local labW = math.max(imgui.CalcTextSize('Follow'), imgui.CalcTextSize('Keep distance')) + 14;
-    local inX = fx0 + labW;
-    imgui.SetCursorPos({ fx0, top + 32 + rowH + 3 });
-    imgui.TextColored(C.text, 'Follow');
-    imgui.SetCursorPos({ inX, top + 32 + rowH });
-    imgui.PushItemWidth(fx + fw - 14 - inX);
-    if imgui.InputText('##hh_follow_name', follow_buf, 32) then
-        local n = tostring(follow_buf[1] or ''):gsub('^%s+', ''):gsub('%s+$', '');
-        s.follow_target = (n ~= '') and n or nil;
-        sk.save();
+    card(dl, wx, wy, fx, top, fw, h, 'Rest (/heal) for MP');
+    imgui.SetCursorPos({ fx0, top + 32 });
+    setting_check(sk, s, 'Auto rest when MP is low##hh_rest2', 'rest_enabled', false,
+        'Uses /heal when MP drops below the first bar, and stands up when MP reaches the second.\nIf it stands up to cure someone, it sits back down when nothing needs doing.');
+    local sw = fw - 28;
+    threshold_slider(sk, s, 'rest_start', 'Rest when MP is below', 'rest_mp_start', 15, fx0, top + 32 + rowH, sw,
+        'Start resting (/heal) when MP drops below this %.');
+    threshold_slider(sk, s, 'rest_stop', 'Stand up when MP reaches', 'rest_mp_stop', 90, fx0, top + 32 + rowH + 50, sw,
+        'Stand up (/heal off) when MP reaches this %.');
+
+    -- Sublimation (SCH main or /SCH): only shown when the job can use it right now.
+    local has_sub = false;
+    for _, r in ipairs(sk.ja_rows() or {}) do
+        if r.key == 'Sublimation' then has_sub = r; break; end
     end
-    imgui.PopItemWidth();
-    if imgui.IsItemHovered() then imgui.SetTooltip('Who to follow (leave empty for the party leader).'); end
-    imgui.SetCursorPos({ fx0, top + 32 + rowH * 2 + 3 });
-    imgui.TextColored(C.text, 'Keep distance');
-    imgui.SetCursorPos({ inX, top + 32 + rowH * 2 });
-    imgui.PushItemWidth(60);
-    local d = { math.floor(tonumber(s.follow_distance) or 5) };
-    if imgui.InputInt('##hh_follow_dist', d, 0, 0) then
-        s.follow_distance = math.max(1, math.min(20, d[1]));
-        sk.save();
+    local endy = top + h;
+    if not has_sub then return endy; end
+    local sy = endy + pad;
+    local sh = 34 + rowH + 50 + 4;
+    card(dl, wx, wy, pad, sy, cw, sh, 'Sublimation (SCH)');
+    imgui.SetCursorPos({ x0, sy + 32 });
+    local son = sk.self_on(has_sub.key, has_sub.group, has_sub.default_off);
+    local sc, sv = small_check('Auto Sublimation##hh_subl', son);
+    if sc then
+        sk.self_set(has_sub.key, has_sub.group, sv);
+        if sv then s.recover_enabled = true; sk.save(); end
     end
-    imgui.PopItemWidth();
-    imgui.SameLine(0, 8);
-    imgui.TextColored(C.dim, 'yalms');
-    imgui.SetCursorPos({ fx0, top + 32 + rowH * 3 });
-    local c, v = small_check('Use FFXI default auto follow##hh_native', s.multisend_follow ~= true);
-    if c then s.multisend_follow = not v; sk.save(); end
-    return top + h;
+    if imgui.IsItemHovered() then
+        imgui.SetTooltip('Starts Sublimation whenever it is off, so it is always storing MP.\nUses the stored MP when your MP drops below the bar.');
+    end
+    threshold_slider(sk, s, 'subl', 'Use stored MP when MP is below', 'recover_mp_threshold', 50, x0, sy + 32 + rowH, cw - 28,
+        'Uses Sublimation (takes the stored MP) when your MP drops below this %.\nThis bar is also used by your other MP recovery (Convert, Aspir...).');
+    return sy + sh;
 end
 
 -- ===================================================================================

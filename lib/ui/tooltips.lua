@@ -148,16 +148,22 @@ return {
         'Limited to once per 4s; never fires while moving.',
 
     resting =
-        'While idle (not moving/casting/engaged) and\n' ..
-        'MP < 100%%, Happy Healer waits Timer seconds after\n' ..
-        'conditions become favorable, then sends\n' ..
-        '/heal on. Nothing Happy Healer does interrupts a\n' ..
-        'rest: it stops only at full MP or if Follow\n' ..
-        'Target exceeds Distance.',
+        'While idle (not moving/casting/engaged), once MP\n' ..
+        'drops below Rest below %%, Happy Healer waits Timer\n' ..
+        'seconds, then sends /heal on. If it stands up to\n' ..
+        'cast, it rests again when idle. It stands up when\n' ..
+        'MP reaches Stand up at %% or Follow Target exceeds\n' ..
+        'Distance.',
+
+    rest_mp_start =
+        'Start resting (/heal) when MP drops below this %%.',
+
+    rest_mp_stop =
+        'Stand up (/heal off) when MP reaches this %%.',
 
     rest_timer =
         'Seconds to wait after conditions first become\n' ..
-        'favorable (idle, not casting, MP < 100%%)\n' ..
+        'favorable (idle, not casting, MP below Rest below %%)\n' ..
         'before Happy Healer starts resting.',
 
     rest_follow_target =

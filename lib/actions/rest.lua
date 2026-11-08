@@ -9,6 +9,35 @@ local common = require('lib.core.common')
 
 local rest = {}
 
+-- MP window (omni change): rest starts only once MP drops below rest_mp_start %,
+-- and keeps resting (resuming after any cure that stood us up) until MP reaches
+-- rest_mp_stop %. `recovering` remembers that we are inside that window.
+local recovering = false
+
+local function mp_window(settings)
+    local start = tonumber(settings.rest_mp_start) or 15
+    local stop  = tonumber(settings.rest_mp_stop) or 90
+    if stop < start then stop = start end
+    return start, stop
+end
+
+local function current_mpp()
+    local game_state = common.game_state
+    local player     = game_state and game_state.player
+    return player and player.mpp or 0
+end
+
+local function update_recovering(settings)
+    local start, stop = mp_window(settings)
+    local mpp = current_mpp()
+    if mpp >= stop then
+        recovering = false
+    elseif mpp < start then
+        recovering = true
+    end
+    return recovering
+end
+
 -- Check if we should start resting
 local function should_start_resting(settings, job_def)
     -- Only for MP-based jobs
@@ -46,11 +75,8 @@ local function should_start_resting(settings, job_def)
         return false
     end
     
-    -- Check if MP is below 100%
-    local game_state = common.game_state
-    local player     = game_state and game_state.player
-    local mp_percent = player and player.mpp or 0
-    if mp_percent >= 100 then
+    -- Only inside the MP window: dropped below the start %, not yet back to the stop %.
+    if not update_recovering(settings) then
         common.reset_rest_timer()
         return false
     end
@@ -94,11 +120,10 @@ local function should_stop_resting(settings, job_def)
         return false
     end
     
-    -- Check if MP is full
-    local game_state = common.game_state
-    local player     = game_state and game_state.player
-    local mp_percent = player and player.mpp or 0
-    if mp_percent >= 100 then
+    -- Stand up once MP reaches the stop %.
+    local _, stop = mp_window(settings)
+    if current_mpp() >= stop then
+        recovering = false
         return true
     end
 
@@ -126,10 +151,11 @@ function rest.execute(settings, job_def, main_level, sub_level, player_resource)
     
     -- Check if resting is enabled
     if not settings.rest_enabled then
+        recovering = false
         return nil
     end
     
-    -- Only full MP or the follow target outrunning rest_distance ends a rest.
+    -- Only the stop MP % or the follow target outrunning rest_distance ends a rest.
     -- Moving or casting stands the player up server-side anyway, and is_resting
     -- re-syncs from entity_status each tick, so neither needs a /heal off here.
     -- Check if we should stop resting (priority check)
@@ -138,7 +164,7 @@ function rest.execute(settings, job_def, main_level, sub_level, player_resource)
         common.reset_rest_timer()
         return {
             command = '/heal off',
-            description = 'Stopping rest (distance or MP full)'
+            description = 'Stopping rest (distance or MP reached the stand-up %)'
         }
     end
     

@@ -1429,6 +1429,10 @@ function ui_config.render(settings, job_def, callback)
                 local is_open, is_enabled = ui.begin_section(ctx, 'Resting', 'rest_enabled', false, tooltips.resting)
                 if is_open and is_enabled then
                     imgui.Indent(ui.ABILITY_LIST_INDENT)
+                    ui.slider_int(ctx, 'Rest below (MP%)', 'rest_mp_start', { settings.rest_mp_start or 15 }, 1, 99)
+                    ui.item_tooltip(tooltips.rest_mp_start)
+                    ui.slider_int(ctx, 'Stand up at (MP%)', 'rest_mp_stop', { settings.rest_mp_stop or 90 }, 2, 100)
+                    ui.item_tooltip(tooltips.rest_mp_stop)
                     ui.slider_int(ctx, 'Timer (seconds)', 'rest_timer', { settings.rest_timer or 5 }, 1, 20)
                     ui.item_tooltip(tooltips.rest_timer)
 
@@ -1553,6 +1557,10 @@ function ui_config.render(settings, job_def, callback)
                         return tier_values[i + 1]
                     end)
                     ui.item_tooltip(tooltips.risk_tier)
+
+                    -- omni: on by default; untick to only cast the rolls and Double-Up yourself.
+                    ui.checkbox(ctx, 'Auto Double-Up##roll_double_up', 'roll_double_up', { settings.roll_double_up ~= false })
+                    ui.item_tooltip('Ticked: Double-Up, Snake Eye and Fold are used for you (Risk Tier decides how far).\nUnticked: only your rolls are cast; you Double-Up yourself.')
 
                     imgui.Unindent(ui.ABILITY_LIST_INDENT)
                 end

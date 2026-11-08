@@ -21,6 +21,49 @@ local roll_strategy = require('lib.core.roll_strategy')
 
 -- Buff ids (status_effects.sql)
 local BUST_BUFF_ID      = 309  -- Bust: costs you a roll slot until it wears
+-- omni: what each total gives (LandSandBoat corsair.lua rollData, base values
+-- before Phantom Roll+ gear and the bonus for having that job in the party).
+-- [ability_id] = { boost for totals 1..11, format }
+local ROLL_POWERS = {
+    [98] = { { 2, 2, 3, 4, 12, 5, 6, 7, 1, 9, 18 }, '+%d%% Double Attack' },
+    [99] = { { 8, 10, 32, 12, 14, 16, 4, 20, 22, 24, 40 }, '+%d Subtle Blow' },
+    [100] = { { 3, 4, 12, 5, 6, 7, 1, 8, 9, 10, 16 }, '+%d%% Cure received' },
+    [101] = { { 4, 6, 8, 10, 25, 12, 14, 17, 2, 20, 30 }, '+%d Magic Attack' },
+    [102] = { { 10, 13, 15, 40, 18, 20, 25, 5, 28, 30, 50 }, '+%d Magic Acc' },
+    [103] = { { 2, 2, 3, 4, 12, 5, 6, 6, 1, 8, 19 }, '+%d%% Crit Rate' },
+    [104] = { { 4, 5, 19, 7, 8, 10, 3, 11, 13, 15, 23 }, '+%d%% Defense' },
+    [105] = { { 6, 8, 9, 25, 11, 13, 16, 3, 17, 19, 31 }, '+%d%% Attack' },
+    [106] = { { 4, 5, 7, 19, 8, 9, 11, 2, 13, 14, 23 }, '+%d%% Pet Attack' },
+    [107] = { { 8, 42, 11, 15, 19, 4, 23, 27, 31, 35, 50 }, '-%d Spell Interrupt' },
+    [108] = { { 10, 13, 15, 40, 18, 20, 25, 5, 28, 30, 50 }, '+%d Accuracy' },
+    [109] = { { 8, 32, 10, 12, 14, 4, 16, 20, 22, 24, 40 }, '+%d Store TP' },
+    [110] = { { 10, 13, 15, 40, 18, 20, 25, 5, 28, 30, 50 }, '+%d Evasion' },
+    [111] = { { 10, 13, 15, 40, 18, 20, 25, 5, 28, 30, 50 }, '+%d Pet Accuracy' },
+    [112] = { { 1, 1, 1, 1, 3, 2, 2, 2, 1, 3, 4 }, '+%d MP Refresh' },
+    [113] = { { 5, 20, 6, 8, 9, 3, 10, 13, 14, 15, 25 }, '+%d Magic Def' },
+    [114] = { { 10, 11, 11, 12, 20, 13, 15, 16, 8, 17, 24 }, '+%d%% EXP' },
+    [115] = { { 4, 5, 18, 7, 9, 10, 2, 11, 13, 15, 22 }, '+%d Pet Magic Acc/Atk' },
+    [116] = { { 3, 4, 12, 5, 6, 7, 1, 8, 9, 10, 16 }, '+%d HP Regen' },
+    [117] = { { 2, 10, 3, 4, 4, 1, 5, 6, 7, 7, 12 }, '+%d%% Conserve MP' },
+    [118] = { { 6, 6, 16, 8, 8, 10, 10, 12, 4, 14, 20 }, '+%d%% Move Speed' },
+    [119] = { { 6, 15, 7, 8, 9, 10, 5, 11, 12, 13, 20 }, '+%d%% Fast Cast' },
+    [120] = { { 2, 3, 11, 4, 5, 6, 7, 8, 1, 10, 12 }, '+%d%% Snapshot' },
+    [121] = { { 2, 3, 4, 11, 5, 6, 7, 8, 1, 10, 12 }, '-%d%% Delay' },
+    [122] = { { 10, 10, 10, 10, 30, 10, 10, 0, 20, 20, 40 }, '+%d TP Regain' },
+    [302] = { { 2, 3, 20, 5, 7, 9, 11, 13, 15, 1, 25 }, '+%d%% Skillchain dmg' },
+    [303] = { { 30, 50, 70, 90, 200, 110, 20, 130, 150, 170, 250 }, '+%d Save TP' },
+    [304] = { { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 }, '+%d Pet Regen/Regain' },
+    [305] = { { 2, 2, 3, 12, 4, 5, 6, 1, 7, 9, 18 }, '+%d%% Counter' },
+    [390] = { { 6, 7, 15, 8, 9, 10, 5, 11, 12, 13, 20 }, '+%d%% Enhancing duration' },
+    [391] = { { 4, 6, 8, 25, 10, 12, 14, 2, 17, 20, 30 }, '+%d Magic Evasion' },
+}
+
+local function roll_boost(roll_ability, total)
+    local r = roll_ability and ROLL_POWERS[roll_ability.ability_id]
+    if not r or not total or total < 1 or total > 11 then return nil end
+    return string.format(r[2], r[1][total])
+end
+
 local DOUBLE_UP_BUFF_ID = 308  -- Double-Up Chance: the window in which Double-Up is usable
 
 -- Action-packet message ids (src/map/enums/msg_basic.h)
@@ -200,9 +243,17 @@ function roll.execute(settings, job_def, main_level, sub_level, player_resource)
             fold and 'found' or 'MISSING', fold_ready and 'ready' or tostring(fold_why))
     end
 
+    -- omni: Auto Double-Up is on unless unticked. Then it only casts the rolls; Fold,
+    -- Snake Eye and Double-Up are left to you, and nothing waits on a Double-Up.
+    local auto_du = settings.roll_double_up ~= false
+    if not auto_du then
+        roll_state.roll1.expecting_double_up = false
+        roll_state.roll2.expecting_double_up = false
+    end
+
     -- Priority 1: Fold a Bust, whatever the tier. That frees the slot so Priority 3
     -- recasts a fresh roll into it next tick and the chase starts over.
-    if roll_strategy.should_fold(has_bust, fold_ready) then
+    if auto_du and roll_strategy.should_fold(has_bust, fold_ready) then
         local result = action_core.try_use(fold, job_def, settings, nil, 'Fold: clear Bust')
         if result then
             return result
@@ -210,7 +261,7 @@ function roll.execute(settings, job_def, main_level, sub_level, player_resource)
     end
 
     -- Priority 2: Double-Up a live roll (Roll1 first, then Roll2)
-    for roll_num = 1, 2 do
+    for roll_num = 1, (auto_du and 2 or 0) do
         -- Explicit on both arms: `n == 1 and roll1 or roll2` would fall through to
         -- Roll2 when only Roll2 is configured, and evaluate it as Roll1.
         local roll_ability = (roll_num == 1) and roll1_ability or (roll_num == 2) and roll2_ability or nil
@@ -336,7 +387,8 @@ end
 ]]--
 
 function roll.handle_action_packet(packet, settings, job_def)
-    if not settings or not settings.roll_enabled or not packet then
+    -- omni: runs even with auto-rolling off, so every roll you use gets its chat line.
+    if not settings or not packet then
         return
     end
 
@@ -367,18 +419,30 @@ function roll.handle_action_packet(packet, settings, job_def)
     -- Which configured slot is this? cmd_arg carries the roll's ability id.
     local roll_list = job_def and job_def.abilities and job_def.abilities.roll
     local roll_num, roll_ability
-    for n = 1, 2 do
-        local ability = find_roll_ability(roll_list, n == 1 and settings.roll1_name or settings.roll2_name)
-        if ability and ability.ability_id == packet.Param then
-            roll_num, roll_ability = n, ability
-            break
+    if settings.roll_enabled then
+        for n = 1, 2 do
+            local ability = find_roll_ability(roll_list, n == 1 and settings.roll1_name or settings.roll2_name)
+            if ability and ability.ability_id == packet.Param then
+                roll_num, roll_ability = n, ability
+                break
+            end
         end
     end
+    -- omni: a roll that isn't one of the two auto-roll slots (or auto-rolling is off)
+    -- still gets its chat line; it just doesn't touch the auto-roll state.
     if not roll_num then
-        return
+        for _, ability in ipairs(roll_list or {}) do
+            if ability.ability_id and ability.ability_id == packet.Param then
+                roll_ability = ability
+                break
+            end
+        end
+        if not roll_ability then
+            return
+        end
     end
 
-    local state = roll_num == 1 and roll_state.roll1 or roll_state.roll2
+    local state = roll_num and (roll_num == 1 and roll_state.roll1 or roll_state.roll2) or {}
     local total = action.Param
     local die   = action.Info
     local msg   = action.Message
@@ -401,12 +465,25 @@ function roll.handle_action_packet(packet, settings, job_def)
     -- Whatever Snake Eye was armed for has now resolved into this total.
     state.snake_eye_armed = false
 
+    -- omni: what this total gives, then the lucky number in green and the unlucky in red.
+    local chat = require('chat')
+    local head = (msg == MSG_DOUBLEUP) and ('[Roll] Double-Up ' .. roll_ability.name) or ('[Roll] ' .. roll_ability.name)
+    local line = chat.message(string.format('%s: %d (Total: %d)', head, die, total))
+    local now = roll_boost(roll_ability, total)
+    if now then line = line .. chat.message(' = ' .. now) end
+    if roll_ability.lucky and roll_ability.unlucky then
+        if total == roll_ability.unlucky then line = line .. chat.error(' UNLUCKY!') end
+        local lb = roll_boost(roll_ability, roll_ability.lucky)
+        local ub = roll_boost(roll_ability, roll_ability.unlucky)
+        line = line .. chat.message(' | ')
+            .. chat.success(string.format('Lucky %d%s', roll_ability.lucky, lb and (': ' .. lb) or ''))
+            .. chat.message(' | ')
+            .. chat.error(string.format('Unlucky %d%s', roll_ability.unlucky, ub and (': ' .. ub) or ''))
+    end
     if msg == MSG_DOUBLEUP then
         roll_state.last_double_up_time = os.clock()
-        common.printf('[Roll] Double-Up %s: %d (Total: %d)', roll_ability.name, die, total)
-    else
-        common.printf('[Roll] %s: %d (Total: %d)', roll_ability.name, die, total)
     end
+    print(chat.header('Happy Healer') .. line)
 
     -- Landing on lucky, called out in green -- it's what the Double-Up sequence is
     -- aiming at. Deliberately says nothing about stopping: Lowest/Medium bank it here,
