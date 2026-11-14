@@ -493,7 +493,41 @@ local function att_label(id)
     return string.format('%s (%d)', att_name(id), a and a[2] or 0);
 end
 
-local function att_tip(id)
+local att_tip;
+-- A clean list of attachments: element dot | name | slots | what it does, each in its own column
+-- (long names like "Tension Spring III" no longer run into the effect). Returns the clicked row.
+-- dim(id) = true greys a row out.
+local function att_table(tid, ids, dim)
+    local clicked = nil;
+    local namew = 60;
+    for _, id in ipairs(ids) do namew = math.max(namew, imgui.CalcTextSize(att_name(id))); end
+    local flags = bit.bor(ImGuiTableFlags_SizingFixedFit, ImGuiTableFlags_RowBg);
+    if not imgui.BeginTable(tid, 4, flags) then return nil; end
+    imgui.TableSetupColumn('##e', ImGuiTableColumnFlags_WidthFixed, 10);
+    imgui.TableSetupColumn('##n', ImGuiTableColumnFlags_WidthFixed, namew + 6);
+    imgui.TableSetupColumn('##c', ImGuiTableColumnFlags_WidthFixed, 18);
+    imgui.TableSetupColumn('##d', ImGuiTableColumnFlags_WidthStretch);
+    for i, id in ipairs(ids) do
+        local a = A[id];
+        local grey = dim and dim(id) or false;
+        imgui.TableNextRow();
+        imgui.TableNextColumn();
+        imgui.TextColored(a and EL[a[1]].col or DIM, '*');
+        imgui.TableNextColumn();
+        if grey then imgui.PushStyleColor(ImGuiCol_Text, DIM); end
+        if imgui.Selectable(att_name(id) .. '##' .. tid .. i, false, ImGuiSelectableFlags_SpanAllColumns) then clicked = i; end
+        if grey then imgui.PopStyleColor(1); end
+        att_tip(id);
+        imgui.TableNextColumn();
+        imgui.TextColored(DIM, tostring(a and a[2] or 0));
+        imgui.TableNextColumn();
+        imgui.TextColored(DIM, a and a[3] or '');
+    end
+    imgui.EndTable();
+    return clicked;
+end
+
+att_tip = function (id)
     local a = A[id];
     if not a then return; end
     if imgui.IsItemHovered() then
@@ -616,13 +650,7 @@ pup.render = function ()
     imgui.TextColored(GOLD, 'Plan  (click to take off)');
     imgui.BeginChild('##pup_plan', { 350, 230 }, true);
     local drop = nil;
-    for i, id in ipairs(plan.att) do
-        local a = A[id];
-        if a then imgui.TextColored(EL[a[1]].col, '*'); imgui.SameLine(0, 4); end
-        if imgui.Selectable(att_label(id) .. '##pup_p' .. i) then drop = i; end
-        att_tip(id);
-        if a then imgui.SameLine(190); imgui.TextColored(DIM, a[3]); end
-    end
+    if #plan.att > 0 then drop = att_table('##pup_plan_t', plan.att); end
     if #plan.att == 0 then imgui.TextDisabled('Empty - click attachments on the right, or pick a build.'); end
     imgui.EndChild();
     if drop then table.remove(plan.att, drop); end
@@ -680,21 +708,17 @@ pup.render = function ()
             local ids = {};
             for id in pairs(A) do if (UI.filter == 0 or A[id][1] == UI.filter) then ids[#ids + 1] = id; end end
             table.sort(ids);
-            local learned_any = false;
+            local shown = {};
             for _, id in ipairs(ids) do
-                local learned = not ST.ok or ST.att[id];
-                if learned then
-                    learned_any = true;
+                if not ST.ok or ST.att[id] then shown[#shown + 1] = id; end
+            end
+            local learned_any = #shown > 0;
+            if learned_any then
+                local hit = att_table('##pup_list_t', shown, function (id) return refuse_reason(plan, id) ~= nil; end);
+                if hit then
+                    local id = shown[hit];
                     local why = refuse_reason(plan, id);
-                    local a = A[id];
-                    imgui.TextColored(EL[a[1]].col, '*'); imgui.SameLine(0, 4);
-                    if why then imgui.PushStyleColor(ImGuiCol_Text, DIM); end
-                    if imgui.Selectable(att_label(id) .. '##pup_a' .. id) then
-                        if why then note(att_name(id) .. ': ' .. why); else plan.att[#plan.att + 1] = id; end
-                    end
-                    if why then imgui.PopStyleColor(1); end
-                    att_tip(id);
-                    imgui.SameLine(190); imgui.TextColored(DIM, a[3]);
+                    if why then note(att_name(id) .. ': ' .. why); else plan.att[#plan.att + 1] = id; end
                 end
             end
             if not learned_any then imgui.TextDisabled('No learned attachments here.'); end
