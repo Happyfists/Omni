@@ -5,12 +5,13 @@ All-in-one Ashita v4 addon for CatsEyeXI, by Happyfists. Approved for use on Cat
 A small bar along the top of the screen (job, XP/LP, wallet, buffs, target with TH and distance; in Abyssea, Dynamis and Nyzul Isle it shows their time, lights, time extensions or floor and objective instead) and a drop-down panel of tabs, grouped by subject:
 
 - **Top row (places and content):** Abyssea, Sea, Sky, HNMs (Happy Pops, Abyssea NMs, Pop List), Ventures, Dailies, Codex, Quests
-- **Second row (you and tools):** Character, Gear (Ultimates, Automaton, Blue Magic), Currency (with Sparks), Items, Combat (Damage + TH), Tools (Multisend, Happy Healer, Happy Translate, Happy Talks, JA Chat, Roll Tracker), Options. Happy Healer and Happy Translate have On/Off switches at the right of the top row.
+- **Second row (you and tools):** Character, Gear (Ultimates, Automaton, Blue Magic), Currency (with Sparks), Items, Combat (Damage + TH), Tools (Multisend, Happy Healer, Happy Translate, Happy Talks, JA Chat, Roll Tracker, SCH Bar), Options. Happy Healer and Happy Translate have On/Off switches at the right of the top row.
 
 It also draws spell animations on the field (fireballs, lightning, rocks, cures...) and party job pictures, with each member's TP beside them (green from 1000) - its own movable column, with size and row spacing per party in Options > General > Party job pictures.
 
 ## Newest pages
 
+- **SCH bar** - while you're Scholar, one action bar of square buttons: 16 Magic Burst skillchains (Immanence opener and closer, then the burst), the 8 storms and Klimaform. A click gets you ready first - Dark Arts, Addendum: Black for tier IV bursts (only with a stratagem to spare), and the storm for the burst element - then runs the chain and bursts with the best tier off recast. Storms: left-click on you, right-click on a party member. Shows your weather, the day and stratagems (5 at 75 on CatsEyeXI); a star marks bursts that match your weather. `/schbar`, Tools > SCH Bar (with a short play guide).
 - **Tools tab** - Multisend, Happy Healer, Happy Translate, Happy Talks, JA Chat and Roll Tracker together in one tab; Options now holds only the settings.
 - **Happy Loot (Items > Loot)** - lot or pass drops by profile ("Dynamis - Jeuno", "Ores & ingots"...), with every drop remembered per zone so you can add it to a list in one click. `/loot`, `/loot on|off`, `/loot profile <name>`.
 - **Ventures > Venture Battles** - every Venture boss with where it pops, its drops and the upgrade route for each piece, and how many of the materials you already hold.

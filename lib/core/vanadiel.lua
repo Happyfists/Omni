@@ -158,4 +158,16 @@ function vanadiel.apply_auto_selection(job_def, settings)
     end
 end
 
+-- Readers for other omni pages (the SCH bar): zone weather element and whether it is double,
+-- the storm on the player, and the day element.
+vanadiel.zone_weather = function ()
+    local el = read_zone_weather()
+    if el == nil then return nil, false end
+    local dbl = false
+    pcall(function () dbl = ashita.memory.read_uint8(ashita.memory.read_uint32(weather_addr + 0x02)) % 2 == 1 end)
+    return el, dbl
+end
+vanadiel.storm = read_storm
+vanadiel.day = read_day
+
 return vanadiel

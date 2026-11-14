@@ -221,6 +221,8 @@ local function icon_handle(id)
     return icons[id] and icons[id].handle or nil;
 end
 
+status.icon = function (id) return icon_handle(id); end   -- for other pages (the SCH bar)
+
 -- Name (and the game's description, when it has one) for a status, shown on hover.
 local function show_tooltip(id)
     local res = AshitaCore:GetResourceManager();

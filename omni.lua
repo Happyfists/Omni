@@ -71,7 +71,7 @@
 
 addon.name    = 'omni';
 addon.author  = 'Happyfists';
-addon.version = '4.02';
+addon.version = '4.03';
 addon.desc    = 'All-in-one addon.';
 
 require('common');
@@ -2282,6 +2282,18 @@ if (omni.translate ~= nil and omni.translate.render ~= nil) then
     omni.tool_translate = tr_tab;   -- a page in the Tools tab
 end
 
+-- SCH bar: one action bar of Magic Burst skillchains and storms while you are Scholar (omni_schbar.lua).
+do
+    local ok, mod = pcall(require, 'omni_schbar');
+    if (ok) then
+        omni.schbar = mod;
+        mod.settings = omni.settings;
+        mod.save = function () settings.save('omni'); end;
+    else
+        print('[omni] SCH bar could not load: ' .. tostring(mod));
+    end
+end
+
 -- Tools: everything that does something for you, in one tab. The on/off switches for
 -- Happy Healer and Happy Translate sit at the right of the top tab row.
 do
@@ -2306,6 +2318,7 @@ do
             if (omni.tool_talks ~= nil) then page('Happy Talks', 560, omni.tool_talks); end
             if (omni.jachat ~= nil) then page('JA Chat', 620, omni.jachat.render); end
             if (omni.rolls ~= nil) then page('Roll Tracker', 600, omni.rolls.render); end
+            if (omni.schbar ~= nil) then page('SCH Bar', 640, function () omni.schbar.render_page({ settings = omni.settings, save = function () settings.save('omni'); end }); end); end
             imgui.EndTabBar();
         end
     end;
@@ -3134,6 +3147,10 @@ ashita.events.register('d3d_present', 'omni_present', function ()
     end
     if (omni.abyssea_popout ~= nil) then
         crystal_begin(); pcall(omni.abyssea_popout); crystal_end();
+    end
+    if (omni.schbar ~= nil) then
+        omni.schbar.settings = omni.settings;
+        crystal_begin(); pcall(omni.schbar.render_bar, { settings = omni.settings, save = function () settings.save('omni'); end }); crystal_end();
     end
     -- Job pictures beside the game's party list (omni_party.lua).
     if (omni.party ~= nil) then
