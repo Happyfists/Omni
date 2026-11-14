@@ -528,7 +528,7 @@ local function renderTooltip(itemId, setData, tierIdx, slotKey)
                 imgui.TextColored({ 1.0, 0.82, 0.25, 1.0 }, string.format('Upgrade %d of 3', tier));
             end
             for t = 1, 3 do
-                local col = (owned[itemId] and tier >= t) and { 0.45, 0.90, 0.45, 1.0 } or { 0.65, 0.65, 0.70, 1.0 };
+                local col = (owned[itemId] and tier >= t) and { 0.50, 0.88, 0.50, 1.0 } or { 0.65, 0.65, 0.70, 1.0 };
                 imgui.TextColored(col, string.format('Tier %d: %s  (%d seals, %d crests)', t, lines[t] or '?', UPGRADE_SEALS[t], UPGRADE_CRESTS[t]));
             end
             ui.colored('Upgraded by Irvina, Aht Urhgan Whitegate (K-11).', 'dimText');
@@ -750,7 +750,7 @@ local function renderWindow()
             end
             return seals, crests;
         end
-        local GOOD, SHORT = { 0.45, 0.90, 0.45, 1.0 }, { 1.0, 0.45, 0.45, 1.0 };
+        local GOOD, SHORT = { 0.50, 0.88, 0.50, 1.0 }, { 1.00, 0.50, 0.50, 1.0 };
 
         -- Grid
         for slotIdx, slotKey in ipairs(SLOTS) do

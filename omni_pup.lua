@@ -473,7 +473,7 @@ ashita.events.register('d3d_present', 'omni_pup_tick', function () pcall(tick); 
 -- Page
 ----------------------------------------------------------------------------------------------------
 local UI = { plan = nil, filter = 0, build = nil, note = nil, note_at = 0, slot = 1 };
-local GOLD, DIM, RED, GREEN = { 0.95, 0.80, 0.45, 1 }, { 0.62, 0.62, 0.70, 1 }, { 1, 0.45, 0.45, 1 }, { 0.50, 0.95, 0.55, 1 };
+local GOLD, DIM, RED, GREEN = { 0.90, 0.78, 0.40, 1.0 }, { 0.62, 0.62, 0.70, 1 }, { 1.00, 0.50, 0.50, 1.0 }, { 0.50, 0.95, 0.55, 1 };
 
 local function S()
     local s = pup.get_settings and pup.get_settings() or nil;

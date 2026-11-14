@@ -203,7 +203,7 @@ local TYPE = { P = 'Physical', M = 'Magical', B = 'Breath', R = 'Ranged' };
 local KCOL = {
     O = { 1.00, 0.55, 0.45, 1 }, B = { 0.55, 0.85, 1.00, 1 }, D = { 0.80, 0.60, 1.00, 1 }, H = { 0.50, 0.95, 0.55, 1 },
 };
-local GOLD, DIM, RED, GREEN = { 0.95, 0.80, 0.45, 1 }, { 0.62, 0.62, 0.70, 1 }, { 1, 0.45, 0.45, 1 }, { 0.50, 0.95, 0.55, 1 };
+local GOLD, DIM, RED, GREEN = { 0.90, 0.78, 0.40, 1.0 }, { 0.62, 0.62, 0.70, 1 }, { 1.00, 0.50, 0.50, 1.0 }, { 0.50, 0.95, 0.55, 1 };
 
 local function norm(s) return (tostring(s or ''):lower():gsub('[^%a%d]', '')); end
 local BYNAME = {};

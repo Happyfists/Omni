@@ -121,10 +121,10 @@ nyz.draw_bar = function (c)
     imgui.TextColored(c.label, 'Floor');
     same(6);
     local boss = st.floor > 0 and st.floor % 20 == 0;
-    imgui.TextColored(boss and { 1.0, 0.45, 0.45, 1.0 } or c.text, (st.floor > 0) and tostring(st.floor) or '-');
+    imgui.TextColored(boss and { 1.00, 0.50, 0.50, 1.0 } or c.text, (st.floor > 0) and tostring(st.floor) or '-');
     if boss then
         same(6);
-        imgui.TextColored({ 1.0, 0.45, 0.45, 1.0 }, 'Boss');
+        imgui.TextColored({ 1.00, 0.50, 0.50, 1.0 }, 'Boss');
     end
     if imgui.IsItemHovered() then
         imgui.SetTooltip(boss and 'Boss floor (every 20th floor).' or 'Floor you are on. Every 20th floor is a boss floor.');
@@ -143,7 +143,7 @@ nyz.draw_bar = function (c)
     imgui.TextColored(c.label, 'Time');
     same(6);
     local secs = nyz.seconds_left() or 0;
-    local tcol = (secs <= 60) and { 1.0, 0.40, 0.40, 1.0 } or ((secs <= 300) and { 1.0, 0.80, 0.30, 1.0 } or { 0.50, 0.92, 0.50, 1.0 });
+    local tcol = (secs <= 60) and { 1.00, 0.50, 0.50, 1.0 } or ((secs <= 300) and { 1.0, 0.80, 0.30, 1.0 } or { 0.50, 0.88, 0.50, 1.0 });
     imgui.TextColored(tcol, string.format('%d:%02d', math.floor(secs / 60), secs % 60));
     if imgui.IsItemHovered() then
         imgui.SetTooltip(st.told and 'Time left (from the game\'s own message).\nYellow at 5 minutes, red at 1.'

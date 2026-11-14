@@ -17,9 +17,9 @@ local jailers = {};
 local GOLD  = { 0.90, 0.78, 0.40, 1.0 };
 local TEXT  = { 0.92, 0.92, 0.95, 1.0 };
 local DIM   = { 0.62, 0.66, 0.80, 1.0 };
-local GREEN = { 0.45, 0.88, 0.45, 1.0 };
-local RED   = { 1.00, 0.50, 0.45, 1.0 };
-local CATS  = { 0.55, 0.80, 1.00, 1.0 };
+local GREEN = { 0.50, 0.88, 0.50, 1.0 };
+local RED   = { 1.00, 0.50, 0.50, 1.0 };
+local CATS  = { 0.55, 0.75, 1.00, 1.0 };
 
 -- pop    = items traded ({ name, how many })
 -- from   = where each pop item comes from (same order as pop)

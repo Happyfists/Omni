@@ -334,7 +334,7 @@ aby.draw_bar = function (c)
     imgui.TextColored(c.label, 'Time');
     same(5);
     local m = minutes_left();
-    local tcol = (m == nil) and c.dim or ((m <= 5) and { 1.0, 0.40, 0.40, 1.0 } or ((m <= 15) and { 1.0, 0.80, 0.30, 1.0 } or { 0.50, 0.92, 0.50, 1.0 }));
+    local tcol = (m == nil) and c.dim or ((m <= 5) and { 1.00, 0.50, 0.50, 1.0 } or ((m <= 15) and { 1.0, 0.80, 0.30, 1.0 } or { 0.50, 0.88, 0.50, 1.0 }));
     imgui.TextColored(tcol, aby.time_text());
     if imgui.IsItemHovered() then
         imgui.SetTooltip((m == nil) and 'Visitant time shows once the game tells you it (on entering, or when it changes).'
@@ -579,7 +579,7 @@ end
 ----------------------------------------------------------------------------------------------------
 local C = {
     gold = { 0.90, 0.78, 0.40, 1.0 }, text = { 0.92, 0.92, 0.95, 1.0 }, dim = { 0.60, 0.63, 0.74, 1.0 },
-    faint = { 0.40, 0.42, 0.50, 1.0 }, green = { 0.45, 0.88, 0.45, 1.0 }, panel = { 0.07, 0.08, 0.13, 0.70 },
+    faint = { 0.40, 0.42, 0.50, 1.0 }, green = { 0.50, 0.88, 0.50, 1.0 }, panel = { 0.07, 0.08, 0.13, 0.70 },
     red = { 1.00, 0.40, 0.38, 1.0 }, blue = { 0.38, 0.68, 1.00, 1.0 }, yellow = { 1.00, 0.84, 0.30, 1.0 },
 };
 

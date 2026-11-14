@@ -270,6 +270,24 @@ local function log(style_fn, prefix, fmt, ...)
     print(chat.header(addon_name) .. style_fn((prefix or '') .. msg))
 end
 
+-- How an ability name is shown. Songs show only what they give, stat first then the pluses:
+-- "Mage's Ballad II (++Refresh)" shows as "Refresh++". Anything else keeps its name with the
+-- pluses moved after the stat: "Perpetuance (+Duration)" -> "Perpetuance (Duration+)".
+-- Only the display changes; settings keep the real name.
+local SONG_WORDS = { 'Ballad', 'March', 'Minuet', 'Madrigal', 'Prelude', 'Mambo', 'Etude', 'Carol', 'Mazurka',
+    'Paeon', 'Minne', 'Round', 'Operetta', 'Fantasia', 'Scherzo', 'Hymnus', 'Aria', 'Gavotte', 'Sirvente' }
+function common.display_name(name)
+    if type(name) ~= 'string' then return name end
+    local base, plus, stat = name:match('^(.-)%s*%((%++)([^%)]-)%)$')
+    if base == nil then
+        return (name:gsub('%((%++)([^%)]-)%)', '(%2%1)'))
+    end
+    for _, w in ipairs(SONG_WORDS) do
+        if base:find(w, 1, true) then return stat .. plus end
+    end
+    return base .. ' (' .. stat .. plus .. ')'
+end
+
 function common.printf(fmt, ...)  log(chat.message, nil, fmt, ...) end
 function common.errorf(fmt, ...)  log(chat.error,   nil, fmt, ...) end
 function common.warnf(fmt, ...)   log(chat.warning, nil, fmt, ...) end

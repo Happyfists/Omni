@@ -153,7 +153,7 @@ mi.draw = function (x, y, w, r, c, bg, border, top, id, index)
                 if r[k] then how[#how + 1] = (k == 'Blood') and 'Low HP' or k; end
             end
             if r.TrueSight then how[#how + 1] = 'True Sight'; end
-            put('Aggro' .. (#how > 0 and (': ' .. table.concat(how, ' ')) or ''), { 1.0, 0.45, 0.45, 1 });
+            put('Aggro' .. (#how > 0 and (': ' .. table.concat(how, ' ')) or ''), { 1.00, 0.50, 0.50, 1.0 });
         else
             put('Passive', { 0.55, 0.92, 0.55, 1 });
         end

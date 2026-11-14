@@ -165,7 +165,7 @@ local function scan()
     owned_ids, owned_names = ids, names;
 end
 
-local GREEN = { 0.40, 0.90, 0.40, 1.0 };
+local GREEN = { 0.50, 0.88, 0.50, 1.0 };
 
 local function draw_item(host, item, indent, is_sub)
     local ui = host.ui;
@@ -444,7 +444,7 @@ local SKY2 = {
     { god = 'Suzaku', portal = 4,  ki = "Suzaku's Benefaction" },
     { god = 'Kirin',  portal = 15 },
 };
-local GREEN2, RED2, GOLD2 = { 0.45, 0.90, 0.45, 1.0 }, { 1.0, 0.45, 0.45, 1.0 }, { 1.0, 0.82, 0.25, 1.0 };
+local GREEN2, RED2, GOLD2 = { 0.50, 0.88, 0.50, 1.0 }, { 1.00, 0.50, 0.50, 1.0 }, { 1.0, 0.82, 0.25, 1.0 };
 
 sky.render_sky2 = function (host)
     local ui = host.ui;

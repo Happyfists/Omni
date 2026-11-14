@@ -44,7 +44,7 @@ local DARK = {
     page     = { 0.045, 0.060, 0.12, 1.0 },
     card     = { 0.065, 0.085, 0.165, 1.0 },
     edge     = { 0.90, 0.77, 0.42, 0.35 },
-    head     = { 0.90, 0.77, 0.42, 1.0 },
+    head     = { 0.90, 0.78, 0.40, 1.0 },
     rule     = { 0.90, 0.77, 0.42, 0.22 },
     text     = { 0.93, 0.93, 0.96, 1.0 },
     dim      = { 0.60, 0.64, 0.76, 1.0 },
@@ -529,13 +529,20 @@ end
 -- Enhancing page: Cure Please's "Enhancing" tab. Buffs on you (PL Buffs), area buffs
 -- (Group PL Buffs) and who in the party gets which buff (Cast Auto).
 -- ===================================================================================
+-- Songs show only what they give: "Mage's Ballad II (++Refresh)" -> "Refresh++" (display only).
+local okc_dn, common_dn = pcall(require, 'lib.core.common');
+local function disp(n)
+    if okc_dn and common_dn.display_name then return common_dn.display_name(n); end
+    return n;
+end
+
 local function tier_combo(sk, row, id, w)
     if #row.names < 2 then return; end
     local items = { 'Best I can cast' };
     local cur = 0;
     local pick = sk.buff_pick(row.key);
     for i, n in ipairs(row.names) do
-        items[#items + 1] = n;
+        items[#items + 1] = disp(n);
         if n == pick then cur = i; end
     end
     imgui.PushItemWidth(w);
@@ -650,7 +657,7 @@ local function name_combo(id, names, current, none_label, w)
     local items = { none_label };
     local cur = 0;
     for i, n in ipairs(names) do
-        items[#items + 1] = n;
+        items[#items + 1] = disp(n);
         if n == current then cur = i; end
     end
     imgui.PushItemWidth(w);
@@ -1517,7 +1524,7 @@ ui.render_popout = function (sk, opts)
     if imgui.Begin('Happy Healer##hh_popout', true, flags) then
         -- Title (drag the window by it) and a button that opens the full page.
         local th = ost and ost.theme and ost.theme() or nil;
-        imgui.TextColored((th and th.accent) or { 0.90, 0.77, 0.42, 1.0 }, 'Happy Healer');
+        imgui.TextColored((th and th.accent) or { 0.90, 0.78, 0.40, 1.0 }, 'Happy Healer');
         imgui.SameLine(W - 30);
         if imgui.SmallButton('^##hh_pop_open') and opts.open then opts.open(); end
         -- (button colour comes from omni's look)

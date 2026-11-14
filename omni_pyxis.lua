@@ -44,9 +44,9 @@ local TIP = {
     red  = 'Red chests: temporary items (and lights).',
 };
 local COL = {
-    blue = { 0.45, 0.70, 1.00, 1.0 },
+    blue = { 0.55, 0.75, 1.00, 1.0 },
     gold = { 1.00, 0.84, 0.35, 1.0 },
-    red  = { 1.00, 0.45, 0.45, 1.0 },
+    red  = { 1.00, 0.50, 0.50, 1.0 },
 };
 
 local set = { blue = true, gold = true, red = true, show = true,
@@ -261,7 +261,7 @@ local CONTENT = {
 };
 local LIGHTS = { 'Ruby', 'Amber', 'Azure', 'Pearl', 'Golden', 'Silvery', 'Ebon' };
 local LIGHT_COL = {
-    Ruby = { 1.0, 0.40, 0.40, 1 }, Amber = { 1.0, 0.72, 0.30, 1 }, Azure = { 0.45, 0.70, 1.0, 1 },
+    Ruby = { 1.00, 0.50, 0.50, 1.0 }, Amber = { 1.0, 0.72, 0.30, 1 }, Azure = { 0.55, 0.75, 1.00, 1.0 },
     Pearl = { 0.95, 0.95, 0.90, 1 }, Golden = { 1.0, 0.84, 0.35, 1 }, Silvery = { 0.80, 0.82, 0.88, 1 }, Ebon = { 0.65, 0.55, 0.80, 1 },
 };
 
@@ -953,7 +953,7 @@ local function cards(w)
             if sty.switch('##pyx_sw_' .. c, on, 'Open ' .. LABEL[c] .. ' chests') then clicked = true; end
             imgui.SameLine(0, 6);
             local kill = (not on) and set.auto and set.destroy;
-            imgui.TextColored(on and { 0.55, 0.92, 0.55, 1 } or (kill and { 1.0, 0.45, 0.45, 1 } or { 0.55, 0.57, 0.63, 1 }),
+            imgui.TextColored(on and { 0.55, 0.92, 0.55, 1 } or (kill and { 1.00, 0.50, 0.50, 1.0 } or { 0.55, 0.57, 0.63, 1 }),
                 on and 'Open' or (kill and 'Destroy' or 'Off'));
         elseif imgui.Button((on and 'On' or 'Off') .. '##pyx_btn_' .. c, { w, 0 }) then
             clicked = true;
@@ -1196,7 +1196,7 @@ py.aug_body = function ()
                 -- each augment, and the best it can roll on this item (gold = a top roll)
                 for ai, at in ipairs(it.augs) do
                     local mx = it.maxes and it.maxes[ai];
-                    imgui.TextColored(mx and mx.top and { 1.0, 0.84, 0.35, 1 } or { 0.55, 0.80, 1.0, 1 }, '    ' .. at);
+                    imgui.TextColored(mx and mx.top and { 1.0, 0.84, 0.35, 1 } or { 0.55, 0.75, 1.00, 1.0 }, '    ' .. at);
                     if mx and mx.max then
                         imgui.SameLine(0, 6);
                         imgui.TextColored({ 0.55, 0.57, 0.63, 1 }, mx.top and '(max!)' or ('(max ' .. mx.max .. ')'));
@@ -1262,7 +1262,7 @@ local function mini()
                 imgui.TextColored(COL[l.col] or { 0.7, 0.7, 0.7, 1 }, LABEL[l.col] or '?');
                 imgui.SameLine(0, 6);
             end
-            imgui.TextColored(l.red and { 1.0, 0.40, 0.40, 1 } or { 0.80, 0.82, 0.88, 1 }, l.text);
+            imgui.TextColored(l.red and { 1.00, 0.50, 0.50, 1.0 } or { 0.80, 0.82, 0.88, 1 }, l.text);
         end
     end
     -- Augmented items: drawn here only when Happy Chests has its own window (in the shared Abyssea

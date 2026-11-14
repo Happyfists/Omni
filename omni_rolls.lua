@@ -19,7 +19,7 @@ local imgui = require('imgui');
 
 local rolls = {};
 
-local st = { locked = false, turn = 1, rolls = {}, title = '', corp = true };   -- corp: say my Corsair rolls in /p
+local st = { locked = false, turn = 1, rolls = {}, title = '', corp = true, nextp = true };   -- nextp: Next also says who's up in /p   -- corp: say my Corsair rolls in /p
 
 local function base() return string.format('%s\\config\\addons\\', AshitaCore:GetInstallPath()); end
 local function path() return base() .. 'omni\\rollorder.txt'; end
@@ -32,6 +32,7 @@ local function save()
         f:write('locked ', st.locked and 1 or 0, '\n');
         f:write('title ', st.title, '\n');
         f:write('corp ', st.corp and 1 or 0, '\n');
+        f:write('nextp ', (st.nextp ~= false) and 1 or 0, '\n');
         for _, r in ipairs(st.rolls) do
             f:write(string.format('roll %s %d %d %d %d\n', r.name, r.value, r.t, r.order, r.rerolls or 0));
         end
@@ -49,6 +50,7 @@ local function read(file)
             v = line:match('^locked (%d)$'); if v then st.locked = (v == '1'); end
             v = line:match('^title (.*)$'); if v then st.title = v; end
             v = line:match('^corp (%d)$'); if v then st.corp = (v == '1'); end
+            v = line:match('^nextp (%d)$'); if v then st.nextp = (v == '1'); end
             local n, val, t, o, rr = line:match('^roll (%S+) (%d+) (%d+) (%d+) (%d+)$');
             if n then st.rolls[#st.rolls + 1] = { name = n, value = tonumber(val), t = tonumber(t), order = tonumber(o), rerolls = tonumber(rr) }; end
         end
@@ -89,22 +91,49 @@ local function say_turn()
     elseif list[st.turn] then msg(string.format('up now: %s (%d)', list[st.turn].name, list[st.turn].value));
     else msg('everyone has had a turn.'); end
 end
+-- Party lines go out one at a time, 1.5 s apart: two /p at once makes the game drop the
+-- second with "A command error occurred".
+local say_q, say_at = {}, 0;
+local function say(line)
+    line = (line or ''):gsub('^%s+', ''):gsub('%s+', ' ');
+    if line ~= '' then say_q[#say_q + 1] = line; end
+end
+ashita.events.register('d3d_present', 'omni_rolls_say', function ()
+    if #say_q == 0 or os.clock() < say_at then return; end
+    pcall(function () AshitaCore:GetChatManager():QueueCommand(1, '/p ' .. table.remove(say_q, 1)); end);
+    say_at = os.clock() + 1.5;
+end);
+
+local function head() return (st.title ~= '' and (st.title .. ': ') or ''); end
+-- "Up now: Wei (2 of 7) - then Chen, Hashtag"
+local function up_line(list)
+    local cur = list[st.turn];
+    if cur == nil then return head() .. 'Everyone has had their turn.'; end
+    local after = {};
+    for i = st.turn + 1, math.min(#list, st.turn + 3) do after[#after + 1] = list[i].name; end
+    return string.format('%sUp now: %s (%d of %d)%s', head(), cur.name, st.turn, #list,
+        (#after > 0) and (' - then ' .. table.concat(after, ', ')) or ' - last one');
+end
 local function next_turn()
     if #st.rolls == 0 then return; end
     st.turn = math.min(st.turn + 1, #st.rolls + 1);
     save();
     say_turn();
+    if st.nextp ~= false then say(up_line(sorted())); end
 end
+-- Post: who's up, then everyone still to go (people who've had their turn are left out).
 local function post()
     local list = sorted();
     if #list == 0 then msg('no rolls yet.'); return; end
-    local lines, cur = {}, (st.title ~= '' and (st.title .. ' - ') or '') .. 'Roll order:';
-    for i, r in ipairs(list) do
-        local piece = string.format(' %d.%s(%d)', i, r.name, r.value);
-        if #cur + #piece > 95 then lines[#lines + 1] = cur; cur = ' ' .. piece; else cur = cur .. piece; end
+    if list[st.turn] == nil then say(head() .. 'Everyone has had their turn.'); return; end
+    local lines = { string.format('%sPop order - UP NOW: %s (%d)', head(), list[st.turn].name, list[st.turn].value) };
+    local cur = 'Then:';
+    for i = st.turn + 1, #list do
+        local piece = string.format(' %d.%s', i, list[i].name);
+        if #cur + #piece > 90 then lines[#lines + 1] = cur; cur = 'Then:' .. piece; else cur = cur .. piece; end
     end
-    lines[#lines + 1] = cur;
-    for _, l in ipairs(lines) do AshitaCore:GetChatManager():QueueCommand(1, '/p ' .. l); end
+    if cur ~= 'Then:' then lines[#lines + 1] = cur; end
+    for _, l in ipairs(lines) do say(l); end
 end
 
 -- Only the game's own /random line ("Dice roll! Name rolls 532!"), not someone typing it in chat.
@@ -293,7 +322,7 @@ end);
 -- Options > Roll Tracker
 ----------------------------------------------------------------------------------------------------
 local GOLD, DIM, TEXT = { 0.90, 0.78, 0.40, 1.0 }, { 0.62, 0.66, 0.80, 1.0 }, { 0.92, 0.92, 0.95, 1.0 };
-local GREEN, RED, FAINT = { 0.45, 0.88, 0.45, 1.0 }, { 1.0, 0.55, 0.45, 1.0 }, { 0.42, 0.44, 0.52, 1.0 };
+local GREEN, RED, FAINT = { 0.50, 0.88, 0.50, 1.0 }, { 1.0, 0.55, 0.45, 1.0 }, { 0.42, 0.44, 0.52, 1.0 };
 local title_buf = { '' };
 
 rolls.render = function ()
@@ -366,7 +395,7 @@ rolls.render = function ()
     if imgui.IsItemHovered() then imgui.SetTooltip('The NM is done - move to the next person.'); end
     imgui.SameLine(0, 6);
     if imgui.Button('Post /p##omni_rt_post', { bw, 0 }) then post(); end
-    if imgui.IsItemHovered() then imgui.SetTooltip('Post the order to party chat.'); end
+    if imgui.IsItemHovered() then imgui.SetTooltip('Post who is up and everyone still to go to party chat.\n(People who have had their turn are left out.)'); end
     imgui.SameLine(0, 6);
     if imgui.Button((st.locked and 'Unlock' or 'Lock') .. '##omni_rt_lock', { bw, 0 }) then st.locked = not st.locked; save(); end
     if imgui.IsItemHovered() then imgui.SetTooltip('Lock: stop taking new rolls (late /random is ignored).'); end
@@ -376,6 +405,9 @@ rolls.render = function ()
     imgui.TextColored(DIM, '/rolls next  -  /rolls post  -  /rolls new  -  /rolls lock');
 
     imgui.Separator();
+    local nv = { st.nextp ~= false };
+    if imgui.Checkbox('Next also says who is up in party##omni_rt_nextp', nv) then st.nextp = nv[1]; save(); end
+    if imgui.IsItemHovered() then imgui.SetTooltip('Pressing Next posts e.g.\n  Up now: Wei (2 of 7) - then Chen, Hashtag, Mozzah'); end
     local cv = { st.corp };
     if imgui.Checkbox('Say my Corsair rolls in party (roll, lucky / unlucky)##omni_rt_cor', cv) then st.corp = cv[1]; save(); end
     if imgui.IsItemHovered() then imgui.SetTooltip('Every roll and Double-Up you do goes to /p:\n  Chaos Roll: rolled 3 - Lucky 4 / Unlucky 8 (Attack)\n  Chaos Roll Double-Up: rolled 1, total 4 LUCKY! - ...\n/rolls cor on|off'); end

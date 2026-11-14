@@ -484,7 +484,7 @@ ui.itemRow = function(renderIconFn, getItemResFn, item, index, tooltipFn)
 
     if isEx then
         local exBg = ui.color('exBg') or { 0.10, 0.35, 0.15, 0.80 };
-        local exFg = ui.color('ex') or { 0.40, 0.90, 0.40, 1.0 };
+        local exFg = ui.color('ex') or { 0.50, 0.88, 0.50, 1.0 };
         local tw = imgui.CalcTextSize('Ex') + 8;
         rightX = rightX - tw;
         dl:AddRectFilled({ rightX, wy + 6 }, { rightX + tw, wy + 22 }, imgui.GetColorU32(exBg));

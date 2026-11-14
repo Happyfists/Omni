@@ -1784,9 +1784,9 @@ function ui_components.group_dropdown(ctx, job_def, target_group, dropdown_width
         if selected.cost and selected.cost > 0 then
             local resource_label = (selected.resource_type or job_def.resource_type) == 'tp' and 'TP' or 'MP'
             local display_cost = common.effective_ability_cost(selected, ctx.settings, job_def)
-            current_display = selected.name .. ' (' .. display_cost .. ' ' .. resource_label .. ')'
+            current_display = common.display_name(selected.name) .. ' (' .. display_cost .. ' ' .. resource_label .. ')'
         else
-            current_display = selected.name
+            current_display = common.display_name(selected.name)
         end
     else
         current_display = 'None'
@@ -1819,13 +1819,13 @@ function ui_components.group_dropdown(ctx, job_def, target_group, dropdown_width
             if ability.cost and ability.cost > 0 then
                 local resource_label = (ability.resource_type or job_def.resource_type) == 'tp' and 'TP' or 'MP'
                 local display_cost = common.effective_ability_cost(ability, ctx.settings, job_def)
-                display_text = ability.name .. ' (' .. display_cost .. ' ' .. resource_label .. ')'
+                display_text = common.display_name(ability.name) .. ' (' .. display_cost .. ' ' .. resource_label .. ')'
             else
-                display_text = ability.name
+                display_text = common.display_name(ability.name)
             end
             local is_selected = (selected and selected.name == ability.name)
             
-            if imgui.Selectable(display_text, is_selected) then
+            if imgui.Selectable(display_text .. '##' .. ability.name, is_selected) then
                 ctx.settings[setting_key] = ability.name
                 
                 if ctx.save_callback then
@@ -2863,7 +2863,7 @@ end
 -- Pair with end_opaque_combo (only when this returns true, per BeginCombo rules).
 function ui_components.begin_opaque_combo(label, preview)
     arm_opaque_bg(label)
-    local open = imgui.BeginCombo(label, preview)
+    local open = imgui.BeginCombo(label, common.display_name(preview))
     track_opaque_open(label, open)
     return open
 end

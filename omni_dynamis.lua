@@ -176,7 +176,7 @@ dyn.draw_bar = function (c)
     imgui.TextColored(c.label, 'Time');
     same(6);
     local secs = dyn.seconds_left() or 0;
-    local tcol = (secs <= 300) and { 1.0, 0.40, 0.40, 1.0 } or ((secs <= 900) and { 1.0, 0.80, 0.30, 1.0 } or { 0.50, 0.92, 0.50, 1.0 });
+    local tcol = (secs <= 300) and { 1.00, 0.50, 0.50, 1.0 } or ((secs <= 900) and { 1.0, 0.80, 0.30, 1.0 } or { 0.50, 0.88, 0.50, 1.0 });
     local h, m, sec = math.floor(secs / 3600), math.floor(secs / 60) % 60, secs % 60;
     imgui.TextColored(tcol, (h > 0) and string.format('%d:%02d:%02d', h, m, sec) or string.format('%d:%02d', m, sec));
     if imgui.IsItemHovered() then

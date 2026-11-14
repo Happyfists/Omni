@@ -273,7 +273,7 @@ local function renderItemTooltip(itemId, augStrings, location)
         imgui.SameLine();
     end
     if bit.band(flags, 0x4000) ~= 0 then
-        imgui.TextColored({ 0.40, 0.90, 0.40, 1.00 }, 'Ex');
+        imgui.TextColored({ 0.50, 0.88, 0.50, 1.0 }, 'Ex');
     end
 
     if res.Description and res.Description[1] and res.Description[1] ~= '' then

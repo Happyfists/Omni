@@ -115,7 +115,7 @@ tr.draw = function (x, y, w, c, top)
         imgui.SetWindowFontScale(0.85);
         if top > 0 then imgui.SetCursorPosY(imgui.GetCursorPosY() + top); end
         local dim, text = c.dim or { 0.6, 0.6, 0.65, 1 }, c.text or { 1, 1, 1, 1 };
-        local GREEN, AMBER = { 0.50, 0.92, 0.50, 1.0 }, { 1.0, 0.75, 0.35, 1.0 };
+        local GREEN, AMBER = { 0.50, 0.88, 0.50, 1.0 }, { 1.0, 0.75, 0.35, 1.0 };
         -- What goes on the line: "Zone:  Name n/N   Name n/N"
         local items = {};
         for _, v in ipairs(mon._target_monsters) do

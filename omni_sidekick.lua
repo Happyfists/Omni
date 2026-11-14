@@ -173,20 +173,33 @@ local function load_single_job_definition(job_id)
         job_module._omni_all_ja = true
         local ok_all, all = pcall(require, 'lib.jobs.all_abilities')
         if ok_all and type(all) == 'table' and all[job_id] then
+            -- Compare names without punctuation ("Addendum White" is "Addendum: White"), and send each
+            -- ability under the game's own spelling, or the game answers "A command error occurred".
+            local function key(n) return (n or ''):lower():gsub('[^%w]', '') end
+            local game = {}
+            pcall(function ()
+                local res = AshitaCore:GetResourceManager()
+                for id = 512, 1535 do
+                    local r = res:GetAbilityById(id)
+                    local n = r and r.Name and r.Name[1]
+                    if n ~= nil and n ~= '' and game[key(n)] == nil then game[key(n)] = n end
+                end
+            end)
             local have = {}
             for _, list in pairs(job_module.abilities or {}) do
                 if type(list) == 'table' then
-                    for _, a in ipairs(list) do if a.name then have[a.name:lower()] = true end end
+                    for _, a in ipairs(list) do if a.name then have[key(a.name)] = true end end
                 end
             end
             job_module.abilities = job_module.abilities or {}
             job_module.abilities.ja = job_module.abilities.ja or {}
             for _, e in ipairs(all[job_id]) do
-                if not have[e.name:lower()] then
+                if not have[key(e.name)] then
                     local tgt = (e.target == 'enemy') and '<t>' or '<me>'
+                    local real = game[key(e.name)] or e.name
                     table.insert(job_module.abilities.ja, {
-                        name = e.name, level = e.level, cost = 0, recast_id = e.recast_id,
-                        command = string.format('/ja "%s" %s', e.name, tgt),
+                        name = real, level = e.level, cost = 0, recast_id = e.recast_id,
+                        command = string.format('/ja "%s" %s', real, tgt),
                         target = e.target, default_off = true,
                         main_job_only = (e.sp or e.merit) or nil,   -- support jobs get no 2-hours or merit abilities
                         requires_pet = (e.target == 'pet') or nil,
@@ -1606,8 +1619,14 @@ return {
                 local key = grouped and a.group or a.name;
                 local row = by_key[key];
                 if row == nil then
+                    -- Song rows are named for what they give, not the song family.
+                    local SONG_LABELS = { ballad = 'Refresh', march = 'Haste', minuet = 'Attack', madrigal = 'Accuracy',
+                        prelude = 'Ranged Acc.', mambo = 'Evasion', minne = 'Defense', paeon = 'Regen', etude = 'Stat Boost',
+                        carol = 'Element Res.', mazurka = 'Move Speed', resistance = 'Status Res.' };
+                    local okc, cm = pcall(require, 'lib.core.common');
+                    local shown = (okc and cm.display_name) and cm.display_name(a.name) or a.name;
                     row = { key = key, group = grouped, target = type(a.command) == 'function', names = {},
-                        label = grouped and (a.group:sub(1, 1):upper() .. a.group:sub(2)) or a.name };
+                        label = grouped and (SONG_LABELS[a.group] or (a.group:sub(1, 1):upper() .. a.group:sub(2))) or shown };
                     by_key[key] = row;
                     rows[#rows + 1] = row;
                 end

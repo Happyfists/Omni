@@ -17,8 +17,8 @@ local sell = {};
 local SELL_GAP = 1.0;      -- pause between one item finishing and the next starting
 local ITEM_TIMEOUT = 20;   -- give up on an item that has not gone after this many seconds
 local GOLD   = { 0.79, 0.69, 0.42, 1.0 };
-local GREEN  = { 0.45, 0.90, 0.45, 1.0 };
-local RED    = { 1.00, 0.45, 0.45, 1.0 };
+local GREEN  = { 0.50, 0.88, 0.50, 1.0 };
+local RED    = { 1.00, 0.50, 0.50, 1.0 };
 local YELLOW = { 1.00, 0.85, 0.35, 1.0 };
 
 local saved = settings.load(T{ list = T{} }, 'omni_sell');

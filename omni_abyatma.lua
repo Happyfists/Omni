@@ -27,7 +27,7 @@ local EXPANSION = { Konschtat = 'Vision', ['La Theine'] = 'Vision', Tahrongi = '
 
 local C = {
     gold = { 0.90, 0.78, 0.40, 1.0 }, text = { 0.92, 0.92, 0.95, 1.0 }, dim = { 0.62, 0.66, 0.80, 1.0 },
-    faint = { 0.42, 0.44, 0.52, 1.0 }, green = { 0.45, 0.88, 0.45, 1.0 }, fx = { 0.70, 0.82, 1.00, 1.0 },
+    faint = { 0.42, 0.44, 0.52, 1.0 }, green = { 0.50, 0.88, 0.50, 1.0 }, fx = { 0.70, 0.82, 1.00, 1.0 },
 };
 
 local st = { view = 'atma', zone = nil, last_game_zone = -1, search = { '' } };

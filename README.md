@@ -4,13 +4,23 @@ All-in-one Ashita v4 addon for CatsEyeXI, by Happyfists. Approved for use on Cat
 
 A small bar along the top of the screen (job, XP/LP, wallet, buffs, target with TH and distance; in Abyssea, Dynamis and Nyzul Isle it shows their time, lights, time extensions or floor and objective instead) and a drop-down panel of tabs, grouped by subject:
 
-- **Top row (places and content):** Abyssea, Sea, Sky, HNMs (Happy Pops + Roll Tracker), Ventures, Dailies, Codex, Quests
-- **Second row (you and tools):** Happy Healer, Character, Gear (Ultimates, Automaton, Blue Magic), Currency (with Sparks), Items, Combat (Damage + TH), Multisend, Happy Translate, Options
+- **Top row (places and content):** Abyssea, Sea, Sky, HNMs (Happy Pops, Abyssea NMs, Pop List), Ventures, Dailies, Codex, Quests
+- **Second row (you and tools):** Character, Gear (Ultimates, Automaton, Blue Magic), Currency (with Sparks), Items, Combat (Damage + TH), Tools (Multisend, Happy Healer, Happy Translate, Happy Talks, JA Chat, Roll Tracker), Options. Happy Healer and Happy Translate have On/Off switches at the right of the top row.
 
 It also draws spell animations on the field (fireballs, lightning, rocks, cures...) and party job pictures, with each member's TP beside them (green from 1000) - its own movable column, with size and row spacing per party in Options > General > Party job pictures.
 
 ## Newest pages
 
+- **Tools tab** - Multisend, Happy Healer, Happy Translate, Happy Talks, JA Chat and Roll Tracker together in one tab; Options now holds only the settings.
+- **Happy Loot (Items > Loot)** - lot or pass drops by profile ("Dynamis - Jeuno", "Ores & ingots"...), with every drop remembered per zone so you can add it to a list in one click. `/loot`, `/loot on|off`, `/loot profile <name>`.
+- **Ventures > Venture Battles** - every Venture boss with where it pops, its drops and the upgrade route for each piece, and how many of the materials you already hold.
+- **Happy Pops** - every NM in one place (HNMs, Abyssea NMs, Pop List), each character keeps its own warning settings, a ToD history per HNM (`/pops history <hnm>`), and windows timed to the second (CatsEyeXI's extra 16 s).
+- **Bard songs by what they do** - Happy Healer's song lists show the effect (Refresh++, Haste++, ATK++++) and the rows are named Refresh, Haste, Attack, Accuracy... instead of Ballad, March, Minuet.
+- **Roll Tracker** - shows who's up now and who's next, and says the next person in /p.
+- **Damage report** - the /p report lines its numbers up in columns, name last.
+- **Multisend** - a "copy everything" tick (your other character does what you do 0.3 s later) and assist-first targeting so it never hits an unclaimed mob.
+- **Gear** - a Rescan button (storages + Vision) at the top of AF/Relic; material counts no longer double up.
+- **Easier on the eyes** - one calmer set of reds, greens and golds across every page.
 - **Gear > Automaton** - Puppetmaster click-to-equip: click attachments into a plan, see capacity per element, pick a ready build (Melee, Tank, Ranged, Nuker, Healer, Enfeebler) fitted to what you've learned, see what each maneuver does for your attachments, then Equip (Deactivate, set, Activate). Five save slots.
 - **Gear > Blue Magic** - Blue Mage click-to-set spells with set points and traits, ready sets (Cleave, Magic Burst, Physical TP, Tank, Healer, Debuff / Sleep, Solo), "Auto: max a trait", and your blusets files. Only the changes are sent.
 - **Happy Healer** - Sneaky's Sidekick, just easier to use. Back in omni as a tab with an On/Off switch (off: not loaded). Program Options has auto rest (/heal below an MP % you pick, stand up at another) and, on SCH or /SCH, Sublimation with a slider for when to use the stored MP. Corsair: every roll and Double-Up shows what the total gives, with the lucky number in green and the unlucky in red; Double-Up is a tick on the Job Abilities page (untick it to Double-Up yourself).

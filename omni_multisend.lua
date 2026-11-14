@@ -20,11 +20,17 @@ local defaults = T{
     copy_ws = false,        -- copy weapon skills
     copy_ja = false,        -- copy job abilities
     delay = 0,              -- seconds to wait before the alt copies you
-    enemy_target = 'bt',    -- 'bt' or 't'
+    enemy_target = 'assist', -- 'assist' (/assist you, then <t>), 'bt' or 't'
+    assist_set = false,     -- moved old settings over to 'assist' once
+    copy_all = false,       -- copy everything: spells, WS, JA, engage/disengage, ranged, items
+    all_delay = 0.3,        -- seconds behind you when copying everything
 };
 local s = settings.load(defaults, 'omni_ms');
 settings.register('omni_ms', 'omni_ms_update', function (n) if (n ~= nil) then s = n; end end);
 local function save() pcall(function () settings.save('omni_ms'); end); end
+-- <bt> only works once your party has claimed the mob, and the copy goes out before your spell lands,
+-- so opening nukes found nothing. Assist is the new default; switch it on once for old settings.
+if (not s.assist_set) then s.enemy_target = 'assist'; s.assist_set = true; save(); end
 
 local followme = false;   -- what we last told Multisend
 local queue = {};         -- { at = clock, cmd = '...' }
@@ -32,8 +38,8 @@ local last_sent = nil;
 local free_cmd = { '' };
 
 local GOLD  = { 0.79, 0.69, 0.42, 1.0 };
-local GREEN = { 0.45, 0.85, 0.45, 1.0 };
-local DIM   = { 0.66, 0.68, 0.76, 1.0 };
+local GREEN = { 0.50, 0.88, 0.50, 1.0 };
+local DIM   = { 0.62, 0.66, 0.80, 1.0 };
 
 local function run(cmd) pcall(function () AshitaCore:GetChatManager():QueueCommand(1, cmd); end); end
 
@@ -58,14 +64,41 @@ local function target_for(index)
     local my_index = nil;
     pcall(function () my_index = AshitaCore:GetMemoryManager():GetParty():GetMemberTargetIndex(0); end);
     if (index == 0 or index == my_index) then
+        -- Copy everything mirrors you: what you do to yourself, they do to themselves.
+        if (s.copy_all) then return '<me>', true; end
         return my_name() or '<me>', true;
     end
     local ent = GetEntity(index);
     if (ent ~= nil and ent.SpawnFlags ~= nil and bit.band(ent.SpawnFlags, 0x0001) == 0x0001 and ent.Name ~= nil) then
         return ent.Name, false;        -- another player: by name
     end
-    return (s.enemy_target == 't') and '<t>' or '<bt>', false;
+    return (s.enemy_target == 'bt') and '<bt>' or '<t>', false, true;
 end
+
+-- Send to the alt; on an enemy in Assist mode, /assist you first and cast a moment later.
+local ASSIST_GAP = 0.8;
+local assisted = { index = nil, at = -100 };   -- the mob they last /assisted you onto
+local function wait()
+    if (s.copy_all) then return tonumber(s.all_delay) or 0.3; end
+    return tonumber(s.delay) or 0;
+end
+-- index: the enemy's target index, so a second spell on the same mob skips the /assist.
+local function send(cmd, enemy, index)
+    local at = os.clock() + wait();
+    if (enemy and s.enemy_target == 'assist') then
+        local me = my_name();
+        local same = (index ~= nil and index ~= 0 and assisted.index == index and os.clock() - assisted.at < 300);
+        if (me ~= nil and me ~= '' and not same) then
+            queue[#queue + 1] = { at = at, cmd = to_alts('/assist ' .. me) };
+            at = at + ASSIST_GAP;
+            assisted.index, assisted.at = index, os.clock();
+        elseif (same) then
+            assisted.at = os.clock();
+        end
+    end
+    queue[#queue + 1] = { at = at, cmd = to_alts(cmd) };
+end
+local function on(key) return s.copy_all or s[key]; end
 
 local function ability_name(id)
     local res = AshitaCore:GetResourceManager();
@@ -80,41 +113,89 @@ local function on_action_out(data)
     local category = u16(data, 0x0A);
     local param = u16(data, 0x0C);
     local res = AshitaCore:GetResourceManager();
-    local cmd = nil;
+    local cmd, enemy = nil, false;
 
-    if (category == 0x03 and s.simcast) then
+    if (category == 0x03 and on('simcast')) then
         local sp = res:GetSpellById(param);
         local name = sp and sp.Name and sp.Name[1];
         if (name ~= nil and name ~= '') then
-            local tgt, is_me = target_for(index);
+            local tgt, is_me, is_enemy = target_for(index);
             -- A spell that only works on the caster (Stoneskin, Blink...) goes on the alt itself.
             local self_only = sp.Targets ~= nil and sp.Targets == 1;
-            if (self_only) then tgt = '<me>'; end
+            if (self_only) then tgt = '<me>'; is_enemy = false; end
+            enemy = is_enemy == true;
             cmd = string.format('/ma "%s" %s', name, tgt);
         end
-    elseif (category == 0x07 and s.copy_ws) then
+    elseif (category == 0x07 and on('copy_ws')) then
         local r = res:GetAbilityById(param);
         local name = r and r.Name and r.Name[1];
         if (name ~= nil and name ~= '') then
-            cmd = string.format('/ws "%s" %s', name, (s.enemy_target == 't') and '<t>' or '<bt>');
+            cmd = string.format('/ws "%s" %s', name, (s.enemy_target == 'bt') and '<bt>' or '<t>');
+            enemy = true;
         end
-    elseif (category == 0x09 and s.copy_ja) then
+    elseif (category == 0x09 and on('copy_ja')) then
         local name = ability_name(param);
         if (name ~= nil and name ~= '') then
-            local tgt, is_me = target_for(index);
+            local tgt, is_me, is_enemy = target_for(index);
             if (is_me) then tgt = '<me>'; end
+            enemy = is_enemy == true;
             cmd = string.format('/ja "%s" %s', name, tgt);
         end
+    elseif (s.copy_all and category == 0x02) then
+        cmd, enemy = '/attack <t>', true;              -- engage
+    elseif (s.copy_all and category == 0x04) then
+        cmd = '/attack off';                           -- disengage
+        assisted.index = nil;
+    elseif (s.copy_all and category == 0x10) then
+        cmd, enemy = '/ra <t>', true;                  -- ranged attack
     end
 
-    if (cmd ~= nil) then
-        queue[#queue + 1] = { at = os.clock() + (tonumber(s.delay) or 0), cmd = to_alts(cmd) };
+    if (cmd ~= nil) then send(cmd, enemy, index); end
+end
+
+-- Using an item (0x037): the same item, on the same kind of target.
+local function on_item_out(data)
+    if (#data < 0x11) then return; end
+    local index = u16(data, 0x0C);
+    local slot = data:byte(0x0E + 1) or 0;
+    local bag = data:byte(0x10 + 1) or 0;
+    local inv = AshitaCore:GetMemoryManager():GetInventory();
+    local it = inv:GetContainerItem(bag, slot);
+    if (it == nil or it.Id == nil or it.Id == 0 or it.Id == 65535) then return; end
+    local r = AshitaCore:GetResourceManager():GetItemById(it.Id);
+    local name = r and r.Name and r.Name[1];
+    if (name == nil or name == '') then return; end
+    local tgt, is_me, is_enemy = target_for(index);
+    if (is_me) then tgt = '<me>'; end
+    send(string.format('/item "%s" %s', name, tgt), is_enemy == true, index);
+end
+
+-- /heal (0x0E8, byte 0x04: 1 = start resting, 2 = stop, anything else = toggle). Sent as
+-- an explicit on/off so the two characters can't end up out of step.
+local function on_heal_out(data)
+    local mode = data:byte(0x04 + 1) or 0;
+    local on_now;
+    if (mode == 1) then on_now = true;
+    elseif (mode == 2) then on_now = false;
+    else
+        local resting = false;
+        pcall(function ()
+            local idx = AshitaCore:GetMemoryManager():GetParty():GetMemberTargetIndex(0);
+            local ent = GetEntity(idx);
+            resting = (ent ~= nil and ent.Status == 33);
+        end);
+        on_now = not resting;
     end
+    send(on_now and '/heal on' or '/heal off', false, nil);
 end
 
 ashita.events.register('packet_out', 'omni_ms_packet_out', function (e)
-    if (e.id == 0x01A and (s.simcast or s.copy_ws or s.copy_ja)) then
+    if (e.id == 0x01A and (s.copy_all or s.simcast or s.copy_ws or s.copy_ja)) then
         pcall(on_action_out, e.data);
+    elseif (e.id == 0x037 and s.copy_all) then
+        pcall(on_item_out, e.data);
+    elseif (e.id == 0x0E8 and s.copy_all) then
+        pcall(on_heal_out, e.data);
     end
 end);
 
@@ -187,6 +268,24 @@ ms.render = function ()
 
     -- Sim-cast.
     section('Sim-cast');
+    label('Copy everything');
+    check('##ms_all', 'copy_all', 'Spells, weapon skills, job abilities, engage / disengage, ranged attacks, items and /heal:\n'
+        .. 'your other character does whatever you do, a moment after you.');
+    imgui.SameLine(0, 10);
+    if (s.copy_all) then
+        local ad = { tonumber(s.all_delay) or 0.3 };
+        imgui.PushItemWidth(60);
+        if (imgui.InputFloat('##ms_alld', ad, 0, 0, '%.1f')) then
+            s.all_delay = math.max(0, math.min(5, ad[1]));
+            save();
+        end
+        imgui.PopItemWidth();
+        imgui.SameLine(0, 6);
+        imgui.TextColored(GREEN, 'seconds after you - everything you do, they do');
+    else
+        imgui.TextColored(DIM, 'Off - only the ticks below are copied');
+    end
+
     label('Copy my');
     check('Spells##ms_sc', 'simcast', 'Every spell you cast, your other character casts too.');
     imgui.SameLine(0, 20);
@@ -195,13 +294,18 @@ ms.render = function ()
     check('Job abilities##ms_ja', 'copy_ja');
 
     label('Enemy target');
-    local et = { (s.enemy_target == 't') and 1 or 0 };
+    local MODES = { 'assist', 'bt', 't' };
+    local et = { (s.enemy_target == 'bt') and 1 or (s.enemy_target == 't') and 2 or 0 };
     imgui.PushItemWidth(240);
-    if (imgui.Combo('##ms_et', et, 'Battle target (<bt>)\0Their own target (<t>)\0')) then
-        s.enemy_target = (et[1] == 1) and 't' or 'bt';
+    if (imgui.Combo('##ms_et', et, 'Assist me, then <t>\0Battle target (<bt>)\0Their own target (<t>)\0')) then
+        s.enemy_target = MODES[et[1] + 1];
         save();
     end
     imgui.PopItemWidth();
+    if (imgui.IsItemHovered()) then
+        imgui.SetTooltip('Assist me: they /assist you, then cast on <t> a second later - works on a fresh mob.\n'
+            .. 'Battle target: only finds a mob your party has already claimed.');
+    end
 
     label('Wait');
     local d = { tonumber(s.delay) or 0 };
@@ -214,7 +318,7 @@ ms.render = function ()
     imgui.SameLine(0, 8);
     imgui.SetCursorPosY(imgui.GetCursorPosY() + 3);
     imgui.TextColored(DIM, 'seconds before they copy you');
-    note('Enemies: their battle target. You or a party member: that person by name. Self-only spells: themselves.');
+    note((s.enemy_target == 'assist') and 'Enemies: they /assist you, then cast on <t> 1 s later. You or a party member: that person by name. Self-only spells: themselves.' or 'Enemies: their ' .. ((s.enemy_target == 'bt') and 'battle target' or 'own target') .. '. You or a party member: that person by name. Self-only spells: themselves.');
     if (last_sent ~= nil) then
         imgui.SetCursorPosX(LABEL_W);
         imgui.TextColored(GREEN, 'Last sent: ' .. last_sent);

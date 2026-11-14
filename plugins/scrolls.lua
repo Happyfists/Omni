@@ -611,12 +611,12 @@ local function renderScrollList()
             local dl = imgui.GetWindowDrawList();
             local wx, wy = imgui.GetWindowPos();
             local nameColor = (has or (cat.learnedOnly and learned))
-                and (ui.color('green') or { 0.4, 0.9, 0.4, 1.0 })
+                and (ui.color('green') or { 0.50, 0.88, 0.50, 1.0 })
                 or  (ui.color('dimmed') or { 0.4, 0.4, 0.4, 1.0 });
             local rollName = DIE_ROLL[spellName];
             if rollName then
                 -- Dice: the roll it teaches, then the die in grey.
-                local rollColor = learned and { 0.45, 0.88, 0.45, 1.0 } or nameColor;
+                local rollColor = learned and { 0.50, 0.88, 0.50, 1.0 } or nameColor;
                 dl:AddText({ wx + 30, wy + 6 }, imgui.GetColorU32(rollColor), rollName);
                 dl:AddText({ wx + 30 + imgui.CalcTextSize(rollName) + 8, wy + 6 }, imgui.GetColorU32({ 0.55, 0.57, 0.66, 1.0 }), '(' .. spellName .. ')');
             else

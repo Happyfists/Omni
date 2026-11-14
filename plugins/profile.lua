@@ -288,6 +288,8 @@ local AF_DATA = nil;
 local openJob = nil;          -- job id whose armour is showing
 local afHeights = {};         -- job id -> height of its armour box
 local bagCounts, bagExtra, bagAt = {}, {}, -100;
+local bagWhere = {};   -- [id][bag] = count, for the hover split
+local BAG_NAMES = { [0] = 'Inventory', 'Mog Safe', 'Storage', 'Temporary', 'Mog Locker', 'Mog Satchel', 'Mog Sack', 'Mog Case', 'Wardrobe', 'Mog Safe 2', 'Wardrobe 2', 'Wardrobe 3', 'Wardrobe 4', 'Wardrobe 5', 'Wardrobe 6', 'Wardrobe 7', 'Wardrobe 8' };
 
 local AUG_RULES = nil;
 local function afData()
@@ -339,15 +341,18 @@ end
 local function scanBags()
     if os.clock() - bagAt < 2 then return; end
     bagAt = os.clock();
-    local c, x = {}, {};
+    local c, x, w = {}, {}, {};
     pcall(function ()
         local inv = AshitaCore:GetMemoryManager():GetInventory();
         for bag = 0, 16 do
-            local max = inv:GetContainerCountMax(bag) or 0;
+            -- Skip the temporary bag (Limbus/Dynamis items vanish when you zone).
+            local max = (bag ~= 3) and (inv:GetContainerCountMax(bag) or 0) or 0;
             for slot = 1, max do
                 local e = inv:GetContainerItem(bag, slot);
-                if e ~= nil and e.Id ~= nil and e.Id ~= 0 and e.Id ~= 65535 then
-                    c[e.Id] = (c[e.Id] or 0) + (e.Count or 1);
+                if e ~= nil and e.Id ~= nil and e.Id ~= 0 and e.Id ~= 65535 and (e.Count or 0) > 0 then
+                    c[e.Id] = (c[e.Id] or 0) + e.Count;
+                    w[e.Id] = w[e.Id] or {};
+                    w[e.Id][bag] = (w[e.Id][bag] or 0) + e.Count;
                     if e.Extra ~= nil then
                         x[e.Id] = x[e.Id] or {};
                         x[e.Id][#x[e.Id] + 1] = e.Extra;
@@ -356,7 +361,7 @@ local function scanBags()
             end
         end
     end);
-    bagCounts, bagExtra = c, x;
+    bagCounts, bagExtra, bagWhere = c, x, w;
 end
 
 -- Highest tier / rank among the copies you own of an item.
@@ -497,7 +502,15 @@ local function onVisionText(msg)
         if low:find('sea', 1, true) or low:find('organ', 1, true) then visionList = 'sea';
         elseif low:find('limbus', 1, true) or low:find('af+1', 1, true) or low:find('apollyon', 1, true) or low:find('material', 1, true) then visionList = 'limbus';
         else visionList = nil; end
-        visionFresh = (visionList ~= nil);
+        visionFresh = false;
+        if visionList then
+            for old in pairs(vision.counts) do
+                if visionKind(old) == visionList then vision.counts[old] = nil; end
+            end
+            vision.at = os.time();
+            vision[visionList] = vision.at;
+            visionSave();
+        end
         bagAt = -100;           -- and look through your bags / Mog House again straight away
         return;
     end
@@ -535,7 +548,8 @@ end);
 -- Ask Vision for your stored counts (the same as typing !vision).
 local visionQueue = {};
 local function visionAsk()
-    bagAt = -100;   -- rescan bags and Mog House too
+    bagAt = -100;
+    scanBags();   -- rescan bags and Mog House too
     visionQueue = { { at = os.clock(), cmd = '/say !vision sea organs' }, { at = os.clock() + 3, cmd = '/say !vision limbus mats' } };
 end
 ashita.events.register('d3d_present', 'omni_profile_vision_ask', function ()
@@ -563,9 +577,9 @@ local function itemName(id)
     return n;
 end
 
-local GREEN_T = { 0.45, 0.88, 0.45, 1.0 };
-local RED_T   = { 0.95, 0.45, 0.45, 1.0 };
-local GOLD_T  = { 0.90, 0.80, 0.30, 1.0 };
+local GREEN_T = { 0.50, 0.88, 0.50, 1.0 };
+local RED_T   = { 1.00, 0.50, 0.50, 1.0 };
+local GOLD_T  = { 0.90, 0.78, 0.40, 1.0 };
 local DIM_T   = { 0.62, 0.66, 0.80, 1.0 };
 local BLUE_T  = { 0.55, 0.75, 1.00, 1.0 };
 
@@ -678,7 +692,14 @@ local function capList(x0, width, rows)
             imgui.TextColored(RED_T, string.format('%d / %d', math.min(r.have, 99999), r.need));
         end
         if r.stored ~= nil and imgui.IsItemHovered() then
-            imgui.SetTooltip(string.format('%d in your bags\n%d stored with Vision', r.bag or 0, r.stored));
+            local t = {};
+            for bag = 0, 16 do
+                local n = r.where and r.where[bag];
+                if n then t[#t + 1] = string.format('%d in %s', n, BAG_NAMES[bag] or ('bag ' .. bag)); end
+            end
+            if #t == 0 then t[1] = '0 in your bags'; end
+            t[#t + 1] = string.format('%d stored with Vision', r.stored);
+            imgui.SetTooltip(table.concat(t, '\n'));
         end
     end
 end
@@ -693,7 +714,7 @@ end
 local function itemRows(list)
     local rows = {};
     for _, n in ipairs(list) do
-        rows[#rows + 1] = { name = itemName(n[1]), have = haveCount(n[1]), bag = bagCounts[n[1]] or 0, stored = vision.counts[n[1]] or 0, need = n[2] };
+        rows[#rows + 1] = { name = itemName(n[1]), have = haveCount(n[1]), bag = bagCounts[n[1]] or 0, where = bagWhere[n[1]], stored = vision.counts[n[1]] or 0, need = n[2] };
     end
     return rows;
 end
@@ -724,11 +745,12 @@ local function renderCapTotals(D, set, abbr, width)
     end
     imgui.Dummy({ 1, 3 });
     imgui.SetCursorPosX(x0);
-    if imgui.SmallButton('Update from Vision##vis_ask') then visionAsk(); end
+    if imgui.SmallButton('Rescan storages + Vision##vis_ask') then visionAsk(); end
+    if imgui.IsItemHovered() then imgui.SetTooltip('Re-reads every bag (inventory, Mog Safe, Storage, Locker, Satchel, Sack, Case, Wardrobes)\nand asks Vision for both lists. Lists Vision no longer shows drop to 0.'); end
     if vision.at then
-        wrapped(x0, width, DIM_T, 'Counts include what you have stored with Vision (read ' .. os.date('%d %b %H:%M', vision.at) .. '). Press Update from Vision to refresh. Hover a count for the split.');
+        wrapped(x0, width, DIM_T, 'Counts include what you have stored with Vision (read ' .. os.date('%d %b %H:%M', vision.at) .. '). Press Rescan to refresh. Hover a count for the split.');
     else
-        wrapped(x0, width, GOLD_T, 'Press Update from Vision (or type !vision sea organs and !vision limbus mats) to add what Vision holds to these counts.');
+        wrapped(x0, width, GOLD_T, 'Press Rescan storages + Vision (or type !vision sea organs and !vision limbus mats) to add what Vision holds to these counts.');
     end
     if rp > 0 then
         capHeader(x0, 'Relic upgrades', 'Franz, Tavnazian Safehold - Freya keeps these, so only the totals');
@@ -875,8 +897,8 @@ local function renderVisionWarning()
         imgui.TextColored(GOLD_T, 'Read your Vision storage');
         imgui.SameLine(0, 10);
         imgui.TextColored(DIM_T, 'so the armour upgrade counts are right');
-        imgui.SameLine(avail - 130);
-        if imgui.SmallButton('Update now##vis_warn_ask') then visionAsk(); end
+        imgui.SameLine(avail - 190);
+        if imgui.SmallButton('Rescan storages + Vision##vis_warn_ask') then visionAsk(); end
         imgui.Dummy({ 0, 0 });
         visionStatus(8, '!vision sea organs', vision.sea);
         visionStatus(math.floor(avail / 2), '!vision limbus mats', vision.limbus);
@@ -884,9 +906,9 @@ local function renderVisionWarning()
         imgui.PopStyleColor(2);
     else
         local oldest = math.min(vision.sea, vision.limbus);
-        imgui.TextColored(DIM_T, 'Vision storage read ' .. os.date('%d %b, %H:%M', oldest));
+        if imgui.Button('Rescan storages + Vision##vis_ok_ask') then visionAsk(); end
         imgui.SameLine(0, 10);
-        if imgui.SmallButton('Update##vis_ok_ask') then visionAsk(); end
+        imgui.TextColored(DIM_T, 'Vision last read ' .. os.date('%d %b, %H:%M', oldest));
     end
 end
 
@@ -944,7 +966,7 @@ local function renderJobsTab(player)
         if isMain then
             nameColor = { 0.90, 0.90, 0.95, 1.0 };
         elseif isMax or tier > 0 then
-            nameColor = { 0.90, 0.80, 0.30, 1.0 }; -- gold
+            nameColor = { 0.90, 0.78, 0.40, 1.0 }; -- gold
         elseif level >= 37 then
             nameColor = { 0.40, 0.60, 0.90, 1.0 }; -- blue
         elseif level > 0 then
@@ -1019,6 +1041,9 @@ local function renderJobsTab(player)
             end
         end
 
+        -- Close the row with an item, not a cursor move: ImGui complains (and may clip)
+        -- when a child ends on SetCursorPos, which happened for jobs with no EXP bar.
+        imgui.Dummy({ 0, 0 });
         imgui.EndChild();
         -- omni: gold outline on the job whose armour is open.
         if openJob == id then
@@ -1044,12 +1069,12 @@ local function renderJobsTab(player)
                     imgui.TextColored(ui.color('dimmed'),
                         string.format('EXP: %d / %d', jobExp, tnl));
                 else
-                    imgui.TextColored({ 0.90, 0.80, 0.30, 1.0 }, 'Max Level');
+                    imgui.TextColored({ 0.90, 0.78, 0.40, 1.0 }, 'Max Level');
                 end
             end
             if tier > 0 then
                 imgui.Separator();
-                imgui.TextColored({ 0.90, 0.80, 0.30, 1.0 },
+                imgui.TextColored({ 0.90, 0.78, 0.40, 1.0 },
                     string.format('Prestige %d', tier));
                 local desc = getPrestigeDesc(id, tier);
                 if desc then
@@ -1177,7 +1202,7 @@ local function renderSkillList(list)
         local value, capped = skillOf(s[1]);
         local x = ((i - 1) % 2 == 0) and 0 or half;
         if (i - 1) % 2 == 1 then imgui.SameLine(x + 8); else imgui.SetCursorPosX(8); end
-        local col = (value == 0) and { 0.40, 0.40, 0.45, 0.60 } or (capped and { 0.45, 0.90, 0.45, 1.0 } or { 0.85, 0.75, 0.55, 1.0 });
+        local col = (value == 0) and { 0.40, 0.40, 0.45, 0.60 } or (capped and { 0.50, 0.88, 0.50, 1.0 } or { 0.85, 0.75, 0.55, 1.0 });
         imgui.TextColored(col, s[2]);
         imgui.SameLine(x + 150);
         imgui.TextColored(col, (value == 0) and '-' or (tostring(value) .. (capped and '  capped' or '')));
@@ -1234,7 +1259,7 @@ local function renderWeaponSkillsTab()
             for n, i in ipairs(shown) do
                 local ws, st = list[i], states[i];
                 if (n - 1) % 2 == 1 then imgui.SameLine(half + 8); else imgui.SetCursorPosX(8); end
-                imgui.TextColored(st.can and { 0.45, 0.90, 0.45, 1.0 } or { 1.0, 0.45, 0.45, 1.0 }, ws.name);
+                imgui.TextColored(st.can and { 0.50, 0.88, 0.50, 1.0 } or { 1.00, 0.50, 0.50, 1.0 }, ws.name);
                 if imgui.IsItemHovered() then
                     imgui.BeginTooltip();
                     imgui.TextColored({ 0.79, 0.69, 0.42, 1.0 }, ws.name);
@@ -1243,7 +1268,7 @@ local function renderWeaponSkillsTab()
                     imgui.Text('How to get it: ' .. ws.how);
                     imgui.TextColored(ui.color('dimmed'), 'Jobs: ' .. ws.jobs);
                     if not st.jobOk then
-                        imgui.TextColored({ 1.0, 0.45, 0.45, 1.0 }, job .. ' cannot use this weapon skill.');
+                        imgui.TextColored({ 1.00, 0.50, 0.50, 1.0 }, job .. ' cannot use this weapon skill.');
                     elseif ws.quest then
                         imgui.TextColored(ui.color('dimmed'), 'Quest weapon skills show green once learned, with that weapon type equipped.');
                     end

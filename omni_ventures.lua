@@ -32,9 +32,9 @@ local HELM = {
     { key = 'mining',     label = 'Mining' },
 };
 
-local GREEN = { 0.40, 0.90, 0.40, 1.0 };
+local GREEN = { 0.50, 0.88, 0.50, 1.0 };
 local GOLD  = { 0.79, 0.69, 0.42, 1.0 };
-local BLUE  = { 0.45, 0.70, 1.00, 1.0 };
+local BLUE  = { 0.55, 0.75, 1.00, 1.0 };
 
 ----------------------------------------------------------------------------------------------------
 -- Data files
@@ -471,10 +471,10 @@ local function draw_exp_row(ui, key, tag, area, band, progress)
                 end
                 local have = (crest_counts[name:lower()] or 0) > 0;
                 imgui.SetCursorPos({ x, y + 2 });
-                imgui.TextColored(have and GREEN or { 1.0, 0.40, 0.40, 1.0 }, text);
+                imgui.TextColored(have and GREEN or { 1.00, 0.50, 0.50, 1.0 }, text);
                 if (imgui.IsItemHovered()) then
                     imgui.BeginTooltip();
-                    imgui.TextColored(have and GREEN or { 1.0, 0.40, 0.40, 1.0 }, name .. (have and ' - you have this' or ' - you do not have this'));
+                    imgui.TextColored(have and GREEN or { 1.00, 0.50, 0.50, 1.0 }, name .. (have and ' - you have this' or ' - you do not have this'));
                     imgui.EndTooltip();
                 end
                 x = x + w;

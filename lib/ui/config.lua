@@ -306,7 +306,7 @@ local function render_ability_dropdown(label, setting_key, available_abilities, 
 
         for _, ability in ipairs(available_abilities) do
             local is_selected = (ability.name == current)
-            if imgui.Selectable(display_fn(ability), is_selected) then
+            if imgui.Selectable(common.display_name(display_fn(ability)) .. '##' .. tostring(ability.name), is_selected) then
                 choose(ability.name)
             end
             if is_selected then
