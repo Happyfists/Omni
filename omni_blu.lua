@@ -574,6 +574,37 @@ local function spell_row(id, label_id)
     return clicked;
 end
 
+-- A clean list of spells: dot | name | set points | what it is, each in its own column, so long
+-- names ("Demoralizing Roar") don't run into the type. Returns the clicked row; dim(id) greys a row.
+local function spell_table(tid, ids, dim)
+    local clicked = nil;
+    local namew = 60;
+    for _, id in ipairs(ids) do namew = math.max(namew, (imgui.CalcTextSize(name_of(id)))); end
+    if not imgui.BeginTable(tid, 4, bit.bor(ImGuiTableFlags_SizingFixedFit, ImGuiTableFlags_RowBg)) then return nil; end
+    imgui.TableSetupColumn('##e', ImGuiTableColumnFlags_WidthFixed, 10);
+    imgui.TableSetupColumn('##n', ImGuiTableColumnFlags_WidthFixed, namew + 6);
+    imgui.TableSetupColumn('##c', ImGuiTableColumnFlags_WidthFixed, 18);
+    imgui.TableSetupColumn('##d', ImGuiTableColumnFlags_WidthStretch);
+    for i, id in ipairs(ids) do
+        local s = SP[id];
+        local grey = dim and dim(id) or false;
+        imgui.TableNextRow();
+        imgui.TableNextColumn();
+        imgui.TextColored(s and KCOL[s[4]] or DIM, '*');
+        imgui.TableNextColumn();
+        if grey then imgui.PushStyleColor(ImGuiCol_Text, DIM); end
+        if imgui.Selectable(name_of(id) .. '##' .. tid .. i, false, ImGuiSelectableFlags_SpanAllColumns) then clicked = i; end
+        if grey then imgui.PopStyleColor(1); end
+        spell_tip(id);
+        imgui.TableNextColumn();
+        imgui.TextColored(DIM, tostring(s and s[3] or 0));
+        imgui.TableNextColumn();
+        if s then imgui.TextColored(DIM, (TYPE[s[5]] or '') .. ' ' .. (KIND[s[4]] or '') .. (s[6] and ' AoE' or '')); end
+    end
+    imgui.EndTable();
+    return clicked;
+end
+
 blu.render = function ()
     local y0 = imgui.GetCursorPosY();
     local cur = current();
@@ -647,7 +678,7 @@ blu.render = function ()
     imgui.TextColored((m and c > m) and RED or DIM, string.format('%d / %d spells   %d / %s points', #plan, slot_limit(), c, m and tostring(m) or '?'));
     imgui.BeginChild('##blu_plan', { 360, 300 }, true);
     local drop = nil;
-    for i, id in ipairs(plan) do if spell_row(id, 'blu_p' .. i) then drop = i; end end
+    if #plan > 0 then drop = spell_table('##blu_plan_t', plan); end
     if #plan == 0 then imgui.TextDisabled('Empty - click spells on the right, or pick a set.'); end
     imgui.EndChild();
     if drop then table.remove(plan, drop); end
@@ -696,13 +727,13 @@ blu.render = function ()
                 if kind_ok and (q == '' or norm(name_of(id)):find(q, 1, true)) and learned(id) then ids[#ids + 1] = id; end
             end
             table.sort(ids, function (a, b) return name_of(a) < name_of(b); end);
-            for _, id in ipairs(ids) do
-                local why = refuse_reason(plan, id);
-                if why then imgui.PushStyleColor(ImGuiCol_Text, DIM); end
-                if spell_row(id, 'blu_a' .. id) then
+            if #ids > 0 then
+                local hit = spell_table('##blu_list_t', ids, function (id) return refuse_reason(plan, id) ~= nil; end);
+                if hit then
+                    local id = ids[hit];
+                    local why = refuse_reason(plan, id);
                     if why then note(name_of(id) .. ': ' .. why); else plan[#plan + 1] = id; end
                 end
-                if why then imgui.PopStyleColor(1); end
             end
             if #ids == 0 then imgui.TextDisabled('No learned spells here.'); end
             imgui.EndChild();
@@ -738,18 +769,25 @@ blu.render = function ()
             imgui.BeginChild('##blu_tr', { 400, 330 }, true);
             local tl = traits(plan);
             if #tl == 0 then imgui.TextDisabled('No trait spells in the plan.'); end
-            for _, t in ipairs(tl) do
-                if t.tier > 0 then
-                    imgui.TextColored(GREEN, t.name .. (t.tiers > 1 and (' ' .. t.tier) or ''));
-                else
-                    imgui.TextColored(DIM, t.name);
+            if #tl > 0 and imgui.BeginTable('##blu_tr_t', 2, bit.bor(ImGuiTableFlags_SizingFixedFit, ImGuiTableFlags_RowBg)) then
+                imgui.TableSetupColumn('##tn', ImGuiTableColumnFlags_WidthFixed);
+                imgui.TableSetupColumn('##tp', ImGuiTableColumnFlags_WidthStretch);
+                for _, t in ipairs(tl) do
+                    imgui.TableNextRow();
+                    imgui.TableNextColumn();
+                    if t.tier > 0 then
+                        imgui.TextColored(GREEN, t.name .. (t.tiers > 1 and (' ' .. t.tier) or ''));
+                    else
+                        imgui.TextColored(DIM, t.name);
+                    end
+                    imgui.TableNextColumn();
+                    if t.next then
+                        imgui.TextColored(DIM, string.format('%d / %d for %s', t.have, t.next, t.tier > 0 and ('tier ' .. (t.tier + 1)) or 'the trait'));
+                    else
+                        imgui.TextColored(DIM, string.format('%d points (max)', t.have));
+                    end
                 end
-                imgui.SameLine(190);
-                if t.next then
-                    imgui.TextColored(DIM, string.format('%d / %d for %s', t.have, t.next, t.tier > 0 and ('tier ' .. (t.tier + 1)) or 'the trait'));
-                else
-                    imgui.TextColored(DIM, string.format('%d points (max)', t.have));
-                end
+                imgui.EndTable();
             end
             imgui.EndChild();
             imgui.TextDisabled('Two spells of the same trait (or enough points) give the trait.');
