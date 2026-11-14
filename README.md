@@ -15,7 +15,7 @@ It also draws spell animations on the field (fireballs, lightning, rocks, cures.
 - **Tools tab** - Multisend, Happy Healer, Happy Translate, Happy Talks, JA Chat and Roll Tracker together in one tab; Options now holds only the settings.
 - **Happy Loot (Items > Loot)** - lot or pass drops by profile ("Dynamis - Jeuno", "Ores & ingots"...), with every drop remembered per zone so you can add it to a list in one click. `/loot`, `/loot on|off`, `/loot profile <name>`.
 - **Ventures > Venture Battles** - every Venture boss with where it pops, its drops and the upgrade route for each piece, and how many of the materials you already hold.
-- **Happy Pops** - every NM in one place (HNMs, Abyssea NMs, Pop List), each character keeps its own warning settings, a ToD history per HNM (`/pops history <hnm>`), and windows timed to the second (CatsEyeXI's extra 16 s).
+- **Happy Pops** - every NM in one place (HNMs, Abyssea NMs, Pop List), the ToD is only ever set by you (type it or press Killed - a kill seen in chat just tells you the time), each character keeps its own warning settings, a ToD history per HNM (`/pops history <hnm>`), and windows timed to the second (CatsEyeXI's extra 16 s).
 - **Bard songs by what they do** - Happy Healer's song lists show the effect (Refresh++, Haste++, ATK++++) and the rows are named Refresh, Haste, Attack, Accuracy... instead of Ballad, March, Minuet.
 - **Roll Tracker** - shows who's up now and who's next, and says the next person in /p.
 - **Damage report** - the /p report lines its numbers up in columns, name last.

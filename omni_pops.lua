@@ -3,8 +3,8 @@
 
     Type an HNM and its time of death (ToD). For every window it warns 2 min, 1 min, 30 sec and
     10 sec before, says when the window is OPEN, and says it closed 40 sec later (OPEN is called 4 sec early) - and counts the
-    windows (1/7, 2/7 ... 7/7 = forced pop). Seeing "<someone> defeats <HNM>" in chat starts a new
-    timer by itself; the Killed button does the same by hand.
+    windows (1/7, 2/7 ... 7/7 = forced pop). A ToD is only ever set by you: type it, or press
+    Killed. Seeing "<someone> defeats <HNM>" in chat (or it dying near you) just tells you the time.
 
     CatsEyeXI windows (bg-wiki, CatsEyeXI Content/HNMs):
       21h group: windows every 5 min from 21:00 after ToD, forced at 21:30 (7 windows)
@@ -23,8 +23,7 @@
       /pops list                   all timers in your chat (/pops list party = in party chat)
       /pops history <hnm>          the last 10 saved ToDs (config\addons\omni\tods\<HNM>.txt)
 
-    Every ToD is saved to the tods folder, and an HNM seen dying near you
-    (0% HP, or gone at low HP) saves its ToD and starts the timer by itself.
+    Every ToD you set is saved to the tods folder.
 ]]
 
 local imgui = require('imgui');
@@ -533,18 +532,16 @@ local function set_lock(name, on)
     end
 end
 
--- An automatic ToD (chat or seen dying nearby). Ignored if we already have one from the last 10 min.
+-- A kill seen in chat or nearby. The ToD is NOT set by itself any more - you type it (or press
+-- Killed), so a wrong kill can never overwrite a good ToD. This only tells you, once per 10 min.
+local seen_kill = {};
 local function auto_kill(name, how, by)
     if not in_hnm_zone(name) then return; end   -- same name, wrong zone (e.g. a Nyzul Isle floor boss)
-    if is_locked(name) then return; end          -- ToD locked in (a pop-able NM of the same name died)
-    local t = st.timers[name];
-    if t ~= nil and os.time() - t.tod <= 600 then
-        -- already saved (e.g. seen dying nearby, with the claimer's name): the chat line names who landed the kill
-        if how == 'chat' and by and t.by ~= by then t.by = by; save(); end
-        return;
-    end
-    start(name, os.time(), how, by);
-    msg(name .. ' died - ToD saved and new timer started.');
+    local now = os.time();
+    if seen_kill[name] ~= nil and now - seen_kill[name] <= 600 then return; end
+    seen_kill[name] = now;
+    msg(('%s died at %s%s - type its ToD (or press Killed) to start the timer.'):format(
+        name, os.date('%H:%M:%S', now), by and (' (' .. by .. ')') or ''));
 end
 local function stop(name)
     if st.timers[name] then st.removed[name] = st.timers[name].tod; end
