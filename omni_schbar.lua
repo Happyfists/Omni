@@ -13,7 +13,11 @@
     party for twice as long: Light Arts (if needed) -> Accession -> Perpetuance -> storm, with your
     enhancing-duration gear on (2 stratagems; with only 1 it skips Perpetuance). The one that matches today's day is marked: storm + matching obi + day = +20%.
 
-    White row (second row, shows while Light Arts or Addendum: White is up):
+    Books (second row): a Light book and a Dark book. Left-click = that Arts (free), right-click =
+    that Arts + its Addendum (1 stratagem). Beside them, that book's stratagems as buttons:
+      Light: Penury, Celerity, Accession, Rapture, Addendum: White, Perpetuance.
+      Dark:  Parsimony, Alacrity, Manifestation, Ebullience, Addendum: Black, Focalization, Immanence.
+    White row (third row, shows while Light Arts or Addendum: White is up):
       Accession buffs - Stoneskin, Blink, Aquaveil, Phalanx, Regen, Protect, Shell, Sneak, Invisible.
         Left-click: Accession + the spell (whole party, 1 stratagem). Right-click: just the spell
         (on you for the self-only ones, pick a party member for the rest).
@@ -950,6 +954,96 @@ local function white_row(have)
     end
 end
 
+-- Light and Dark books: switch Arts, and that book's stratagems as buttons beside them.
+local BOOK_COL = { light = { 0.95, 0.90, 0.70, 1 }, dark = { 0.45, 0.35, 0.65, 1 } };
+local STRATS = {
+    light = {
+        { 'Penury',          'Pen',  'Your next white magic spell costs half the MP.' },
+        { 'Celerity',        'Cel',  'Your next white magic spell casts and recasts faster.' },
+        { 'Accession',       'Acc',  'Your next healing or enhancing white magic spell also hits your party.' },
+        { 'Rapture',         'Rap',  'Boosts the potency of your next white magic spell.' },
+        { 'Addendum: White', 'AddW', 'Opens extra white magic (-na spells, Erase, Raise II, Reraise...).' },
+        { 'Perpetuance',     'Perp', 'Doubles the duration of your next white enhancing spell.' },
+    },
+    dark = {
+        { 'Parsimony',       'Pars', 'Your next black magic spell costs half the MP.' },
+        { 'Alacrity',        'Alac', 'Your next black magic spell casts and recasts faster.' },
+        { 'Manifestation',   'Mani', 'Your next enfeebling or dark magic spell also hits enemies around the target.' },
+        { 'Ebullience',      'Ebul', 'Boosts the power of your next black magic spell.' },
+        { 'Addendum: Black', 'AddB', 'Opens extra black magic (tier IV nukes and more).' },
+        { 'Focalization',    'Foca', 'Your next black magic spell is more accurate.' },
+        { 'Immanence',       'Imm',  'Your next elemental spell can open or close a skillchain.' },
+    },
+};
+
+local function arts_side()
+    if (has_buff('Light Arts') or has_buff('Addendum: White')) then return 'light'; end
+    if (has_buff('Dark Arts') or has_buff('Addendum: Black')) then return 'dark'; end
+    return nil;
+end
+
+-- Book: left-click = that Arts, right-click = that Arts + its Addendum.
+local function book_start(side, addendum)
+    if (run ~= nil) then say('Busy with ' .. run.sc.sc .. ' - wait for it or Stop.'); return; end
+    local arts = (side == 'light') and 'Light Arts' or 'Dark Arts';
+    local add = (side == 'light') and 'Addendum: White' or 'Addendum: Black';
+    if (not addendum) then
+        if (arts_side() == side) then say('Already in ' .. arts .. '.'); return; end
+        cast('/ja "' .. arts .. '" <me>');
+        return;
+    end
+    if (has_buff(add)) then say(add .. ' is already up.'); return; end
+    if (stratagems() < 1) then say('No stratagems left for ' .. add .. '.'); return; end
+    local steps = {};
+    if (arts_side() ~= side) then steps[#steps + 1] = { cmd = '/ja "' .. arts .. '" <me>' }; steps[#steps + 1] = { wait = 1.5 }; end
+    steps[#steps + 1] = { cmd = '/ja "' .. add .. '" <me>' };
+    run = { sc = { sc = add }, steps = steps, i = 1, next_at = os.clock(), started = os.clock(), total = (#steps > 1) and 1.5 or 0 };
+end
+
+local function book_row(have)
+    local busy = (run ~= nil);
+    local side = arts_side();
+    for n, b in ipairs({ { 'light', 'Light Arts', 'Addendum: White', 'Light' }, { 'dark', 'Dark Arts', 'Addendum: Black', 'Dark' } }) do
+        if (n > 1) then imgui.SameLine(0, 2); end
+        local hit = slot('##sb_book_' .. b[1], {
+            icon = buff_id(b[2]), col = BOOK_COL[b[1]], label = b[4], active = (side == b[1]), disabled = busy,
+        });
+        if (hit == 1) then book_start(b[1], false); elseif (hit == 2) then book_start(b[1], true); end
+        if (imgui.IsItemHovered()) then
+            imgui.BeginTooltip();
+            imgui.TextColored(GOLD, b[2]);
+            imgui.Text('Left-click: ' .. b[2] .. ' (free).');
+            imgui.Text('Right-click: ' .. b[2] .. ' + ' .. b[3] .. ' (1 stratagem).');
+            imgui.TextColored(DIM, 'Its stratagems show up next to the books while it is on.');
+            if (side == b[1]) then imgui.TextColored(GOOD, 'On now.'); end
+            imgui.EndTooltip();
+        end
+    end
+    if (side == nil) then
+        imgui.SameLine(0, 10);
+        imgui.TextColored(DIM, 'Pick a book to see its stratagems.');
+        return side;
+    end
+    for n, st in ipairs(STRATS[side]) do
+        imgui.SameLine(0, (n == 1) and 10 or 2);
+        local name = st[1];
+        local on = has_buff(name);
+        local hit = slot('##sb_strat_' .. side .. n, {
+            icon = buff_id(name), col = BOOK_COL[side], label = st[2], active = on, disabled = busy or have < 1,
+        });
+        if (hit ~= nil and not on) then cast('/ja "' .. name .. '" <me>'); end
+        if (imgui.IsItemHovered()) then
+            imgui.BeginTooltip();
+            imgui.TextColored(GOLD, name .. '  (1 stratagem)');
+            imgui.Text(st[3]);
+            if (on) then imgui.TextColored(GOOD, 'Up now - your next spell uses it.'); end
+            if (have < 1) then imgui.TextColored(BAD, 'No stratagems left.'); end
+            imgui.EndTooltip();
+        end
+    end
+    return side;
+end
+
 local pos_saved_at = 0;
 
 -- The bar itself. opts: { settings, save }
@@ -1007,14 +1101,10 @@ sb.render_bar = function (opts)
                 imgui.SetTooltip('Klimaform: +15 magic accuracy for spells that match your weather.\n5 min, 3 min recast, 30 MP. Cast it after your storm, before the burst.');
             end
 
-            -- Second row: white magic, while Light Arts / Addendum: White is up.
-            local aw = has_buff('Addendum: White');
-            if (aw or has_buff('Light Arts') or opt('sch_bar_white_always', true)) then
-                imgui.BeginGroup();
-                imgui.TextColored(aw and ADD_COL or ACC_COL, aw and 'Add: White' or 'Light Arts');
-                imgui.TextColored(DIM, 'Accession');
-                imgui.EndGroup();
-                imgui.SameLine(0, 8);
+            -- Second row: the Light / Dark books and that book's stratagems.
+            local side = book_row(have);
+            -- Third row: white magic, while Light Arts / Addendum: White is up (or always, in Options).
+            if (side == 'light' or opt('sch_bar_white_always', false)) then
                 if (type(row_x) == 'number') then imgui.SetCursorPosX(row_x); end
                 white_row(have);
             end
@@ -1062,6 +1152,11 @@ local GUIDE = {
         'The bar won\'t start a chain with fewer than 2, and won\'t start a second while one is running.',
         'A * on a burst button: its element matches your weather. A * on a storm: it matches today.',
     } },
+    { 'Books and stratagems', {
+        'Light book / Dark book: left-click switches Arts (free); right-click also puts that Addendum up (1 stratagem).',
+        'The stratagems of the book you are in show beside them - click one to use it (1 stratagem each).',
+        'A green border = that Arts or stratagem is on you now.',
+    } },
     { 'White row (Light Arts / Addendum: White)', {
         'Gold boxes: left-click = Accession + the spell on the whole party (1 stratagem); right-click = just the spell.',
         'Blue boxes: the -na spells, Erase, Raise and Reraise. Click, then pick the party member.',
@@ -1108,7 +1203,7 @@ sb.render_page = function (opts)
         'Looks through your inventory and wardrobes for pieces that help the spell (from their descriptions):\nStoneskin: MND, Enhancing skill, Stoneskin+.  Phalanx: Enhancing skill, Phalanx+.  Regen: Regen potency.\nProtect, Shell, Blink, Sneak, Invisible: enhancing duration.  Bursts: INT, Magic Atk. Bonus, Elemental skill, obi.\nOnly pieces better than what you have on go on, weapons are never touched, and your old gear goes back\nas soon as the cast lands (or is interrupted).');
     box('sch_bar_burst_gear', true, 'Nuke gear for the skillchain burst',
         'Puts on your best INT / Magic Atk. Bonus pieces just before the burst, plus the matching obi\n(or Hachirin-no-Obi) when your weather or the day is that element.');
-    box('sch_bar_white_always', true, 'Always show the white row',
+    box('sch_bar_white_always', false, 'Always show the white row',
         'Off: the white row (Accession buffs, -na, Raise) shows while Light Arts or Addendum: White is up.');
     imgui.Spacing();
     for _, sec in ipairs(GUIDE) do
