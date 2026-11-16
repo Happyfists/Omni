@@ -839,9 +839,11 @@ local function mb_row(e, have)
     end
 end
 
-local function storm_row(e)
+local function storm_row(e, x0)
     for i, key in ipairs(ORDER) do
         imgui.SameLine(0, (i == 1) and 12 or 2);
+        -- Start at a fixed spot so the storms don't jump when the book changes (6 vs 7 stratagems).
+        if (i == 1 and type(x0) == 'number' and imgui.GetCursorPosX() < x0) then imgui.SetCursorPosX(x0); end
         local el = EL[key];
         local name = el.storm;
         if (knows(name .. ' II')) then name = name .. ' II'; end
@@ -1023,7 +1025,7 @@ local function book_row(have, row_x)
     imgui.SameLine(0, 8);
     if (type(row_x) == 'number' and imgui.GetCursorPosX() < row_x) then imgui.SetCursorPosX(row_x); end
     if (side == nil) then
-        imgui.TextColored(DIM, 'Pick a book (LA / DA) to see its stratagems.');
+        imgui.TextColored(DIM, 'Pick a book (LA / DA).');
         return side;
     end
     for n, st in ipairs(STRATS[side]) do
@@ -1093,7 +1095,10 @@ sb.render_bar = function (opts)
             imgui.SameLine(0, 8);
             local row_x = imgui.GetCursorPosX();
             mb_row(e, have);
-            storm_row(e);
+
+            -- Second row: the Light / Dark books, that book's stratagems, then the storms and Klimaform.
+            local side = book_row(have, row_x);
+            storm_row(e, (type(row_x) == 'number') and (row_x + 7 * S + 6 * 2 + 12) or nil);
 
             imgui.SameLine(0, 12);
             local kcd = spell_recast('Klimaform');
@@ -1103,8 +1108,6 @@ sb.render_bar = function (opts)
                 imgui.SetTooltip('Klimaform: +15 magic accuracy for spells that match your weather.\n5 min, 3 min recast, 30 MP. Cast it after your storm, before the burst.');
             end
 
-            -- Second row: the Light / Dark books and that book's stratagems.
-            local side = book_row(have, row_x);
             -- Third row: white magic, while Light Arts / Addendum: White is up (or always, in Options).
             if (side == 'light' or opt('sch_bar_white_always', false)) then
                 if (type(row_x) == 'number') then imgui.SetCursorPosX(row_x); end
