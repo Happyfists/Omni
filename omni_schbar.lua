@@ -575,7 +575,7 @@ local function start(sc)
     -- The storm for the burst element, unless the zone already gives you double of it.
     local e = read_env();
     local el = sc.mb and EL[sc.mb];
-    if (el ~= nil and opt('sch_bar_storm', true) and e.storm ~= sc.mb and not (e.weather == sc.mb and e.double)) then
+    if (el ~= nil and opt('sch_bar_storm', false) and e.storm ~= sc.mb and not (e.weather == sc.mb and e.double)) then
         local storm = knows(el.storm .. ' II') and (el.storm .. ' II') or el.storm;
         if (knows(storm) and spell_recast(storm) <= 0) then
             add({ cmd = ('/ma "%s" <me>'):format(storm) });
@@ -1195,7 +1195,7 @@ sb.render_page = function (opts)
     imgui.TextColored(DIM, 'Dark Arts goes up first if it is down (Immanence needs it).');
     box('sch_bar_addendum', true, 'Addendum: Black for tier IV bursts',
         'Puts Addendum: Black up when the burst is a tier IV and it is down.\nIt uses a stratagem, so only when you have 3 or more; otherwise the burst drops to tier III.');
-    box('sch_bar_storm', true, 'Storm for the burst element',
+    box('sch_bar_storm', false, 'Storm for the burst element',
         'Casts the matching storm on you first (e.g. Hailstorm for an ice burst), unless it is already on\nor the zone has double weather of that element (better than a storm).\nWith the storm on, an elemental obi (or Hachirin-no-Obi) in your nuke set always gets its bonus.');
     box('sch_bar_party', true, 'Say the chain in party chat',
         'Built-in chains say "Starting Distortion - Magic Burst Ice!" and "Distortion closing - burst Ice now!" in /p.\n(Your own scripts in scripts\\sc_*.txt say whatever you wrote in them.)');
