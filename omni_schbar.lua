@@ -9,8 +9,9 @@
     own script for one in VanaCore's scripts\sc_<name>.txt, that runs instead. omni runs each chain
     itself, line by line with its /waits, so a click can never go off twice. Buttons are coloured by the
     element you burst with; a star marks the ones that match your weather right now.
-    Storms: the eight storm spells. Left-click casts it on you, right-click on a party member
-    (<stpc>). The one that matches today's day is marked: storm + matching obi + day = +20%.
+    Storms: the eight storm spells. Left-click casts it on you. Right-click gives it to the whole
+    party for twice as long: Light Arts (if needed) -> Accession -> Perpetuance -> storm, with your
+    enhancing-duration gear on (2 stratagems; with only 1 it skips Perpetuance). The one that matches today's day is marked: storm + matching obi + day = +20%.
 
     White row (second row, shows while Light Arts or Addendum: White is up):
       Accession buffs - Stoneskin, Blink, Aquaveil, Phalanx, Regen, Protect, Shell, Sneak, Invisible.
@@ -620,7 +621,14 @@ local function white_start(w, accession)
     local have = stratagems();
     local la, aw = has_buff('Light Arts'), has_buff('Addendum: White');
     local need_add = (w.addendum ~= nil) and w.addendum(name) and not aw;
-    local cost = (accession and 1 or 0) + (need_add and 1 or 0);
+    local perp = (w.perp == true);
+    local cost = (accession and 1 or 0) + (need_add and 1 or 0) + (perp and 1 or 0);
+    if (perp and have == cost - 1) then
+        -- One short: still give the whole party the storm, just at normal length.
+        perp = false;
+        cost = cost - 1;
+        say('Only ' .. have .. ' stratagem' .. (have == 1 and '' or 's') .. ' - skipping Perpetuance, normal duration.');
+    end
     if (have < cost) then say(('Needs %d stratagem%s, you have %d.'):format(cost, cost == 1 and '' or 's', have)); return; end
 
     local steps, total = {}, 0;
@@ -628,12 +636,13 @@ local function white_start(w, accession)
     if (not la and not aw) then add({ cmd = '/ja "Light Arts" <me>' }); add({ wait = 1.5 }, 1.5); end
     if (need_add) then add({ cmd = '/ja "Addendum: White" <me>' }); add({ wait = 1.5 }, 1.5); end
     if (accession) then add({ cmd = '/ja "Accession" <me>' }); add({ wait = 1.5 }, 1.5); end
+    if (perp) then add({ cmd = '/ja "Perpetuance" <me>' }); add({ wait = 1.5 }, 1.5); end
     local gear = (w.prof ~= nil) and opt('sch_bar_gear', true);
     if (gear) then add({ gear = w.prof }); end
     local target = (accession or w.self) and '<me>' or '<stpc>';
     add({ cast = ('/ma "%s" %s'):format(name, target), spell = name }, 4);
     if (gear) then add({ restore = true }); end
-    local label = (accession and 'Acc. ' or '') .. name;
+    local label = (accession and 'Acc. ' or '') .. (perp and 'Perp. ' or '') .. name;
     run = { sc = { sc = label }, steps = steps, i = 1, next_at = os.clock(), started = os.clock(), total = total };
 end
 
@@ -839,11 +848,16 @@ local function storm_row(e)
             icon = ICON.storm[key], col = el.col, star = today, cd = cd, active = (e.storm == key), disabled = not known,
         });
         if (hit == 1 and cd <= 0) then cast(('/ma "%s" <me>'):format(name)); end
-        if (hit == 2 and cd <= 0) then cast(('/ma "%s" <stpc>'):format(name)); end
+        if (hit == 2 and cd <= 0) then
+            -- Whole party, double length: Light Arts -> Accession -> Perpetuance -> storm (+ duration gear).
+            white_start({ tiers = { name }, prof = 'enh', self = true, perp = true }, true);
+        end
         if (imgui.IsItemHovered()) then
             imgui.BeginTooltip();
             imgui.TextColored(GOLD, name);
-            imgui.Text('Left-click: on you.   Right-click: pick a party member.');
+            imgui.Text('Left-click: on you.');
+            imgui.Text('Right-click: whole party, double length - Accession + Perpetuance (2 stratagems).');
+            imgui.TextColored(DIM, 'Puts Light Arts up first if it is down. With 1 stratagem: party, normal length.');
             imgui.TextColored(DIM, el.name .. " weather on the target - it replaces the zone's weather for them.");
             imgui.TextColored(DIM, ('With Stormsurge merits it also gives %s.'):format(STORM_STAT[key]));
             if (e.storm == key) then imgui.TextColored(GOOD, 'On you now.'); end
@@ -1030,6 +1044,7 @@ local GUIDE = {
         "It replaces the zone's weather for that person - it does not add to it. In double weather of your",
         'element (e.g. Dynamis dark), leave the storm off: you would drop from double to single.',
         'Each storm gives a stat with Stormsurge merits: Hailstorm INT is the one for nuking.',
+        'Right-click a storm to give it to the whole party for twice as long (Accession + Perpetuance, 2 stratagems).',
     } },
     { 'Obi and day', {
         'Weather and day only sometimes boost a spell. The element obi (or Hachirin-no-Obi) makes it every time.',
