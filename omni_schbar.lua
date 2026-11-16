@@ -962,16 +962,16 @@ local STRATS = {
         { 'Celerity',        'Cel',  'Your next white magic spell casts and recasts faster.' },
         { 'Accession',       'Acc',  'Your next healing or enhancing white magic spell also hits your party.' },
         { 'Rapture',         'Rap',  'Boosts the potency of your next white magic spell.' },
-        { 'Addendum: White', 'AddW', 'Opens extra white magic (-na spells, Erase, Raise II, Reraise...).' },
-        { 'Perpetuance',     'Perp', 'Doubles the duration of your next white enhancing spell.' },
+        { 'Addendum: White', 'AdW', 'Opens extra white magic (-na spells, Erase, Raise II, Reraise...).' },
+        { 'Perpetuance',     'Prp', 'Doubles the duration of your next white enhancing spell.' },
     },
     dark = {
-        { 'Parsimony',       'Pars', 'Your next black magic spell costs half the MP.' },
-        { 'Alacrity',        'Alac', 'Your next black magic spell casts and recasts faster.' },
-        { 'Manifestation',   'Mani', 'Your next enfeebling or dark magic spell also hits enemies around the target.' },
-        { 'Ebullience',      'Ebul', 'Boosts the power of your next black magic spell.' },
-        { 'Addendum: Black', 'AddB', 'Opens extra black magic (tier IV nukes and more).' },
-        { 'Focalization',    'Foca', 'Your next black magic spell is more accurate.' },
+        { 'Parsimony',       'Par', 'Your next black magic spell costs half the MP.' },
+        { 'Alacrity',        'Ala', 'Your next black magic spell casts and recasts faster.' },
+        { 'Manifestation',   'Man', 'Your next enfeebling or dark magic spell also hits enemies around the target.' },
+        { 'Ebullience',      'Ebu', 'Boosts the power of your next black magic spell.' },
+        { 'Addendum: Black', 'AdB', 'Opens extra black magic (tier IV nukes and more).' },
+        { 'Focalization',    'Foc', 'Your next black magic spell is more accurate.' },
         { 'Immanence',       'Imm',  'Your next elemental spell can open or close a skillchain.' },
     },
 };
@@ -1000,10 +1000,10 @@ local function book_start(side, addendum)
     run = { sc = { sc = add }, steps = steps, i = 1, next_at = os.clock(), started = os.clock(), total = (#steps > 1) and 1.5 or 0 };
 end
 
-local function book_row(have)
+local function book_row(have, row_x)
     local busy = (run ~= nil);
     local side = arts_side();
-    for n, b in ipairs({ { 'light', 'Light Arts', 'Addendum: White', 'Light' }, { 'dark', 'Dark Arts', 'Addendum: Black', 'Dark' } }) do
+    for n, b in ipairs({ { 'light', 'Light Arts', 'Addendum: White', 'LA' }, { 'dark', 'Dark Arts', 'Addendum: Black', 'DA' } }) do
         if (n > 1) then imgui.SameLine(0, 2); end
         local hit = slot('##sb_book_' .. b[1], {
             icon = buff_id(b[2]), col = BOOK_COL[b[1]], label = b[4], active = (side == b[1]), disabled = busy,
@@ -1019,13 +1019,15 @@ local function book_row(have)
             imgui.EndTooltip();
         end
     end
+    -- Line the stratagems up under the skillchain buttons.
+    imgui.SameLine(0, 8);
+    if (type(row_x) == 'number' and imgui.GetCursorPosX() < row_x) then imgui.SetCursorPosX(row_x); end
     if (side == nil) then
-        imgui.SameLine(0, 10);
-        imgui.TextColored(DIM, 'Pick a book to see its stratagems.');
+        imgui.TextColored(DIM, 'Pick a book (LA / DA) to see its stratagems.');
         return side;
     end
     for n, st in ipairs(STRATS[side]) do
-        imgui.SameLine(0, (n == 1) and 10 or 2);
+        if (n > 1) then imgui.SameLine(0, 2); end
         local name = st[1];
         local on = has_buff(name);
         local hit = slot('##sb_strat_' .. side .. n, {
@@ -1102,7 +1104,7 @@ sb.render_bar = function (opts)
             end
 
             -- Second row: the Light / Dark books and that book's stratagems.
-            local side = book_row(have);
+            local side = book_row(have, row_x);
             -- Third row: white magic, while Light Arts / Addendum: White is up (or always, in Options).
             if (side == 'light' or opt('sch_bar_white_always', false)) then
                 if (type(row_x) == 'number') then imgui.SetCursorPosX(row_x); end
