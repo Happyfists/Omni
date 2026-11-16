@@ -1,6 +1,11 @@
 --[[
     omni_pops.lua - Happy Pops: HNM pop timer with window warnings.
 
+    Also tracks the NMs whose windows CatsEyeXI changed (bg-wiki, CatsEyeXI Content/Monsters):
+      Timed (1-2h, 2-3h, 9-12h): 7 checks spread over the window, the last = it should be up.
+      Placeholder (PH) NMs (1h, 2h, 8h, 18h): one "can pop again now" alert - after that it's a
+      PH lottery, so there is no forced pop. Hover an NM's name for its PH % and old window.
+
     Type an HNM and its time of death (ToD). For every window it warns 2 min, 1 min, 30 sec and
     10 sec before, says when the window is OPEN, and says it closed 40 sec later (OPEN is called 4 sec early) - and counts the
     windows (1/7, 2/7 ... 7/7 = forced pop). A ToD is only ever set by you: type it, or press
@@ -42,6 +47,20 @@ local GROUPS = {
     h81 = { first = 81 * 3600 + RESPAWN_EXTRA, step = 10 * 60, count = 7 },   -- ToAU beastmen kings: 81:00:16
     -- Wyrms (Jormungand, Tiamat, Vrtra): 81:00:16 like the ToAU kings, 7 windows 10 min apart.
     wyrm = { first = 81 * 3600 + RESPAWN_EXTRA, step = 10 * 60, count = 7, label = '81h' },
+
+    -- NMs whose windows CatsEyeXI changed (bg-wiki, CatsEyeXI Content/Monsters, "Notorious Monster Changes").
+    -- Timed ones spawn somewhere in their window: shown as 7 checks spread over it, the last = should be up.
+    t1_2  = { first = 1 * 3600, step = 10 * 60, count = 7, label = '1-2h', nm = true },
+    t2_3  = { first = 2 * 3600, step = 10 * 60, count = 7, label = '2-3h', nm = true },
+    t9_12 = { first = 9 * 3600, step = 30 * 60, count = 7, label = '9-12h', nm = true },
+    -- Placeholder (PH) ones: after this long the PH can turn into the NM again - a lottery, not a sure pop.
+    p1   = { first = 1 * 3600,  step = 60, count = 1, forced = false, lottery = true, label = '1h PH',  nm = true },
+    p2   = { first = 2 * 3600,  step = 60, count = 1, forced = false, lottery = true, label = '2h PH',  nm = true },
+    p8   = { first = 8 * 3600,  step = 60, count = 1, forced = false, lottery = true, label = '8h PH',  nm = true },
+    p18  = { first = 18 * 3600, step = 60, count = 1, forced = false, lottery = true, label = '18h PH', nm = true },
+    p2_3 = { first = 2 * 3600,  step = 10 * 60, count = 7, forced = false, label = '2-3h PH', nm = true },
+    -- Fomor Kings (Shadowreign zones): timed, 4-5 hours after they die or despawn.
+    f4_5 = { first = 4 * 3600,  step = 10 * 60, count = 7, label = '4-5h', nm = true, fomor = true },
 };
 local HNMS = {
     { 'Fafnir', 'h21' }, { 'Behemoth', 'h21' }, { 'Adamantoise', 'h21' }, { 'Argus', 'h21' },
@@ -50,9 +69,51 @@ local HNMS = {
     { 'Khimaira', 'h57' }, { 'Cerberus', 'h57' }, { 'Hydra', 'h57' },
     { 'Medusa', 'h81' }, { 'Gurfurlur the Menacing', 'h81' }, { 'Gulool Ja Ja', 'h81' },
     { 'Jormungand', 'wyrm' }, { 'Tiamat', 'wyrm' }, { 'Vrtra', 'wyrm' },
+    -- Fomor Kings
+    { 'Lugh', 'f4_5' }, { 'Tethra', 'f4_5' }, { 'Ethniu', 'f4_5' }, { 'Elatha', 'f4_5' }, { 'Buarainech', 'f4_5' },
+    -- NMs (CatsEyeXI changed windows)
+    { 'Faust', 't1_2' }, { 'Mother Globe', 't1_2' }, { 'Zipacna', 't1_2' }, { 'Steam Cleaner', 't1_2' },
+    { 'Morbolger', 't1_2' },
+    { 'Eba', 't2_3' }, { 'Tres Duendes', 't2_3' }, { "Bo'Who Warmonger", 'p2_3' },
+    { 'Centurio XII-I', 't9_12' },
+    { 'Despot', 'p1' }, { 'Deadly Dodo', 'p1' }, { 'Goblintrap', 'p1' }, { 'Hundredscar Hajwaj', 'p1' },
+    { 'Nue', 'p1' }, { 'Orctrap', 'p1' },
+    { 'Arachne', 'p2' }, { 'Kirata', 'p2' },
+    { 'Bonnacon', 'p8' }, { 'Voluptuous Vivian', 'p8' },
+    { 'Bloodtear Baldurf', 'p18' }, { 'Steelfleece Baldarich', 'p18' },
 };
 local GROUP_OF = {};
 for _, h in ipairs(HNMS) do GROUP_OF[h[1]] = h[2]; end
+
+-- What CatsEyeXI changed for each NM (shown when you hover its name).
+local NM_INFO = {
+    ['Lugh'] = "Fomor King - Crawlers' Nest (S), timed 4-5 hours. Drops currency for Indech's battle.",
+    ['Tethra'] = 'Fomor King - The Eldieme Necropolis (S), timed 4-5 hours.',
+    ['Ethniu'] = 'Fomor King - The Eldieme Necropolis (S), timed 4-5 hours.',
+    ['Elatha'] = 'Fomor King - timed 4-5 hours.',
+    ['Buarainech'] = 'Fomor King - timed 4-5 hours.',
+    ['Despot'] = 'PH 5%, 1 hour (was 2 hours)',
+    ['Faust'] = 'Timed, 1-2 hours (was 3-6 hours)',
+    ['Mother Globe'] = 'Timed, 1-2 hours (was 3-6 hours)',
+    ['Zipacna'] = 'Timed, 1-2 hours (was 3-4 hours)',
+    ['Steam Cleaner'] = 'PH 100%, 1-2 hours (was 2-4 hours)',
+    ['Arachne'] = 'PH 10% (was 5%), 2 hours',
+    ['Bonnacon'] = 'PH 5%, 8 hours (was 1-24 hours)',
+    ["Bo'Who Warmonger"] = 'PH 10% (was 5%), 2-3 hours (was 1-8 hours)',
+    ['Centurio XII-I'] = 'Timed, 9-12 hours (was 21-24 hours)',
+    ['Deadly Dodo'] = 'PH 5% (was 33%), 1 hour',
+    ['Eba'] = 'Timed, 2-3 hours (was 8-12 hours)',
+    ['Goblintrap'] = 'PH 10% (was 5%), 1 hour',
+    ['Hundredscar Hajwaj'] = 'PH 15% (was 10%), 1 hour',
+    ['Kirata'] = 'PH 15% (was 7%), 2 hours (was 1-8 hours)',
+    ['Morbolger'] = 'Timed, 1-2 hours (was 21-24 hours)',
+    ['Nue'] = 'PH 10% (was 5%), 1 hour (was 1-2 hours)',
+    ['Orctrap'] = 'PH 15% (was 10%), 1 hour',
+    ['Tres Duendes'] = 'Timed, 2-3 hours (was 21-24 hours)',
+    ['Voluptuous Vivian'] = 'PH 10%, 8 hours (was 16 hours)',
+    ['Bloodtear Baldurf'] = 'PH 90%, 18 hours (was 21-24 hours)',
+    ['Steelfleece Baldarich'] = 'PH 90%, 18 hours (was 21-24 hours)',
+};
 
 -- The zone each HNM lives in. A kill is only taken as that HNM's ToD in its own zone, so a
 -- same-named monster elsewhere (Nyzul Isle's floor bosses, Einherjar, Dynamis...) doesn't count.
@@ -373,15 +434,28 @@ local function check(name, t, now)
         local tag = ('%d/%d'):format(k, g.count);
         local forced = (k == g.count) and g.forced ~= false;
         local events = {};
-        for _, w in ipairs(WARN) do
+        if g.lottery then
+            -- PH NMs: one heads-up and one "can pop again" - no windows, no forced pop.
+            events[#events + 1] = { open_t - 60, ('%s can pop again in 1 minute (PH lottery)'):format(name), false, 'w-60' };
+            events[#events + 1] = { open_t, ('%s can pop again now - kill its placeholder (%s)'):format(name, NM_INFO[name] or 'PH'), true, 'open' };
+        end
+        for _, w in ipairs(g.lottery and {} or WARN) do
             events[#events + 1] = { open_t + w[1], ('%s window %s %s'):format(name, tag, w[2]) .. (forced and ' (forced pop)' or ''), false, 'w' .. w[1] };
         end
-        if k == 1 then
+        if g.lottery then
+            -- (nothing more)
+        elseif k == 1 and g.nm then
+            -- NMs: no 1-hour linkshell post.
+        elseif k == 1 then
             -- One hour before the first window: told to the linkshell (tick box "1h warning to linkshell").
             events[#events + 1] = { open_t - 3600, ('%s window 1/%d in 1 hour (%s)'):format(name, g.count, os.date('%H:%M:%S', open_t)), false, 'ls1h', true };
         end
-        events[#events + 1] = { open_t - OPEN_EARLY, ('%s window %s OPEN!'):format(name, tag) .. (forced and ' Forced pop - it should be up now!' or ''), true, 'open' };
-        if k < g.count then
+        if not g.lottery then
+            events[#events + 1] = { open_t - OPEN_EARLY, ('%s window %s OPEN!'):format(name, tag) .. (forced and ' Forced pop - it should be up now!' or ''), true, 'open' };
+        end
+        if g.lottery then
+            -- no "closed" message: the lottery stays open
+        elseif k < g.count then
             events[#events + 1] = { open_t + CLOSE_AT, ('%s window %s closed - next window (%d/%d) in %s'):format(
                 name, tag, k + 1, g.count, span(g.step - CLOSE_AT)), false, 'close' };
         elseif not forced then
@@ -487,6 +561,11 @@ local function start(name, tod, how, by)
     save();
     log_tod(name, tod, how or 'typed', by);
     local g = GROUPS[GROUP_OF[name]];
+    if g.lottery then
+        msg(('%s ToD %s%s - can pop again from %s (in %s), %s.'):format(
+            name, clock(tod), by and (' (killed by ' .. by .. ')') or '', clock(tod + g.first), span(tod + g.first - os.time()), NM_INFO[name] or 'PH lottery'));
+        return;
+    end
     msg(('%s ToD %s%s - first window %s (in %s), %d windows %d min apart.'):format(
         name, clock(tod), by and (' (killed by ' .. by .. ')') or '', clock(tod + g.first), span(tod + g.first - os.time()), g.count, g.step / 60));
 end
@@ -502,6 +581,10 @@ local function announce(name, chan)
     local tail = (g.forced == false) and ('until ' .. os.date('%a %d %b %H:%M', last)) or ('forced ' .. os.date('%H:%M', last));
     local line = ('%s ToD %s - Repop at %s (%d windows, %s)'):format(
         name, os.date('%H:%M:%S', t.tod), os.date('%a %d %b %H:%M:%S', first), g.count, tail);
+    if g.lottery then
+        line = ('%s ToD %s - can pop again from %s (%s)'):format(
+            name, os.date('%H:%M:%S', t.tod), os.date('%a %d %b %H:%M:%S', first), NM_INFO[name] or 'PH lottery');
+    end
     pcall(function () AshitaCore:GetChatManager():QueueCommand(1, (chan or '/l') .. ' ' .. line); end);
 end
 -- Lock: some NMs share a name with ones you can pop yourself, and killing those would reset the
@@ -558,9 +641,14 @@ ashita.events.register('text_in', 'omni_pops_text', function (e)
     pcall(function ()
         local m = (e.message_modified or e.message or ''):gsub('[\30\31].', ''):gsub('\x7F.', '');
         local low = m:lower();
+        -- Whole name only, so "Eba" doesn't match "Ebony Pudding".
+        local function has(pat)
+            local i, j = low:find(pat, 1, true);
+            return i ~= nil and not low:sub(j + 1, j + 1):match('[%a]');
+        end
         for _, h in ipairs(HNMS) do
             local n = h[1]:lower();
-            if low:find('defeats the ' .. n, 1, true) or low:find('defeats ' .. n, 1, true)
+            if has('defeats the ' .. n) or has('defeats ' .. n)
                or low:find('the ' .. n .. ' falls to the ground', 1, true) or low:find(n .. ' falls to the ground', 1, true) then
                 -- "[13:49:04] Paopao defeats the Hydra." -> Paopao (a timestamp in front is skipped)
                 local by = m:match("([%a][%a'%-]*) defeats ");
@@ -659,6 +747,7 @@ local function list(to_party)
         if s.phase == 'wait' then line = ('%s: window %d/%d in %s (%s)'):format(name, s.win, s.count, span(s.left), clock(s.next_open));
         elseif s.phase == 'open' then line = ('%s: window %d/%d OPEN now'):format(name, s.win, s.count);
         elseif s.phase == 'popped' then line = ('%s: POPPED at %s (window %d/%d)'):format(name, os.date('%H:%M:%S', s.at), s.win, s.count);
+        elseif GROUPS[GROUP_OF[name]].lottery then line = ('%s: can pop now - PH lottery open for %s'):format(name, span(s.since));
         else line = ('%s: all windows passed - should be up (forced %s ago)'):format(name, span(s.since)); end
         if to_party then
             pcall(function () AshitaCore:GetChatManager():QueueCommand(1, '/p ' .. line); end);
@@ -763,6 +852,7 @@ local NAMES_Z = table.concat(NAMES, '\0') .. '\0';
 
 local function hist_tip(name, t)
     local lines = { name };
+    if NM_INFO[name] then lines[#lines + 1] = 'CatsEyeXI: ' .. NM_INFO[name]; end
     if t then lines[#lines + 1] = 'ToD ' .. os.date('%a %d %b %H:%M:%S', t.tod); end
     if read_history ~= nil then
         local h = read_history(name);
@@ -929,13 +1019,15 @@ local function body()
                 imgui.PushStyleColor(ImGuiCol_FrameBg, { line[1], line[2], line[3], 0.60 });
                 imgui.ProgressBar(frac, { -1, 16 }, span(s.left));
                 imgui.PopStyleColor(2);
+            elseif g.lottery then
+                imgui.TextColored(C.green, 'PH lottery open');
             else
                 imgui.TextColored(C.green, 'Should be up');
             end
             if imgui.IsItemHovered() then imgui.SetTooltip(('Window %d of %d.'):format(s.win, s.count)); end
             -- Pop date: the day and time of the next window, and of the last (forced) one.
             imgui.TableNextColumn();
-            local tail = ((g.forced == false) and '(last %s)' or '(forced %s)'):format(os.date('%H:%M', last));
+            local tail = g.lottery and '(PH lottery)' or ((g.forced == false) and '(last %s)' or '(forced %s)'):format(os.date('%H:%M', last));
             if s.phase == 'popped' then
                 imgui.TextColored(C.green, ('popped %s'):format(os.date('%a %d %b %H:%M:%S', s.at)));
                 imgui.SameLine(0, 6);
@@ -948,6 +1040,8 @@ local function body()
                 imgui.TextColored(C.green, 'open now');
                 imgui.SameLine(0, 6);
                 imgui.TextColored(C.dim, tail);
+            elseif g.lottery then
+                imgui.TextColored(C.green, 'can pop since ' .. os.date('%a %H:%M', last));
             else
                 imgui.TextColored(C.green, 'should be up since ' .. os.date('%a %H:%M', last));
             end
@@ -971,8 +1065,20 @@ local function body()
             if imgui.IsItemHovered() then imgui.SetTooltip('Stop tracking it.'); end
         end
 
+        local nm_header = nil;
         for _, h in ipairs(idle) do
             local name = h[1];
+            local gg = GROUPS[h[2]];
+            local hdr = gg.fomor and 'fomor' or (gg.nm and 'nm' or nil);
+            if hdr ~= nil and nm_header ~= hdr then
+                nm_header = hdr;
+                imgui.TableNextRow();
+                imgui.TableNextColumn();
+                imgui.TextColored(accent, (hdr == 'fomor') and 'Fomor Kings' or 'NMs');
+                imgui.SameLine(0, 6);
+                imgui.TextColored(C.dim, (hdr == 'fomor') and '(Shadowreign, 4-5h)' or '(CatsEyeXI changed windows)');
+                for _ = 1, 4 do imgui.TableNextColumn(); end
+            end
             imgui.TableNextRow();
             name_cell(h, C.text);
             imgui.TableNextColumn(); imgui.TextColored(C.dim, '-');

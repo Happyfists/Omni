@@ -9,8 +9,24 @@
     own script for one in VanaCore's scripts\sc_<name>.txt, that runs instead. omni runs each chain
     itself, line by line with its /waits, so a click can never go off twice. Buttons are coloured by the
     element you burst with; a star marks the ones that match your weather right now.
-    Storms: the eight storm spells. Left-click casts it on you, right-click on a party member
-    (<stpc>). The one that matches today's day is marked: storm + matching obi + day = +20%.
+    Storms: the eight storm spells. Left-click casts it on you. Right-click gives it to the whole
+    party for twice as long: Light Arts (if needed) -> Accession -> Perpetuance -> storm, with your
+    enhancing-duration gear on (2 stratagems; with only 1 it skips Perpetuance). The one that matches today's day is marked: storm + matching obi + day = +20%.
+
+    Books (second row): a Light book and a Dark book. Left-click = that Arts (free), right-click =
+    that Arts + its Addendum (1 stratagem). Beside them, that book's stratagems as buttons:
+      Light: Penury, Celerity, Accession, Rapture, Addendum: White, Perpetuance.
+      Dark:  Parsimony, Alacrity, Manifestation, Ebullience, Addendum: Black, Focalization, Immanence.
+    White row (third row, shows while Light Arts or Addendum: White is up):
+      Accession buffs - Stoneskin, Blink, Aquaveil, Phalanx, Regen, Protect, Shell, Sneak, Invisible.
+        Left-click: Accession + the spell (whole party, 1 stratagem). Right-click: just the spell
+        (on you for the self-only ones, pick a party member for the rest).
+      Addendum: White spells - the -na spells, Erase, Raise, Reraise. Puts Light Arts / Addendum: White
+        up first when needed.
+    Gear: before a spell (and before the burst of a skillchain) the bar looks through your inventory and
+    wardrobes for gear that helps that spell (MND / Stoneskin+ for Stoneskin, Enhancing skill for Phalanx,
+    INT / Magic Atk. Bonus / matching obi for bursts...), puts it on, and puts your old gear back once
+    the cast finishes. Weapons are never swapped, so you keep your TP.
 
     /schbar turns it on or off. Tools > SCH Bar has the switch and a short play guide.
 ]]
@@ -283,6 +299,228 @@ local function has_buff(name)
     return found;
 end
 
+----------------------------------------------------------------------------------------------------
+-- Gear: find what you own that helps a spell, put it on, put the old pieces back after the cast
+----------------------------------------------------------------------------------------------------
+-- Bags you can equip from: inventory, wardrobes 1-8.
+local EQUIP_BAGS = { 0, 8, 10, 11, 12, 13, 14, 15, 16 };
+local SINGLE_SLOTS = { 3, 4, 5, 6, 7, 8, 9, 10, 15 };   -- ammo head body hands legs feet neck waist back
+local PAIR_SLOTS = { { 11, 12 }, { 13, 14 } };          -- ears, rings
+-- Weapons (0 main, 1 sub, 2 range) are left alone so you keep your TP and staff/grip setup.
+
+-- What the item descriptions say, read as signed numbers ("MND+5", "Enhancing magic skill +10").
+local STAT_PAT = {
+    mnd       = '%f[%a]mnd%s*([%+%-])(%d+)',
+    int       = '%f[%a]int%s*([%+%-])(%d+)',
+    enh       = 'enhancing magic skill%s*([%+%-])(%d+)',
+    ele       = 'elemental magic skill%s*([%+%-])(%d+)',
+    mab       = 'magic atk%.%s*bonus"?%s*([%+%-])(%d+)',
+    macc      = 'magic acc%a*%.?%s*([%+%-])(%d+)',
+    mbd       = 'magic burst damage%s*([%+%-])(%d+)',
+    stoneskin = 'stoneskin"?%s*([%+%-])(%d+)',
+    phalanx   = 'phalanx"?%s*([%+%-])(%d+)',
+    aquaveil  = 'aquaveil"?%s*([%+%-])(%d+)',
+    regen     = 'regen"?%s*potency%s*([%+%-])(%d+)',
+    enhdur    = 'enhancing magic%s*%a*%s*duration%s*([%+%-])(%d+)',
+};
+-- How much each stat is worth for each kind of spell.
+local PROFILES = {
+    stoneskin = { mnd = 1, enh = 0.33, stoneskin = 1 },
+    phalanx   = { enh = 1, phalanx = 10 },
+    aquaveil  = { enh = 0.5, aquaveil = 5 },
+    regen     = { regen = 5, enhdur = 0.5 },
+    enh       = { enhdur = 1 },
+    nuke      = { int = 1, mab = 2, ele = 0.5, macc = 0.5, mbd = 3 },
+};
+local PROFILE_WHAT = {
+    stoneskin = 'MND, Enhancing skill, Stoneskin+', phalanx = 'Enhancing skill, Phalanx+',
+    aquaveil = 'Enhancing skill, Aquaveil+', regen = 'Regen potency, enhancing duration',
+    enh = 'Enhancing magic duration', nuke = 'INT, Magic Atk. Bonus, Elemental skill, Magic Acc., MB damage, obi',
+};
+local OBI = {
+    fire = 'karin obi', ice = 'hyorin obi', wind = 'furin obi', earth = 'dorin obi',
+    thunder = 'rairin obi', water = 'suirin obi', light = 'korin obi', dark = 'anrin obi',
+};
+
+local function stat_value(desc, pat)
+    local total = 0;
+    for sign, n in desc:gmatch(pat) do total = total + ((sign == '-') and -1 or 1) * (tonumber(n) or 0); end
+    return total;
+end
+
+local score_cache = {};
+local function item_score(id, r, prof, el, obi_on)
+    local key = id .. ':' .. prof .. ':' .. ((obi_on and el) or '');
+    if (score_cache[key] ~= nil) then return score_cache[key]; end
+    local s = 0;
+    local desc = '';
+    pcall(function () desc = (r.Description[1] or ''):lower(); end);
+    for stat, weight in pairs(PROFILES[prof] or {}) do s = s + weight * stat_value(desc, STAT_PAT[stat]); end
+    if (obi_on and el ~= nil) then
+        local nm = '';
+        pcall(function () nm = (r.Name[1] or ''):lower(); end);
+        if (nm == OBI[el] or nm == 'hachirin-no-obi') then s = s + 100; end
+    end
+    score_cache[key] = s;
+    return s;
+end
+
+-- Works out which pieces to put on. Returns a list of { slot, c, i, name } and what is on now.
+local function plan_gear(prof, el)
+    local plan, worn = {}, {};
+    if (PROFILES[prof] == nil) then return plan, worn; end
+    pcall(function ()
+        local inv = AshitaCore:GetMemoryManager():GetInventory();
+        local res = AshitaCore:GetResourceManager();
+        local lv = main_level();
+        local obi_on = false;
+        if (el ~= nil) then
+            local e = read_env();
+            obi_on = (your_weather(e) == el) or (e.day == el);
+        end
+        for s = 3, 15 do
+            local item = inv:GetEquippedItem(s);
+            local idx = item and bit.band(item.Index, 0x00FF) or 0;
+            if (idx ~= 0) then
+                local c = bit.band(item.Index, 0xFF00) / 256;
+                worn[s] = { key = c .. ':' .. idx, c = c, i = idx };
+            end
+        end
+        local per = {};
+        for _, c in ipairs(EQUIP_BAGS) do
+            local max = 0;
+            pcall(function () max = inv:GetContainerCountMax(c) or 0; end);
+            for i = 1, max do
+                local it = inv:GetContainerItem(c, i);
+                if (it ~= nil and it.Id ~= 0 and it.Id ~= 65535 and it.Count > 0) then
+                    local r = res:GetItemById(it.Id);
+                    if (r ~= nil and bit.band(r.Flags, 0x800) ~= 0 and r.Level <= lv and bit.band(r.Jobs, 0x100000) ~= 0) then
+                        local sc = item_score(it.Id, r, prof, el, obi_on);
+                        local name = r.Name[1];
+                        for s = 3, 15 do
+                            if (bit.band(r.Slots, bit.lshift(1, s)) ~= 0) then
+                                per[s] = per[s] or {};
+                                table.insert(per[s], { key = c .. ':' .. i, c = c, i = i, score = sc, name = name });
+                            end
+                        end
+                    end
+                end
+            end
+        end
+        local function score_of(s, key)
+            for _, x in ipairs(per[s] or {}) do if (x.key == key) then return x.score; end end
+            return 0;
+        end
+        -- One-piece slots: the best piece, if it beats what is on.
+        for _, s in ipairs(SINGLE_SLOTS) do
+            local best = nil;
+            for _, x in ipairs(per[s] or {}) do if (best == nil or x.score > best.score) then best = x; end end
+            local cur = worn[s] and score_of(s, worn[s].key) or 0;
+            if (best ~= nil and best.score > 0 and best.score > cur and (worn[s] == nil or best.key ~= worn[s].key)) then
+                plan[#plan + 1] = { slot = s, c = best.c, i = best.i, name = best.name };
+            end
+        end
+        -- Ears and rings: the best two, keeping what's on where it is.
+        for _, pair in ipairs(PAIR_SLOTS) do
+            local pool, seen = {}, {};
+            for _, s in ipairs(pair) do
+                for _, x in ipairs(per[s] or {}) do
+                    if (not seen[x.key]) then seen[x.key] = true; pool[#pool + 1] = x; end
+                end
+                if (worn[s] ~= nil and not seen[worn[s].key]) then
+                    seen[worn[s].key] = true;
+                    pool[#pool + 1] = { key = worn[s].key, c = worn[s].c, i = worn[s].i, score = 0, name = '?' };
+                end
+            end
+            local on = {};
+            for _, s in ipairs(pair) do if (worn[s] ~= nil) then on[worn[s].key] = true; end end
+            table.sort(pool, function (a, b)
+                if (a.score ~= b.score) then return a.score > b.score; end
+                return (on[a.key] and 1 or 0) > (on[b.key] and 1 or 0);
+            end);
+            local pick = { pool[1], pool[2] };
+            local placed, free = {}, {};
+            for _, s in ipairs(pair) do
+                local kept = false;
+                for n, x in pairs(pick) do
+                    if (x ~= nil and worn[s] ~= nil and x.key == worn[s].key) then pick[n] = nil; kept = true; break; end
+                end
+                if (not kept) then free[#free + 1] = s; end
+            end
+            local f = 1;
+            for n = 1, 2 do
+                local x = pick[n];
+                if (x ~= nil and f <= #free) then
+                    if (x.score > 0) then plan[#plan + 1] = { slot = free[f], c = x.c, i = x.i, name = x.name }; end
+                    f = f + 1;
+                end
+            end
+        end
+    end);
+    return plan, worn;
+end
+
+-- Sends the equip packets (same as LuAshitacast does, so it works mid-cast).
+local function equip_packet(slot, c, i)
+    local packet = { 0x00, 0x00, 0x00, 0x00, i or 0, slot, c or 0, 0x00 };
+    AshitaCore:GetPacketManager():AddOutgoingPacket(0x50, packet);
+end
+
+-- Puts the gear on and returns what to put back, or nil if nothing changed.
+local function wear_for(prof, el)
+    local plan, worn = plan_gear(prof, el);
+    if (#plan == 0) then return nil; end
+    local back = {};
+    for _, p in ipairs(plan) do
+        back[#back + 1] = { slot = p.slot, old = worn[p.slot] };
+        pcall(equip_packet, p.slot, p.c, p.i);
+    end
+    return back;
+end
+
+local function put_back(back)
+    if (back == nil) then return; end
+    for _, b in ipairs(back) do
+        if (b.old ~= nil) then
+            pcall(equip_packet, b.slot, b.old.c, b.old.i);
+        else
+            pcall(equip_packet, b.slot, 0, 0);
+        end
+    end
+end
+
+-- For the tooltips: what would go on, looked at every few seconds.
+local preview = {};
+local function gear_preview(prof, el)
+    local key = prof .. ':' .. tostring(el);
+    local p = preview[key];
+    if (p == nil or os.clock() - p.at > 3) then
+        local plan = plan_gear(prof, el);
+        local names = {};
+        for _, x in ipairs(plan) do names[#names + 1] = x.name; end
+        p = { at = os.clock(), names = names };
+        preview[key] = p;
+    end
+    return p.names;
+end
+
+-- When your own cast finishes (or is interrupted), from the action packet.
+local cast_done = { at = -100, id = nil };
+ashita.events.register('packet_in', 'omni_schbar_cast', function (e)
+    if (e.id ~= 0x028) then return; end
+    pcall(function ()
+        local actor = struct.unpack('I', e.data, 0x05 + 1);
+        if (actor ~= AshitaCore:GetMemoryManager():GetParty():GetMemberServerId(0)) then return; end
+        local category = ashita.bits.unpack_be(e.data_raw, 82, 4);
+        local param = ashita.bits.unpack_be(e.data_raw, 86, 16);
+        if (category == 4) then
+            cast_done.at, cast_done.id = os.clock(), param;
+        elseif (category == 8 and param == 28787) then   -- interrupted
+            cast_done.at, cast_done.id = os.clock(), 'any';
+        end
+    end);
+end);
+
 -- The best tier of this spell you can cast right now (known, off recast, Addendum up when it needs it).
 local function best_tier(base, addendum_up, top)
     local started = (top == nil);
@@ -351,12 +589,66 @@ local function start(sc)
         add({ until_buff = 'Klimaform', timeout = 11 }, 8);
         add({ wait = 1.2 }, 1.2);
     end
-    for _, s in ipairs(sc.steps) do steps[#steps + 1] = s; end
+    local nuke_gear = opt('sch_bar_gear', true) and opt('sch_bar_burst_gear', true);
+    for _, s in ipairs(sc.steps) do
+        if (s.burst ~= nil and nuke_gear) then
+            steps[#steps + 1] = { gear = 'nuke', el = sc.mb };
+            steps[#steps + 1] = s;
+            steps[#steps + 1] = { restore = true };
+        else
+            steps[#steps + 1] = s;
+        end
+    end
     run = { sc = sc, steps = steps, i = 1, next_at = os.clock(), started = os.clock(), total = sc.total + prep,
             addendum = addendum };
 end
 
-sb.stop = function () if (run ~= nil) then say('Stopped ' .. run.sc.sc .. '.'); end run = nil; end
+sb.stop = function ()
+    if (run ~= nil) then
+        say('Stopped ' .. run.sc.sc .. '.');
+        if (run.back ~= nil) then put_back(run.back); end
+    end
+    run = nil;
+end
+
+-- White magic: Accession buffs and Addendum: White spells.
+local function pick_tier(w)
+    for _, n in ipairs(w.tiers) do if (knows(n)) then return n; end end
+    return nil;
+end
+
+local function white_start(w, accession)
+    if (run ~= nil) then say('Busy with ' .. run.sc.sc .. ' - wait for it or Stop.'); return; end
+    local name = pick_tier(w);
+    if (name == nil) then say("You don't know " .. w.tiers[#w.tiers] .. '.'); return; end
+    if (spell_recast(name) > 0) then say(name .. ' is on recast.'); return; end
+    local have = stratagems();
+    local la, aw = has_buff('Light Arts'), has_buff('Addendum: White');
+    local need_add = (w.addendum ~= nil) and w.addendum(name) and not aw;
+    local perp = (w.perp == true);
+    local cost = (accession and 1 or 0) + (need_add and 1 or 0) + (perp and 1 or 0);
+    if (perp and have == cost - 1) then
+        -- One short: still give the whole party the storm, just at normal length.
+        perp = false;
+        cost = cost - 1;
+        say('Only ' .. have .. ' stratagem' .. (have == 1 and '' or 's') .. ' - skipping Perpetuance, normal duration.');
+    end
+    if (have < cost) then say(('Needs %d stratagem%s, you have %d.'):format(cost, cost == 1 and '' or 's', have)); return; end
+
+    local steps, total = {}, 0;
+    local function add(s, secs) steps[#steps + 1] = s; total = total + (secs or 0); end
+    if (not la and not aw) then add({ cmd = '/ja "Light Arts" <me>' }); add({ wait = 1.5 }, 1.5); end
+    if (need_add) then add({ cmd = '/ja "Addendum: White" <me>' }); add({ wait = 1.5 }, 1.5); end
+    if (accession) then add({ cmd = '/ja "Accession" <me>' }); add({ wait = 1.5 }, 1.5); end
+    if (perp) then add({ cmd = '/ja "Perpetuance" <me>' }); add({ wait = 1.5 }, 1.5); end
+    local gear = (w.prof ~= nil) and opt('sch_bar_gear', true);
+    if (gear) then add({ gear = w.prof }); end
+    local target = (accession or w.self) and '<me>' or '<stpc>';
+    add({ cast = ('/ma "%s" %s'):format(name, target), spell = name }, 4);
+    if (gear) then add({ restore = true }); end
+    local label = (accession and 'Acc. ' or '') .. (perp and 'Perp. ' or '') .. name;
+    run = { sc = { sc = label }, steps = steps, i = 1, next_at = os.clock(), started = os.clock(), total = total };
+end
 
 local function tick()
     if (run == nil) then return; end
@@ -364,8 +656,34 @@ local function tick()
     -- One command per frame; waits just move the clock on.
     while (run ~= nil and now >= run.next_at) do
         local step = run.steps[run.i];
-        if (step == nil) then run = nil; break; end
-        if (step.until_buff ~= nil) then
+        if (step == nil) then
+            if (run.back ~= nil) then put_back(run.back); end
+            run = nil;
+            break;
+        end
+        if (step.gear ~= nil) then
+            -- Put the gear on; a moment for it to land before the cast.
+            run.i = run.i + 1;
+            if (run.back == nil) then run.back = wear_for(step.gear, step.el); end
+            run.next_at = now + ((run.back ~= nil) and 0.3 or 0);
+            if (run.back ~= nil) then break; end
+        elseif (step.restore ~= nil) then
+            -- Wait for the cast to finish (or 30 s, e.g. if you never picked a <stpc> target), then put the old gear back.
+            local since = run.cast_at or now;
+            local done = cast_done.at >= since and (cast_done.id == 'any' or cast_done.id == run.cast_id);
+            if (run.back == nil or done or now - since > 30) then
+                if (run.back ~= nil) then put_back(run.back); run.back = nil; end
+                run.i = run.i + 1;
+                run.next_at = now + 0.2;
+            end
+            break;
+        elseif (step.cast ~= nil) then
+            run.i = run.i + 1;
+            queue(step.cast);
+            run.cast_at, run.cast_id = now, spell_id(step.spell);
+            run.next_at = now + 0.5;
+            break;
+        elseif (step.until_buff ~= nil) then
             step.since = step.since or now;
             if (has_buff(step.until_buff) or now - step.since > step.timeout) then
                 step.since = nil;
@@ -383,6 +701,7 @@ local function tick()
                 local name = best_tier(b.base, run.addendum or has_buff('Addendum: Black'), b.tier ~= '' and b.tier or nil)
                     or best_tier(b.base, run.addendum or has_buff('Addendum: Black'), nil) or b.spell;
                 queue(('/ma "%s" %s'):format(name, b.target));
+                run.cast_at, run.cast_id = now, spell_id(name);
                 run.next_at = now;
                 break;
             else
@@ -472,6 +791,16 @@ local ABBR = {
     Compression = 'Comp', Transfixion = 'Tran',
 };
 
+local function gear_lines(prof, el)
+    if (prof == nil or not opt('sch_bar_gear', true)) then return; end
+    local names = gear_preview(prof, el);
+    if (#names > 0) then
+        imgui.TextColored(GOOD, 'Gear swap: ' .. table.concat(names, ', '));
+    else
+        imgui.TextColored(DIM, 'Gear: nothing better than what you have on (' .. PROFILE_WHAT[prof] .. ').');
+    end
+end
+
 local function mb_tooltip(sc, el, w, have)
     imgui.BeginTooltip();
     imgui.TextColored(GOLD, sc.sc .. '  ->  burst ' .. el.name);
@@ -484,6 +813,7 @@ local function mb_tooltip(sc, el, w, have)
             imgui.TextColored(DIM, 'Best with ' .. EL[sc.mb].storm .. ' on you and the ' .. el.name .. ' obi (or Hachirin-no-Obi).');
         end
     end
+    if (opt('sch_bar_burst_gear', true)) then gear_lines('nuke', sc.mb); end
     if (run ~= nil) then imgui.TextColored(BAD, 'A skillchain is already running.'); end
     if (have < 2) then imgui.TextColored(BAD, 'Not enough stratagems (needs 2).'); end
     imgui.EndTooltip();
@@ -522,11 +852,16 @@ local function storm_row(e)
             icon = ICON.storm[key], col = el.col, star = today, cd = cd, active = (e.storm == key), disabled = not known,
         });
         if (hit == 1 and cd <= 0) then cast(('/ma "%s" <me>'):format(name)); end
-        if (hit == 2 and cd <= 0) then cast(('/ma "%s" <stpc>'):format(name)); end
+        if (hit == 2 and cd <= 0) then
+            -- Whole party, double length: Light Arts -> Accession -> Perpetuance -> storm (+ duration gear).
+            white_start({ tiers = { name }, prof = 'enh', self = true, perp = true }, true);
+        end
         if (imgui.IsItemHovered()) then
             imgui.BeginTooltip();
             imgui.TextColored(GOLD, name);
-            imgui.Text('Left-click: on you.   Right-click: pick a party member.');
+            imgui.Text('Left-click: on you.');
+            imgui.Text('Right-click: whole party, double length - Accession + Perpetuance (2 stratagems).');
+            imgui.TextColored(DIM, 'Puts Light Arts up first if it is down. With 1 stratagem: party, normal length.');
             imgui.TextColored(DIM, el.name .. " weather on the target - it replaces the zone's weather for them.");
             imgui.TextColored(DIM, ('With Stormsurge merits it also gives %s.'):format(STORM_STAT[key]));
             if (e.storm == key) then imgui.TextColored(GOOD, 'On you now.'); end
@@ -538,6 +873,175 @@ local function storm_row(e)
             imgui.EndTooltip();
         end
     end
+end
+
+-- Second row: white magic. Accession buffs, then Addendum: White spells.
+local function not_raise1(name) return name ~= 'Raise'; end
+local function always() return true; end
+local WHITE_ACC = {
+    { key = 'stoneskin', tiers = { 'Stoneskin' }, label = 'Skin', buff = 'Stoneskin', prof = 'stoneskin', self = true },
+    { key = 'blink',     tiers = { 'Blink' },     label = 'Blnk', buff = 'Blink',     prof = 'enh',       self = true },
+    { key = 'aquaveil',  tiers = { 'Aquaveil' },  label = 'Aqua', buff = 'Aquaveil',  prof = 'aquaveil',  self = true },
+    { key = 'phalanx',   tiers = { 'Phalanx' },   label = 'Phal', buff = 'Phalanx',   prof = 'phalanx',   self = true },
+    { key = 'regen',     tiers = { 'Regen III', 'Regen II', 'Regen' }, label = 'Rgn', buff = 'Regen', prof = 'regen' },
+    { key = 'protect',   tiers = { 'Protect V', 'Protect IV', 'Protect III', 'Protect II', 'Protect' }, label = 'Pro', buff = 'Protect', prof = 'enh' },
+    { key = 'shell',     tiers = { 'Shell V', 'Shell IV', 'Shell III', 'Shell II', 'Shell' }, label = 'Shl', buff = 'Shell', prof = 'enh' },
+    { key = 'sneak',     tiers = { 'Sneak' },     label = 'Snk',  buff = 'Sneak',     prof = 'enh' },
+    { key = 'invisible', tiers = { 'Invisible' }, label = 'Invi', buff = 'Invisible', prof = 'enh' },
+};
+local WHITE_ADD = {
+    { key = 'poisona',  tiers = { 'Poisona' },  label = 'Pois', icon = 'Poison',        addendum = always },
+    { key = 'paralyna', tiers = { 'Paralyna' }, label = 'Para', icon = 'Paralysis',     addendum = always },
+    { key = 'blindna',  tiers = { 'Blindna' },  label = 'Blnd', icon = 'Blindness',     addendum = always },
+    { key = 'silena',   tiers = { 'Silena' },   label = 'Sil',  icon = 'Silence',       addendum = always },
+    { key = 'stona',    tiers = { 'Stona' },    label = 'Ston', icon = 'Petrification', addendum = always },
+    { key = 'viruna',   tiers = { 'Viruna' },   label = 'Viru', icon = 'Disease',       addendum = always },
+    { key = 'erase',    tiers = { 'Erase' },    label = 'Eras', icon = 'Slow',          addendum = always },
+    { key = 'raise',    tiers = { 'Raise III', 'Raise II', 'Raise' }, label = 'Rais', icon = 'Reraise', addendum = not_raise1 },
+    { key = 'reraise',  tiers = { 'Reraise III', 'Reraise II', 'Reraise' }, label = 'RR', icon = 'Reraise', addendum = always, self = true },
+};
+local ACC_COL = { 0.82, 0.78, 0.56, 1 };
+local ADD_COL = { 0.62, 0.78, 0.92, 1 };
+
+local function white_row(have)
+    local busy = (run ~= nil);
+    for n, w in ipairs(WHITE_ACC) do
+        if (n > 1) then imgui.SameLine(0, 2); end
+        local name = pick_tier(w);
+        local cd = name and spell_recast(name) or 0;
+        local hit = slot('##sb_acc_' .. w.key, {
+            icon = buff_id(w.buff), col = ACC_COL, label = w.label, cd = cd,
+            active = has_buff(w.buff), disabled = busy or name == nil,
+        });
+        if (hit == 1) then white_start(w, true); elseif (hit == 2) then white_start(w, false); end
+        if (imgui.IsItemHovered()) then
+            imgui.BeginTooltip();
+            imgui.TextColored(GOLD, name or w.tiers[#w.tiers]);
+            if (name == nil) then
+                imgui.TextColored(BAD, "You don't know this spell.");
+            else
+                imgui.Text('Left-click: Accession + ' .. name .. ' (whole party, 1 stratagem).');
+                imgui.Text('Right-click: just ' .. name .. (w.self and ' on you.' or ' - pick a party member.'));
+                imgui.TextColored(DIM, 'Light Arts goes up first if it is down.');
+                if (have < 1) then imgui.TextColored(BAD, 'No stratagems left for Accession.'); end
+                gear_lines(w.prof);
+            end
+            imgui.EndTooltip();
+        end
+    end
+    for n, w in ipairs(WHITE_ADD) do
+        imgui.SameLine(0, (n == 1) and 12 or 2);
+        local name = pick_tier(w);
+        local cd = name and spell_recast(name) or 0;
+        local hit = slot('##sb_add_' .. w.key, {
+            icon = buff_id(w.icon), col = ADD_COL, label = w.label, cd = cd, disabled = busy or name == nil,
+        });
+        if (hit ~= nil) then white_start(w, false); end
+        if (imgui.IsItemHovered()) then
+            imgui.BeginTooltip();
+            imgui.TextColored(GOLD, name or w.tiers[#w.tiers]);
+            if (name == nil) then
+                imgui.TextColored(BAD, "You don't know this spell.");
+            else
+                imgui.Text('Click: ' .. name .. (w.self and ' on you.' or ' - pick a party member.'));
+                if (w.addendum(name) and not has_buff('Addendum: White')) then
+                    imgui.TextColored(DIM, 'Puts Addendum: White up first (1 stratagem).');
+                    if (have < 1) then imgui.TextColored(BAD, 'No stratagems left for Addendum: White.'); end
+                end
+            end
+            imgui.EndTooltip();
+        end
+    end
+end
+
+-- Light and Dark books: switch Arts, and that book's stratagems as buttons beside them.
+local BOOK_COL = { light = { 0.95, 0.90, 0.70, 1 }, dark = { 0.45, 0.35, 0.65, 1 } };
+local STRATS = {
+    light = {
+        { 'Penury',          'Pen',  'Your next white magic spell costs half the MP.' },
+        { 'Celerity',        'Cel',  'Your next white magic spell casts and recasts faster.' },
+        { 'Accession',       'Acc',  'Your next healing or enhancing white magic spell also hits your party.' },
+        { 'Rapture',         'Rap',  'Boosts the potency of your next white magic spell.' },
+        { 'Addendum: White', 'AddW', 'Opens extra white magic (-na spells, Erase, Raise II, Reraise...).' },
+        { 'Perpetuance',     'Perp', 'Doubles the duration of your next white enhancing spell.' },
+    },
+    dark = {
+        { 'Parsimony',       'Pars', 'Your next black magic spell costs half the MP.' },
+        { 'Alacrity',        'Alac', 'Your next black magic spell casts and recasts faster.' },
+        { 'Manifestation',   'Mani', 'Your next enfeebling or dark magic spell also hits enemies around the target.' },
+        { 'Ebullience',      'Ebul', 'Boosts the power of your next black magic spell.' },
+        { 'Addendum: Black', 'AddB', 'Opens extra black magic (tier IV nukes and more).' },
+        { 'Focalization',    'Foca', 'Your next black magic spell is more accurate.' },
+        { 'Immanence',       'Imm',  'Your next elemental spell can open or close a skillchain.' },
+    },
+};
+
+local function arts_side()
+    if (has_buff('Light Arts') or has_buff('Addendum: White')) then return 'light'; end
+    if (has_buff('Dark Arts') or has_buff('Addendum: Black')) then return 'dark'; end
+    return nil;
+end
+
+-- Book: left-click = that Arts, right-click = that Arts + its Addendum.
+local function book_start(side, addendum)
+    if (run ~= nil) then say('Busy with ' .. run.sc.sc .. ' - wait for it or Stop.'); return; end
+    local arts = (side == 'light') and 'Light Arts' or 'Dark Arts';
+    local add = (side == 'light') and 'Addendum: White' or 'Addendum: Black';
+    if (not addendum) then
+        if (arts_side() == side) then say('Already in ' .. arts .. '.'); return; end
+        cast('/ja "' .. arts .. '" <me>');
+        return;
+    end
+    if (has_buff(add)) then say(add .. ' is already up.'); return; end
+    if (stratagems() < 1) then say('No stratagems left for ' .. add .. '.'); return; end
+    local steps = {};
+    if (arts_side() ~= side) then steps[#steps + 1] = { cmd = '/ja "' .. arts .. '" <me>' }; steps[#steps + 1] = { wait = 1.5 }; end
+    steps[#steps + 1] = { cmd = '/ja "' .. add .. '" <me>' };
+    run = { sc = { sc = add }, steps = steps, i = 1, next_at = os.clock(), started = os.clock(), total = (#steps > 1) and 1.5 or 0 };
+end
+
+local function book_row(have)
+    local busy = (run ~= nil);
+    local side = arts_side();
+    for n, b in ipairs({ { 'light', 'Light Arts', 'Addendum: White', 'Light' }, { 'dark', 'Dark Arts', 'Addendum: Black', 'Dark' } }) do
+        if (n > 1) then imgui.SameLine(0, 2); end
+        local hit = slot('##sb_book_' .. b[1], {
+            icon = buff_id(b[2]), col = BOOK_COL[b[1]], label = b[4], active = (side == b[1]), disabled = busy,
+        });
+        if (hit == 1) then book_start(b[1], false); elseif (hit == 2) then book_start(b[1], true); end
+        if (imgui.IsItemHovered()) then
+            imgui.BeginTooltip();
+            imgui.TextColored(GOLD, b[2]);
+            imgui.Text('Left-click: ' .. b[2] .. ' (free).');
+            imgui.Text('Right-click: ' .. b[2] .. ' + ' .. b[3] .. ' (1 stratagem).');
+            imgui.TextColored(DIM, 'Its stratagems show up next to the books while it is on.');
+            if (side == b[1]) then imgui.TextColored(GOOD, 'On now.'); end
+            imgui.EndTooltip();
+        end
+    end
+    if (side == nil) then
+        imgui.SameLine(0, 10);
+        imgui.TextColored(DIM, 'Pick a book to see its stratagems.');
+        return side;
+    end
+    for n, st in ipairs(STRATS[side]) do
+        imgui.SameLine(0, (n == 1) and 10 or 2);
+        local name = st[1];
+        local on = has_buff(name);
+        local hit = slot('##sb_strat_' .. side .. n, {
+            icon = buff_id(name), col = BOOK_COL[side], label = st[2], active = on, disabled = busy or have < 1,
+        });
+        if (hit ~= nil and not on) then cast('/ja "' .. name .. '" <me>'); end
+        if (imgui.IsItemHovered()) then
+            imgui.BeginTooltip();
+            imgui.TextColored(GOLD, name .. '  (1 stratagem)');
+            imgui.Text(st[3]);
+            if (on) then imgui.TextColored(GOOD, 'Up now - your next spell uses it.'); end
+            if (have < 1) then imgui.TextColored(BAD, 'No stratagems left.'); end
+            imgui.EndTooltip();
+        end
+    end
+    return side;
 end
 
 local pos_saved_at = 0;
@@ -585,6 +1089,7 @@ sb.render_bar = function (opts)
             imgui.EndGroup();
 
             imgui.SameLine(0, 8);
+            local row_x = imgui.GetCursorPosX();
             mb_row(e, have);
             storm_row(e);
 
@@ -594,6 +1099,14 @@ sb.render_bar = function (opts)
             if (hit ~= nil and kcd <= 0) then cast('/ma "Klimaform" <me>'); end
             if (imgui.IsItemHovered()) then
                 imgui.SetTooltip('Klimaform: +15 magic accuracy for spells that match your weather.\n5 min, 3 min recast, 30 MP. Cast it after your storm, before the burst.');
+            end
+
+            -- Second row: the Light / Dark books and that book's stratagems.
+            local side = book_row(have);
+            -- Third row: white magic, while Light Arts / Addendum: White is up (or always, in Options).
+            if (side == 'light' or opt('sch_bar_white_always', false)) then
+                if (type(row_x) == 'number') then imgui.SetCursorPosX(row_x); end
+                white_row(have);
             end
 
             -- Remember where it was dragged to.
@@ -621,6 +1134,7 @@ local GUIDE = {
         "It replaces the zone's weather for that person - it does not add to it. In double weather of your",
         'element (e.g. Dynamis dark), leave the storm off: you would drop from double to single.',
         'Each storm gives a stat with Stormsurge merits: Hailstorm INT is the one for nuking.',
+        'Right-click a storm to give it to the whole party for twice as long (Accession + Perpetuance, 2 stratagems).',
     } },
     { 'Obi and day', {
         'Weather and day only sometimes boost a spell. The element obi (or Hachirin-no-Obi) makes it every time.',
@@ -637,6 +1151,17 @@ local GUIDE = {
         'one comes back every 48 s - so 2 chains back to back, then about a minute and a half to refill.',
         'The bar won\'t start a chain with fewer than 2, and won\'t start a second while one is running.',
         'A * on a burst button: its element matches your weather. A * on a storm: it matches today.',
+    } },
+    { 'Books and stratagems', {
+        'Light book / Dark book: left-click switches Arts (free); right-click also puts that Addendum up (1 stratagem).',
+        'The stratagems of the book you are in show beside them - click one to use it (1 stratagem each).',
+        'A green border = that Arts or stratagem is on you now.',
+    } },
+    { 'White row (Light Arts / Addendum: White)', {
+        'Gold boxes: left-click = Accession + the spell on the whole party (1 stratagem); right-click = just the spell.',
+        'Blue boxes: the -na spells, Erase, Raise and Reraise. Click, then pick the party member.',
+        'Addendum: White goes up by itself when one of these needs it (1 stratagem). Greyed out = you do not know it.',
+        'A green border on a gold box: that buff is on you now.',
     } },
     { 'Picking a chain', {
         'Burst with the element the monster is weak to (see the monster info strip).',
@@ -672,6 +1197,14 @@ sb.render_page = function (opts)
     box('sch_bar_klima', false, 'Klimaform too (adds about 8 s)',
         '+15 magic accuracy on the burst. It has a 7 s cast, so it slows the chain down - off by default.');
     imgui.TextColored(DIM, 'The burst spell is the best tier you can cast at that moment (off recast, Addendum up).');
+    imgui.Spacing();
+    imgui.TextColored(GOLD, 'Gear and the white row:');
+    box('sch_bar_gear', true, 'Swap in gear that helps the spell, then put my gear back',
+        'Looks through your inventory and wardrobes for pieces that help the spell (from their descriptions):\nStoneskin: MND, Enhancing skill, Stoneskin+.  Phalanx: Enhancing skill, Phalanx+.  Regen: Regen potency.\nProtect, Shell, Blink, Sneak, Invisible: enhancing duration.  Bursts: INT, Magic Atk. Bonus, Elemental skill, obi.\nOnly pieces better than what you have on go on, weapons are never touched, and your old gear goes back\nas soon as the cast lands (or is interrupted).');
+    box('sch_bar_burst_gear', true, 'Nuke gear for the skillchain burst',
+        'Puts on your best INT / Magic Atk. Bonus pieces just before the burst, plus the matching obi\n(or Hachirin-no-Obi) when your weather or the day is that element.');
+    box('sch_bar_white_always', false, 'Always show the white row',
+        'Off: the white row (Accession buffs, -na, Raise) shows while Light Arts or Addendum: White is up.');
     imgui.Spacing();
     for _, sec in ipairs(GUIDE) do
         imgui.TextColored(GOLD, sec[1]);

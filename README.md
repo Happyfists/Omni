@@ -11,7 +11,11 @@ It also draws spell animations on the field (fireballs, lightning, rocks, cures.
 
 ## Newest pages
 
-- **SCH bar** - while you're Scholar, one action bar of square buttons: 16 Magic Burst skillchains (Immanence opener and closer, then the burst), the 8 storms and Klimaform. A click gets you ready first - Dark Arts, Addendum: Black for tier IV bursts (only with a stratagem to spare), and the storm for the burst element - then runs the chain and bursts with the best tier off recast. Storms: left-click on you, right-click on a party member. Shows your weather, the day and stratagems (5 at 75 on CatsEyeXI); a star marks bursts that match your weather. `/schbar`, Tools > SCH Bar (with a short play guide).
+- **`/update omni`** - updates omni from GitHub in one go (same as `/omniupdate`).
+- **SCH bar: books** - a Light book and a Dark book (left-click switches Arts, right-click adds that Addendum) with that book's stratagems as buttons beside them.
+- **SCH bar: white row** - a second row while Light Arts / Addendum: White is up: Accession buffs (Stoneskin, Blink, Aquaveil, Phalanx, Regen, Protect, Shell, Sneak, Invisible - left-click Accession + spell, right-click just the spell) and Addendum: White spells (-na, Erase, Raise, Reraise). It swaps in gear from your bags that helps each spell (MND / Enhancing / Stoneskin+..., INT / MAB / obi for the burst) and puts your gear back when the cast lands. Weapons are never touched.
+- **Happy Pops: Fomor Kings and NMs** - Lugh, Tethra, Ethniu, Elatha and Buarainech (4-5 h), plus the NMs whose windows CatsEyeXI changed (timed ones get windows, placeholder ones a "can pop again" alert).
+- **SCH bar** - while you're Scholar, one action bar of square buttons: 16 Magic Burst skillchains (Immanence opener and closer, then the burst), the 8 storms and Klimaform. A click gets you ready first - Dark Arts, Addendum: Black for tier IV bursts (only with a stratagem to spare), and the storm for the burst element - then runs the chain and bursts with the best tier off recast. Storms: left-click on you, right-click on the whole party for double length (Accession + Perpetuance). Shows your weather, the day and stratagems (5 at 75 on CatsEyeXI); a star marks bursts that match your weather. `/schbar`, Tools > SCH Bar (with a short play guide).
 - **Tools tab** - Multisend, Happy Healer, Happy Translate, Happy Talks, JA Chat and Roll Tracker together in one tab; Options now holds only the settings.
 - **Happy Loot (Items > Loot)** - lot or pass drops by profile ("Dynamis - Jeuno", "Ores & ingots"...), with every drop remembered per zone so you can add it to a list in one click. `/loot`, `/loot on|off`, `/loot profile <name>`.
 - **Ventures > Venture Battles** - every Venture boss with where it pops, its drops and the upgrade route for each piece, and how many of the materials you already hold.
@@ -48,7 +52,7 @@ It also draws spell animations on the field (fireballs, lightning, rocks, cures.
 - VanaCore: `catseyexi-client\Vanacore\addons\ashita\omni\` then `/addon load omni ashita`
 - Ashita: `catseyexi-client\Ashita\addons\omni\` then `/addon load omni`
 
-**Updating:** once it's installed, type `/omniupdate` in game - it downloads the latest from here, copies it over your omni folder and reloads omni (your settings are kept). `/omniupdate check` only tells you if there's a newer one.
+**Updating:** once it's installed, type `/update omni` in game - it downloads the latest from here, copies it over your omni folder and reloads omni (your settings are kept). `/update omni check` only tells you if there's a newer one. (`/omniupdate` still works too.)
 
 See **README.txt** for everything it does, commands and settings.
 

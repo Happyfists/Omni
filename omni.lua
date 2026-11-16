@@ -71,7 +71,7 @@
 
 addon.name    = 'omni';
 addon.author  = 'Happyfists';
-addon.version = '4.03';
+addon.version = '4.04';
 addon.desc    = 'All-in-one addon.';
 
 require('common');
@@ -2873,12 +2873,14 @@ ashita.events.register('unload', 'omni_unload', function ()
 end);
 
 ashita.events.register('command', 'omni_command', function (e)
-    -- /omniupdate [check]: the latest omni from GitHub
+    -- /update omni [check], /omniupdate [check], /omni update [check]: the latest omni from GitHub
     do
         local a = e.command:args();
-        if (a[1] ~= nil and (a[1]:lower() == '/omniupdate' or (a[1]:lower() == '/omni' and a[2] ~= nil and a[2]:lower() == 'update'))) then
+        local c1 = (a[1] or ''):lower();
+        local c2 = (a[2] or ''):lower();
+        if (c1 == '/omniupdate' or (c1 == '/omni' and c2 == 'update') or (c1 == '/update' and c2 == 'omni')) then
             e.blocked = true;
-            local sub = (a[1]:lower() == '/omniupdate') and a[2] or a[3];
+            local sub = (c1 == '/omniupdate') and a[2] or a[3];
             if (omni.updater == nil) then print('[omni] The updater is not loaded (omni_update.lua missing).'); return; end
             omni.updater.start(sub ~= nil and sub:lower() == 'check');
             return;
